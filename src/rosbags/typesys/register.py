@@ -37,7 +37,7 @@ def get_typehint(desc: Fielddesc) -> str:
 
     """
     if desc[0] == 1:
-        if isinstance(desc[1], tuple):
+        if isinstance(desc[1], tuple) or desc[1] == 'string':
             return 'str'
         assert isinstance(desc[1], str)
         typ = 'int' if desc[1] == 'octet' else desc[1]
