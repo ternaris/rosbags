@@ -114,6 +114,7 @@ class AnyReader:
 
     def open(self) -> None:
         """Open rosbags."""
+        # pylint: disable=too-many-nested-blocks
         assert not self.isopen
         rollback = []
         try:
@@ -142,7 +143,11 @@ class AnyReader:
                 for connection in reader.connections:
                     if connection.digest:
                         if connection.digest == 'idl':
-                            typ = get_types_from_idl(connection.msgdef)
+                            typ = {}
+                            for msgdef in connection.msgdef.split('=' * 80 + '\n')[1:]:
+                                hdr, idl = msgdef.split('\n', 1)
+                                assert hdr.startswith('IDL: ')
+                                typ.update(get_types_from_idl(idl))
                         else:
                             typ = get_types_from_msg(connection.msgdef, connection.msgtype)
                         typs.update(typ)

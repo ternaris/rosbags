@@ -238,6 +238,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:  # pylint: disable=
                     2,
                     '/bar',
                     'test_msg/msg/Bar',
+                    f'{"=" * 80}\nIDL: test_msg/msg/Bar\n'
                     'module test_msgs { module msg { struct Bar {string bar;}; }; };',
                     'idl',
                     0,
