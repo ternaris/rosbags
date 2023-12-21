@@ -80,6 +80,11 @@ rmw_dds_common
 - :py:class:`NodeEntitiesInfo <rosbags.typesys.types.rmw_dds_common__msg__NodeEntitiesInfo>`
 - :py:class:`ParticipantEntitiesInfo <rosbags.typesys.types.rmw_dds_common__msg__ParticipantEntitiesInfo>`
 
+rosbag2_interfaces
+******************
+- :py:class:`ReadSplitEvent <rosbags.typesys.types.rosbag2_interfaces__msg__ReadSplitEvent>`
+- :py:class:`WriteSplitEvent <rosbags.typesys.types.rosbag2_interfaces__msg__WriteSplitEvent>`
+
 rosgraph_msgs
 *************
 - :py:class:`Clock <rosbags.typesys.types.rosgraph_msgs__msg__Clock>`

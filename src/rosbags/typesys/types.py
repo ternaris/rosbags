@@ -652,6 +652,24 @@ class rmw_dds_common__msg__ParticipantEntitiesInfo:
 
 
 @dataclass
+class rosbag2_interfaces__msg__ReadSplitEvent:
+    """Class for rosbag2_interfaces/msg/ReadSplitEvent."""
+
+    closed_file: str
+    opened_file: str
+    __msgtype__: ClassVar[str] = 'rosbag2_interfaces/msg/ReadSplitEvent'
+
+
+@dataclass
+class rosbag2_interfaces__msg__WriteSplitEvent:
+    """Class for rosbag2_interfaces/msg/WriteSplitEvent."""
+
+    closed_file: str
+    opened_file: str
+    __msgtype__: ClassVar[str] = 'rosbag2_interfaces/msg/WriteSplitEvent'
+
+
+@dataclass
 class rosgraph_msgs__msg__Clock:
     """Class for rosgraph_msgs/msg/Clock."""
 
@@ -2168,6 +2186,20 @@ FIELDDEFS: Typesdict = {
         [
             ('gid', (2, 'rmw_dds_common/msg/Gid')),
             ('node_entities_info_seq', (4, ((2, 'rmw_dds_common/msg/NodeEntitiesInfo'), 0))),
+        ],
+    ),
+    'rosbag2_interfaces/msg/ReadSplitEvent': (
+        [],
+        [
+            ('closed_file', (1, ('string', 0))),
+            ('opened_file', (1, ('string', 0))),
+        ],
+    ),
+    'rosbag2_interfaces/msg/WriteSplitEvent': (
+        [],
+        [
+            ('closed_file', (1, ('string', 0))),
+            ('opened_file', (1, ('string', 0))),
         ],
     ),
     'rosgraph_msgs/msg/Clock': (
