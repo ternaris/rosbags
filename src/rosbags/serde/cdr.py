@@ -123,8 +123,8 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                     if aligned < anext_before:
                         lines.append(f'  if len(message.{fieldname}):')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
-                        aligned = anext_before
                     lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args]}')
+                    aligned = anext_before
 
             else:
                 assert subdesc.valtype == Valtype.MESSAGE
