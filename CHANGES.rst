@@ -3,6 +3,18 @@
 Changes
 =======
 
+0.9.17 - 2023-12-21
+-------------------
+
+- Improve type hint detection in class generator
+- Support concatenated IDL messages from bag
+- Add rosbag2 messages to default typesys `#63`_
+- Account for base types that decrease alignment `#66`_
+
+.. _#63: https://gitlab.com/ternaris/rosbags/issues/63
+.. _#66: https://gitlab.com/ternaris/rosbags/issues/66
+
+
 0.9.16 - 2023-08-11
 -------------------
 
