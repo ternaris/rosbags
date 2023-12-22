@@ -218,7 +218,7 @@ class Reader:
                     topic=conn.topic,
                     msgtype=conn.msgtype,
                     msgdef=desc[1],
-                    digest=desc[0],
+                    digest=conn.digest,
                     msgcount=conn.msgcount,
                     ext=conn.ext,
                     owner=conn.owner,

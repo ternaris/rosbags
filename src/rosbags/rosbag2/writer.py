@@ -232,7 +232,14 @@ class Writer:  # pylint: disable=too-many-instance-attributes
 
         self.connections.append(connection)
         self.counts[connection.id] = 0
-        meta = (connection.id, topic, msgtype, serialization_format, offered_qos_profiles, '')
+        meta = (
+            connection.id,
+            topic,
+            msgtype,
+            serialization_format,
+            offered_qos_profiles,
+            rihs01,
+        )
         self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
         return connection
 
