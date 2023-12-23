@@ -3,6 +3,12 @@
 Changes
 =======
 
+0.9.19 - 2023-12-23
+-------------------
+
+- Fix msgdef encoding detection in AnyReader
+
+
 0.9.18 - 2023-12-22
 -------------------
 
