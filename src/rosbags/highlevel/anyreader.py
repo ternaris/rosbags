@@ -141,16 +141,15 @@ class AnyReader:
             assert isinstance(reader, Reader2)
             if reader.connections and reader.connections[0].msgdef:
                 for connection in reader.connections:
-                    if connection.digest:
-                        if connection.digest == 'idl':
-                            typ = {}
-                            for msgdef in connection.msgdef.split('=' * 80 + '\n')[1:]:
+                    if connection.msgdef:
+                        sep = '=' * 80 + '\n'
+                        if connection.msgdef.startswith(f'{sep}IDL: '):
+                            for msgdef in connection.msgdef.split(sep)[1:]:
                                 hdr, idl = msgdef.split('\n', 1)
                                 assert hdr.startswith('IDL: ')
-                                typ.update(get_types_from_idl(idl))
+                                typs.update(get_types_from_idl(idl))
                         else:
-                            typ = get_types_from_msg(connection.msgdef, connection.msgtype)
-                        typs.update(typ)
+                            typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
                 register_types(typs, self.typestore)
             else:
                 for key, value in types.FIELDDEFS.items():
