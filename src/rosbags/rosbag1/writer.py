@@ -192,7 +192,7 @@ class Writer:
     def open(self) -> None:
         """Open rosbag1 for writing."""
         try:
-            self.bio = self.path.open('xb')  # pylint: disable=consider-using-with
+            self.bio = self.path.open('xb')
         except FileExistsError:
             raise WriterError(f'{self.path} exists already, not overwriting.') from None
 
@@ -206,7 +206,7 @@ class Writer:
         padsize = 4096 - 4 - size
         self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
 
-    def add_connection(  # pylint: disable=too-many-arguments
+    def add_connection(
         self,
         topic: str,
         msgtype: str,

@@ -390,10 +390,6 @@ def gendefhash(
         TypesysError: Type does not exist.
 
     """
-    # pylint: disable=too-many-branches
-    # pylint: disable=too-many-locals
-    # pylint: disable=too-many-statements
-
     typemap = {
         'builtin_interfaces/msg/Time': 'time',
         'builtin_interfaces/msg/Duration': 'duration',

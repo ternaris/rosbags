@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Check and benchmark rosbag2 read implementations."""
 
-# pylint: disable=import-error
-
 from __future__ import annotations
 
 import sys
@@ -23,7 +21,7 @@ from rosbags.serde import deserialize_cdr
 if TYPE_CHECKING:
     from typing import Generator, Protocol
 
-    class NativeMSG(Protocol):  # pylint: disable=too-few-public-methods
+    class NativeMSG(Protocol):
         """Minimal native ROS message interface used for benchmark."""
 
         def get_fields_and_field_types(self) -> dict[str, str]:
@@ -31,7 +29,7 @@ if TYPE_CHECKING:
             raise NotImplementedError
 
 
-class ReaderPy:  # pylint: disable=too-few-public-methods
+class ReaderPy:
     """Mimimal shim using rosbag2_py to emulate rosbag2 API."""
 
     def __init__(self, path: Path):

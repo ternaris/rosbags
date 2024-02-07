@@ -247,7 +247,7 @@ string_literal
 """
 
 
-class VisitorIDL(Visitor):  # pylint: disable=too-many-public-methods
+class VisitorIDL(Visitor):
     """IDL file visitor."""
 
     RULES = parse_grammar(

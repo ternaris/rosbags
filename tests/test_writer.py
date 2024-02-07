@@ -17,8 +17,6 @@ if TYPE_CHECKING:
 
 def test_writer(tmp_path: Path) -> None:
     """Test Writer."""
-    # pylint: disable=too-many-statements
-
     path = tmp_path / 'rosbag2'
     with Writer(path) as bag:
         connection = bag.add_connection('/test', 'std_msgs/msg/Int8')

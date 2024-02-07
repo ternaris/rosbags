@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tool checking if contents of two rosbags are equal."""
 
-# pylint: disable=import-error
-
 from __future__ import annotations
 
 import array
@@ -23,13 +21,13 @@ from rosidl_runtime_py.utilities import get_message  # type: ignore
 rosgraph_msgs.msg.Log = Mock()
 rosgraph_msgs.msg.TopicStatistics = Mock()
 
-import rosbag.bag  # type:ignore  # noqa: E402  pylint: disable=wrong-import-position
+import rosbag.bag  # type:ignore  # noqa: E402
 
 if TYPE_CHECKING:
     from typing import Generator, List, Protocol, Union, runtime_checkable
 
     @runtime_checkable
-    class NativeMSG(Protocol):  # pylint: disable=too-few-public-methods
+    class NativeMSG(Protocol):
         """Minimal native ROS message interface used for benchmark."""
 
         def get_fields_and_field_types(self) -> dict[str, str]:
@@ -37,7 +35,7 @@ if TYPE_CHECKING:
             raise NotImplementedError
 
 
-class Reader:  # pylint: disable=too-few-public-methods
+class Reader:
     """Mimimal shim using rosbag2_py to emulate rosbags API."""
 
     def __init__(self, path: Union[str, Path]):
@@ -68,7 +66,7 @@ def fixup_ros1(conns: List[rosbag.bag._Connection_Info]) -> None:
 
     if conn := next((x for x in conns if x.datatype == 'sensor_msgs/CameraInfo'), None):
         print('Patching CameraInfo')  # noqa: T201
-        cls = rosbag.bag._get_message_type(conn)  # pylint: disable=protected-access
+        cls = rosbag.bag._get_message_type(conn)
         cls.d = property(lambda x: x.D, lambda x, y: setattr(x, 'D', y))  # noqa: B010
         cls.k = property(lambda x: x.K, lambda x, y: setattr(x, 'K', y))  # noqa: B010
         cls.r = property(lambda x: x.R, lambda x, y: setattr(x, 'R', y))  # noqa: B010
@@ -150,7 +148,7 @@ def main_bag1_bag2(path1: Path, path2: Path) -> None:
     src1 = reader1.read_messages()
     src2 = Reader(path2).messages()
 
-    fixup_ros1(reader1._connections.values())  # pylint: disable=protected-access
+    fixup_ros1(reader1._connections.values())
 
     for msg1, msg2 in zip(src1, src2):
         assert msg1.topic == msg2[0]

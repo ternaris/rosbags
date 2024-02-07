@@ -21,10 +21,12 @@ from rosbags.serde import (
 )
 from rosbags.serde.messages import get_msgdef
 from rosbags.typesys import get_types_from_msg, register_types, types
-from rosbags.typesys.types import builtin_interfaces__msg__Time as Time
-from rosbags.typesys.types import geometry_msgs__msg__Polygon as Polygon
-from rosbags.typesys.types import sensor_msgs__msg__MagneticField as MagneticField
-from rosbags.typesys.types import std_msgs__msg__Header as Header
+from rosbags.typesys.types import (
+    builtin_interfaces__msg__Time as Time,
+    geometry_msgs__msg__Polygon as Polygon,
+    sensor_msgs__msg__MagneticField as MagneticField,
+    std_msgs__msg__Header as Header,
+)
 
 from .cdr import deserialize, serialize
 
@@ -221,7 +223,7 @@ def _comparable() -> Generator[None, None, None]:
     frombuffer = numpy.frombuffer
 
     def arreq(self: MagicMock, other: Union[MagicMock, Any]) -> bool:
-        lhs = self._mock_wraps  # pylint: disable=protected-access
+        lhs = self._mock_wraps
         rhs = getattr(other, '_mock_wraps', other)
         return (lhs == rhs).all()  # type: ignore
 
@@ -302,7 +304,7 @@ def test_deserializer() -> None:
 def test_serializer() -> None:
     """Test serializer."""
 
-    class Foo:  # pylint: disable=too-few-public-methods
+    class Foo:
         """Dummy class."""
 
         data = 7
@@ -329,7 +331,7 @@ def test_serializer() -> None:
 def test_serializer_errors() -> None:
     """Test seralizer with broken messages."""
 
-    class Foo:  # pylint: disable=too-few-public-methods
+    class Foo:
         """Dummy class."""
 
         coef: numpy.ndarray[Any, numpy.dtype[numpy.int_]] = numpy.array([1, 2, 3, 4])

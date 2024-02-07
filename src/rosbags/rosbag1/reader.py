@@ -339,8 +339,6 @@ class Reader:
 
     """
 
-    # pylint: disable=too-many-instance-attributes
-
     def __init__(self, path: Union[str, Path]):
         """Initialize.
 
@@ -366,7 +364,7 @@ class Reader:
     def open(self) -> None:
         """Open rosbag and read metadata."""
         try:
-            self.bio = self.path.open('rb')  # pylint: disable=consider-using-with
+            self.bio = self.path.open('rb')
         except OSError as err:
             raise ReaderError(f'Could not open file {str(self.path)!r}: {err.strerror}.') from err
 

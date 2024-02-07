@@ -79,7 +79,7 @@ class ReaderSqlite3:
                 assert typ['encoding'] == 'ros2msg'
                 types = get_types_from_msg(typ['msgdef'], typ['name'])
 
-                class Store:  # pylint: disable=too-few-public-methods
+                class Store:
                     FIELDDEFS = types
 
                 assert typ['digest'] == hash_rihs01(
@@ -159,8 +159,9 @@ class ReaderSqlite3:
             cur = conn.cursor()
             cur.execute('SELECT name,id FROM topics')
             connmap: dict[int, Connection] = {
-                row[1]: next((x for x in self.connections if x.topic == row[0]),
-                             None)  # type: ignore
+                row[1]: next((x
+                              for x in self.connections
+                              if x.topic == row[0]), None)  # type: ignore
                 for row in cur
             }
 

@@ -5,7 +5,6 @@
 """ROS2 message types."""
 
 # flake8: noqa N801
-# pylint: disable=invalid-name,too-many-instance-attributes,too-many-lines
 
 from __future__ import annotations
 

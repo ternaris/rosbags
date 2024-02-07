@@ -157,8 +157,6 @@ def msgsrc(
 class MCAPFile:
     """Mcap format reader."""
 
-    # pylint: disable=too-many-instance-attributes
-
     def __init__(self, path: Path):
         """Initialize."""
         self.path = path
@@ -364,7 +362,6 @@ class MCAPFile:
         stop: Optional[int] = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages by scanning whole bag."""
-        # pylint: disable=too-many-locals
         assert self.bio
         bio = self.bio
         bio_size = self.data_end

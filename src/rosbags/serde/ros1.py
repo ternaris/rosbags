@@ -40,7 +40,6 @@ def generate_ros1_to_cdr(
         ROS1 to CDR conversion function.
 
     """
-    # pylint: disable=too-many-branches,too-many-locals,too-many-nested-blocks,too-many-statements
     aligned = 8
     iterators = tee([*fields, None])
     icurr = cast('Iterator[Field]', iterators[0])
@@ -200,7 +199,6 @@ def generate_cdr_to_ros1(
         CDR to ROS1 conversion function.
 
     """
-    # pylint: disable=too-many-branches,too-many-locals,too-many-nested-blocks,too-many-statements
     aligned = 8
     iterators = tee([*fields, None])
     icurr = cast('Iterator[Field]', iterators[0])
@@ -353,7 +351,6 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
         Size calculation function and static size.
 
     """
-    # pylint: disable=too-many-branches,too-many-statements
     size = 0
     is_stat = True
 
@@ -456,7 +453,6 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
         Serializer function.
 
     """
-    # pylint: disable=too-many-branches,too-many-statements
     lines = [
         'import sys',
         'import numpy',
@@ -575,7 +571,6 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
         Deserializer function.
 
     """
-    # pylint: disable=too-many-branches,too-many-statements
     lines = [
         'import sys',
         'import numpy',

@@ -32,7 +32,6 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
         Size calculation function and static size.
 
     """
-    # pylint: disable=too-many-branches,too-many-locals,too-many-nested-blocks,too-many-statements
     size = 0
     is_stat = True
 
@@ -175,7 +174,6 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
         Serializer function.
 
     """
-    # pylint: disable=too-many-branches,too-many-locals,too-many-statements
     aligned = 8
     iterators = tee([*fields, None])
     icurr = cast('Iterator[Field]', iterators[0])
@@ -315,7 +313,6 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
         Deserializer function.
 
     """
-    # pylint: disable=too-many-branches,too-many-locals,too-many-nested-blocks,too-many-statements
     aligned = 8
     iterators = tee([*fields, None])
     icurr = cast('Iterator[Field]', iterators[0])

@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reader tests."""
 
-# pylint: disable=redefined-outer-name
-
 from __future__ import annotations
 
 import sqlite3
@@ -412,8 +410,6 @@ CHANNELS = [
 )
 def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
     """Manually contruct mcap bag."""
-    # pylint: disable=too-many-locals
-    # pylint: disable=too-many-statements
     (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='.mcap',

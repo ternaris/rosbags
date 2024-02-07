@@ -11,10 +11,8 @@ from itertools import groupby
 from typing import TYPE_CHECKING
 
 from rosbags.interfaces import TopicInfo
-from rosbags.rosbag1 import Reader as Reader1
-from rosbags.rosbag1 import ReaderError as ReaderError1
-from rosbags.rosbag2 import Reader as Reader2
-from rosbags.rosbag2 import ReaderError as ReaderError2
+from rosbags.rosbag1 import Reader as Reader1, ReaderError as ReaderError1
+from rosbags.rosbag2 import Reader as Reader2, ReaderError as ReaderError2
 from rosbags.serde import deserialize_cdr, deserialize_ros1
 from rosbags.typesys import get_types_from_msg, register_types, types
 from rosbags.typesys.idl import get_types_from_idl
@@ -51,7 +49,7 @@ def is_reader1(val: Union[Sequence[Reader1], Sequence[Reader2]]) -> TypeGuard[Se
 class SimpleTypeStore:
     """Simple type store implementation."""
 
-    FIELDDEFS: Typesdict  # pylint: disable=invalid-name
+    FIELDDEFS: Typesdict
 
     def __hash__(self) -> int:
         """Create hash."""
@@ -114,7 +112,6 @@ class AnyReader:
 
     def open(self) -> None:
         """Open rosbags."""
-        # pylint: disable=too-many-nested-blocks
         assert not self.isopen
         rollback = []
         try:

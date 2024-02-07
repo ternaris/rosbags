@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from .base import Fielddesc, Typesdict
 
-    class Typestore(Protocol):  # pylint: disable=too-few-public-methods
+    class Typestore(Protocol):
         """Type storage."""
 
         FIELDDEFS: Typesdict
@@ -80,7 +80,6 @@ def generate_python_code(typs: Typesdict) -> str:
         '"""ROS2 message types."""',
         '',
         '# flake8: noqa N801',
-        '# pylint: disable=invalid-name,too-many-instance-attributes,too-many-lines',
         '',
         'from __future__ import annotations',
         '',
@@ -175,7 +174,7 @@ def register_types(typs: Typesdict, typestore: Typestore = types) -> None:
     assert spec
     module = module_from_spec(spec)
     sys.modules[name] = module
-    exec(code, module.__dict__)  # pylint: disable=exec-used
+    exec(code, module.__dict__)
     fielddefs: Typesdict = module.FIELDDEFS
 
     for name, (_, fields) in fielddefs.items():

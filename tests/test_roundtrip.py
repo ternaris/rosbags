@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
     """Test full data roundtrip."""
 
-    class Foo:  # pylint: disable=too-few-public-methods
+    class Foo:
         """Dummy class."""
 
         data = 1.25

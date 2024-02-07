@@ -28,8 +28,7 @@ register_types(add_types)
 # Type import works only after the register_types call,
 # the classname is derived from the msgtype names above.
 
-# pylint: disable=no-name-in-module,wrong-import-position
-from rosbags.typesys.types import custom_msgs__msg__Accel as Accel  # type: ignore  # noqa
-from rosbags.typesys.types import custom_msgs__msg__Speed as Speed  # type: ignore  # noqa
-
-# pylint: enable=no-name-in-module,wrong-import-position
+from rosbags.typesys.types import (  # type: ignore  # noqa
+    custom_msgs__msg__Accel as Accel,
+    custom_msgs__msg__Speed as Speed,
+)

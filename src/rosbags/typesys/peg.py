@@ -221,7 +221,7 @@ class RuleZeroOne(Rule):
         return npos, self.make_node((node,))
 
 
-class Visitor:  # pylint: disable=too-few-public-methods
+class Visitor:
     """Visitor transforming parse trees."""
 
     RULES: dict[str, Rule] = {}

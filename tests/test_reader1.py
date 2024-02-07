@@ -69,7 +69,7 @@ def create_message(
     }, f'MSGCONTENT{msg}'.encode()
 
 
-def write_bag(  # pylint: disable=too-many-locals
+def write_bag(
     bag: Path,
     header: dict[str, bytes],
     chunks: Sequence[Any] = (),
@@ -192,7 +192,7 @@ def test_indexdata() -> None:
     assert not x42_1_0 > x43_3_0
 
 
-def test_reader(tmp_path: Path) -> None:  # pylint: disable=too-many-statements
+def test_reader(tmp_path: Path) -> None:
     """Test reader and deserializer on simple bag."""
     # empty bag
     bag = tmp_path / 'test.bag'
@@ -304,7 +304,7 @@ def test_user_errors(tmp_path: Path) -> None:
         next(reader.messages())
 
 
-def test_failure_cases(tmp_path: Path) -> None:  # pylint: disable=too-many-statements
+def test_failure_cases(tmp_path: Path) -> None:
     """Test failure cases."""
     bag = tmp_path / 'test.bag'
     with pytest.raises(ReaderError, match='does not exist'):

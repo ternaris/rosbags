@@ -27,7 +27,7 @@ class WriterError(Exception):
     """Writer Error."""
 
 
-class Writer:  # pylint: disable=too-many-instance-attributes
+class Writer:
     """Rosbag2 writer.
 
     This class implements writing of rosbag2 files in version 8. It should be
@@ -195,7 +195,7 @@ class Writer:  # pylint: disable=too-many-instance-attributes
             msgdef, _ = generate_msgdef(msgtype, ros_version=2)
             types = get_types_from_msg(msgdef, msgtype)
 
-            class Store:  # pylint: disable=too-few-public-methods
+            class Store:
                 FIELDDEFS = types
 
             rihs01 = hash_rihs01(msgtype, Store)

@@ -71,9 +71,8 @@ def bags2(tmp_path: Path) -> list[Path]:
     return paths
 
 
-def test_anyreader1(bags1: Sequence[Path]) -> None:  # pylint: disable=redefined-outer-name
+def test_anyreader1(bags1: Sequence[Path]) -> None:
     """Test AnyReader on rosbag1."""
-    # pylint: disable=too-many-statements
     with pytest.raises(AnyReaderError, match='at least one'):
         AnyReader([])
 
@@ -147,8 +146,6 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:  # pylint: disable=redefined
 @pytest.mark.parametrize('strip_types', [False, True])
 def test_anyreader2(bags2: list[Path], strip_types: bool) -> None:
     """Test AnyReader on rosbag2."""
-    # pylint: disable=redefined-outer-name
-    # pylint: disable=too-many-statements
     with pytest.raises(AnyReaderError, match='multiple rosbag2'):
         AnyReader(bags2)
 
@@ -211,13 +208,11 @@ def test_anyreader2(bags2: list[Path], strip_types: bool) -> None:
             next(gen)
 
 
-def test_anyreader2_autoregister(bags2: list[Path]) -> None:  # pylint: disable=redefined-outer-name
+def test_anyreader2_autoregister(bags2: list[Path]) -> None:
     """Test AnyReader on rosbag2."""
 
     class MockReader:
         """Mock reader."""
-
-        # pylint: disable=too-few-public-methods
 
         def __init__(self, paths: list[Path]):
             """Initialize mock."""

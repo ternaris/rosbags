@@ -73,8 +73,6 @@ class Reader:
 
     """
 
-    # pylint: disable=too-many-instance-attributes
-
     STORAGE_PLUGINS: dict[str, Type[StorageProtocol]] = {
         'mcap': ReaderMcap,
         'sqlite3': ReaderSqlite3,
@@ -194,7 +192,7 @@ class Reader:
         """Open rosbag2."""
         storage_paths = []
         if self.compression_mode == 'file':
-            self.tmpdir = TemporaryDirectory()  # pylint: disable=consider-using-with
+            self.tmpdir = TemporaryDirectory()
             tmpdir = self.tmpdir.name
             decomp = zstandard.ZstdDecompressor()
             for path in self.paths:
