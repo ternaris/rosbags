@@ -14,7 +14,8 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Optional, Pattern, TypeVar, Union
+    from collections.abc import Mapping
+    from typing import Any, Pattern, TypeVar
 
     Tree = Any
     T = TypeVar('T')
@@ -27,11 +28,11 @@ class Rule:
 
     def __init__(
         self,
-        value: Union[str, Pattern[str], Rule, list[Rule]],
+        value: str | Pattern[str] | Rule | list[Rule],
         rules: dict[str, Rule],
         whitespace: Pattern[str],
-        name: Optional[str] = None,
-    ):
+        name: str | None = None,
+    ) -> None:
         """Initialize.
 
         Args:
@@ -51,7 +52,7 @@ class Rule:
         match = self.whitespace.match(text, pos)
         return match.span()[1] if match else pos
 
-    def make_node(self, data: T) -> Union[T, dict[str, Union[str, T]]]:
+    def make_node(self, data: T) -> T | dict[str, str | T]:
         """Make node for parse tree."""
         return {'node': self.name, 'data': data} if self.name else data
 
@@ -68,8 +69,8 @@ class RuleLiteral(Rule):
         value: str,
         rules: dict[str, Rule],
         whitespace: Pattern[str],
-        name: Optional[str] = None,
-    ):
+        name: str | None = None,
+    ) -> None:
         """Initialize.
 
         Args:
@@ -103,8 +104,8 @@ class RuleRegex(Rule):
         value: str,
         rules: dict[str, Rule],
         whitespace: Pattern[str],
-        name: Optional[str] = None,
-    ):
+        name: str | None = None,
+    ) -> None:
         """Initialize.
 
         Args:
@@ -224,7 +225,7 @@ class RuleZeroOne(Rule):
 class Visitor:
     """Visitor transforming parse trees."""
 
-    RULES: dict[str, Rule] = {}
+    RULES: Mapping[str, Rule] = {}
 
     def __init__(self) -> None:
         """Initialize."""
@@ -251,7 +252,7 @@ def split_token(tok: str) -> list[str]:
 
 
 def collapse_tokens(
-    toks: list[Optional[Rule]],
+    toks: list[Rule | None],
     rules: dict[str, Rule],
     whitespace: Pattern[str],
 ) -> Rule:
@@ -281,11 +282,11 @@ def parse_grammar(
         assert items
         assert items[0] == '='
         items.pop(0)
-        stack: list[Optional[Rule]] = []
+        stack: list[Rule | None] = []
         parens: list[int] = []
         while items:
             tok = items.pop(0)
-            if tok in ['*', '+', '?']:
+            if tok in {'*', '+', '?'}:
                 assert isinstance(stack[-1], Rule)
                 stack[-1] = {
                     '*': RuleZeroPlus,

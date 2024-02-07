@@ -14,7 +14,7 @@ from .errors import ReaderError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Generator, Iterable, Optional
+    from typing import Any, Generator, Iterable
 
     from rosbags.interfaces import Connection
 
@@ -26,7 +26,7 @@ class ReaderSqlite3:
         self,
         paths: Iterable[Path],
         connections: Iterable[Connection],
-    ):
+    ) -> None:
         """Set up storage reader.
 
         Args:
@@ -51,7 +51,8 @@ class ReaderSqlite3:
                 'WHERE type="table" AND name IN ("messages", "topics")',
             )
             if cur.fetchone()[0] != 2:
-                raise ReaderError(f'Cannot open database {path} or database missing tables.')
+                msg = f'Cannot open database {path} or database missing tables.'
+                raise ReaderError(msg)
 
             self.dbconns.append(conn)
 
@@ -102,14 +103,15 @@ class ReaderSqlite3:
     def get_definitions(self) -> dict[str, tuple[str, str]]:
         """Get message definitions."""
         if not self.dbconns:
-            raise ReaderError('Rosbag has not been opened.')
+            msg = 'Rosbag has not been opened.'
+            raise ReaderError(msg)
         return {x['name']: (x['encoding'][4:], x['msgdef']) for x in self.msgtypes}
 
     def messages(
         self,
         connections: Iterable[Connection] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
@@ -127,7 +129,8 @@ class ReaderSqlite3:
 
         """
         if not self.dbconns:
-            raise ReaderError('Rosbag has not been opened.')
+            msg = 'Rosbag has not been opened.'
+            raise ReaderError(msg)
 
         query = [
             'SELECT topics.id,messages.timestamp,messages.data',
@@ -161,7 +164,7 @@ class ReaderSqlite3:
             connmap: dict[int, Connection] = {
                 row[1]: next((x
                               for x in self.connections
-                              if x.topic == row[0]), None)  # type: ignore
+                              if x.topic == row[0]), None)  # type: ignore[arg-type]
                 for row in cur
             }
 

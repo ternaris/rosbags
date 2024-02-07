@@ -19,8 +19,15 @@ from .storage_mcap import ReaderMcap
 from .storage_sqlite3 import ReaderSqlite3
 
 if TYPE_CHECKING:
+    import sys
+    from collections.abc import Mapping
     from types import TracebackType
-    from typing import Generator, Iterable, Literal, Optional, Type, Union
+    from typing import Generator, Iterable, Literal
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
     from .metadata import FileInformation, Metadata
 
@@ -28,7 +35,7 @@ if TYPE_CHECKING:
 class StorageProtocol(Protocol):
     """Storage Protocol."""
 
-    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]):
+    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]) -> None:
         """Initialize."""
         raise NotImplementedError  # pragma: no cover
 
@@ -47,8 +54,8 @@ class StorageProtocol(Protocol):
     def messages(
         self,
         connections: Iterable[Connection] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Get messages from file."""
         raise NotImplementedError  # pragma: no cover
@@ -73,12 +80,12 @@ class Reader:
 
     """
 
-    STORAGE_PLUGINS: dict[str, Type[StorageProtocol]] = {
+    STORAGE_PLUGINS: Mapping[str, type[StorageProtocol]] = {
         'mcap': ReaderMcap,
         'sqlite3': ReaderSqlite3,
     }
 
-    def __init__(self, path: Union[Path, str]):
+    def __init__(self, path: Path | str) -> None:
         """Open rosbag and check metadata.
 
         Args:
@@ -95,22 +102,25 @@ class Reader:
             yaml = YAML(typ='safe')
             dct = yaml.load(yamlpath.read_text())
         except OSError as err:
-            raise ReaderError(f'Could not read metadata at {yamlpath}: {err}.') from None
+            msg = f'Could not read metadata at {yamlpath}: {err}.'
+            raise ReaderError(msg) from None
         except YAMLError as exc:
-            raise ReaderError(f'Could not load YAML from {yamlpath}: {exc}') from None
+            msg = f'Could not load YAML from {yamlpath}: {exc}'
+            raise ReaderError(msg) from None
 
         try:
             self.metadata: Metadata = dct['rosbag2_bagfile_information']
             if (ver := self.metadata['version']) > 8:
-                raise ReaderError(f'Rosbag2 version {ver} not supported; please report issue.')
+                msg = f'Rosbag2 version {ver} not supported; please report issue.'
+                raise ReaderError(msg)
             if (storageid := self.metadata['storage_identifier']) not in self.STORAGE_PLUGINS:
-                raise ReaderError(
-                    f'Storage plugin {storageid!r} not supported; please report issue.',
-                )
+                msg = f'Storage plugin {storageid!r} not supported; please report issue.'
+                raise ReaderError(msg)
 
             self.paths = [path / Path(x).name for x in self.metadata['relative_file_paths']]
             if missing := [x for x in self.paths if not x.exists()]:
-                raise ReaderError(f'Some database files are missing: {[str(x) for x in missing]!r}')
+                msg = f'Some database files are missing: {[str(x) for x in missing]!r}'
+                raise ReaderError(msg)
 
             self.connections = [
                 Connection(
@@ -132,18 +142,21 @@ class Reader:
                 if (fmt := x.ext.serialization_format) != 'cdr'
             }
             if noncdr:
-                raise ReaderError(f'Serialization format {noncdr!r} is not supported.')
+                msg = f'Serialization format {noncdr!r} is not supported.'
+                raise ReaderError(msg)
 
             if self.compression_mode and (cfmt := self.compression_format) != 'zstd':
-                raise ReaderError(f'Compression format {cfmt!r} is not supported.')
+                msg = f'Compression format {cfmt!r} is not supported.'
+                raise ReaderError(msg)
 
             self.files: list[FileInformation] = self.metadata.get('files', [])[:]
             self.custom_data: dict[str, str] = self.metadata.get('custom_data', {})
 
-            self.tmpdir: Optional[TemporaryDirectory[str]] = None
-            self.storage: Optional[StorageProtocol] = None
+            self.tmpdir: TemporaryDirectory[str] | None = None
+            self.storage: StorageProtocol | None = None
         except KeyError as exc:
-            raise ReaderError(f'A metadata key is missing {exc!r}.') from None
+            msg = f'A metadata key is missing {exc!r}.'
+            raise ReaderError(msg) from None
 
     @property
     def duration(self) -> int:
@@ -168,12 +181,12 @@ class Reader:
         return self.metadata['message_count']
 
     @property
-    def compression_format(self) -> Optional[str]:
+    def compression_format(self) -> str | None:
         """Compression format."""
         return self.metadata.get('compression_format', None) or None
 
     @property
-    def compression_mode(self) -> Optional[str]:
+    def compression_mode(self) -> str | None:
         """Compression mode."""
         mode = self.metadata.get('compression_mode', '').lower()
         return mode if mode != 'none' else None
@@ -184,7 +197,7 @@ class Reader:
         return {x.topic: TopicInfo(x.msgtype, x.msgdef, x.msgcount, [x]) for x in self.connections}
 
     @property
-    def ros_distro(self) -> Optional[str]:
+    def ros_distro(self) -> str | None:
         """ROS distribution."""
         return self.metadata.get('ros_distro')
 
@@ -234,8 +247,8 @@ class Reader:
     def messages(
         self,
         connections: Iterable[Connection] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
@@ -253,7 +266,8 @@ class Reader:
 
         """
         if not self.storage:
-            raise ReaderError('Rosbag is not open.')
+            msg = 'Rosbag is not open.'
+            raise ReaderError(msg)
 
         if self.compression_mode == 'message':
             decomp = zstandard.ZstdDecompressor().decompress
@@ -262,16 +276,16 @@ class Reader:
         else:
             yield from self.storage.messages(connections, start, stop)
 
-    def __enter__(self) -> Reader:
+    def __enter__(self) -> Self:
         """Open rosbag2 when entering contextmanager."""
         self.open()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Close rosbag2 when exiting contextmanager."""
         self.close()

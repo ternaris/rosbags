@@ -4,17 +4,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
-
-if TYPE_CHECKING:
-    from typing import Optional, Union
+from typing import NamedTuple
 
 
 class ConnectionExtRosbag1(NamedTuple):
     """Rosbag1 specific connection extensions."""
 
-    callerid: Optional[str]
-    latching: Optional[int]
+    callerid: str | None
+    latching: int | None
 
 
 class ConnectionExtRosbag2(NamedTuple):
@@ -33,14 +30,14 @@ class Connection(NamedTuple):
     msgdef: str
     digest: str
     msgcount: int
-    ext: Union[ConnectionExtRosbag1, ConnectionExtRosbag2]
+    ext: ConnectionExtRosbag1 | ConnectionExtRosbag2
     owner: object
 
 
 class TopicInfo(NamedTuple):
     """Topic information."""
 
-    msgtype: Optional[str]
-    msgdef: Optional[str]
+    msgtype: str | None
+    msgdef: str | None
     msgcount: int
     connections: list[Connection]

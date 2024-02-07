@@ -10,10 +10,14 @@ from pathlib import Path
 from timeit import timeit
 from typing import TYPE_CHECKING
 
-import numpy
-from rclpy.serialization import deserialize_message  # type: ignore
-from rosbag2_py import ConverterOptions, SequentialReader, StorageOptions  # type: ignore
-from rosidl_runtime_py.utilities import get_message  # type: ignore
+import numpy as np
+from rclpy.serialization import deserialize_message  # type: ignore[import-not-found]
+from rosbag2_py import (  # type: ignore[import-not-found]
+    ConverterOptions,
+    SequentialReader,
+    StorageOptions,
+)
+from rosidl_runtime_py.utilities import get_message  # type: ignore[import-not-found]
 
 from rosbags.rosbag2 import Reader
 from rosbags.serde import deserialize_cdr
@@ -32,7 +36,7 @@ if TYPE_CHECKING:
 class ReaderPy:
     """Mimimal shim using rosbag2_py to emulate rosbag2 API."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         """Initialize reader shim."""
         soptions = StorageOptions(str(path), 'sqlite3')
         coptions = ConverterOptions('', '')
@@ -50,7 +54,7 @@ class ReaderPy:
 def deserialize_py(data: bytes, msgtype: str) -> NativeMSG:
     """Deserialization helper for rosidl_runtime_py + rclpy."""
     pytype = get_message(msgtype)
-    return deserialize_message(data, pytype)  # type: ignore
+    return deserialize_message(data, pytype)  # type: ignore[no-any-return]
 
 
 def compare_msg(lite: object, native: NativeMSG) -> None:
@@ -64,14 +68,14 @@ def compare_msg(lite: object, native: NativeMSG) -> None:
         AssertionError: If messages are not identical.
 
     """
-    for fieldname in native.get_fields_and_field_types().keys():
+    for fieldname in native.get_fields_and_field_types():
         native_val = getattr(native, fieldname)
         lite_val = getattr(lite, fieldname)
 
         if hasattr(lite_val, '__dataclass_fields__'):
             compare_msg(lite_val, native_val)
 
-        elif isinstance(lite_val, numpy.ndarray):
+        elif isinstance(lite_val, np.ndarray):
             assert not (native_val != lite_val).any(), f'{fieldname}: {native_val} != {lite_val}'
 
         elif isinstance(lite_val, list):

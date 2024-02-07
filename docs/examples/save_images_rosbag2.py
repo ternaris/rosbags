@@ -1,12 +1,14 @@
 """Save multiple images in rosbag2."""
 
-import numpy
+import numpy as np
 
 from rosbags.rosbag2 import Writer
 from rosbags.serde import serialize_cdr
-from rosbags.typesys.types import builtin_interfaces__msg__Time as Time
-from rosbags.typesys.types import sensor_msgs__msg__CompressedImage as CompressedImage
-from rosbags.typesys.types import std_msgs__msg__Header as Header
+from rosbags.typesys.types import (
+    builtin_interfaces__msg__Time as Time,
+    sensor_msgs__msg__CompressedImage as CompressedImage,
+    std_msgs__msg__Header as Header,
+)
 
 TOPIC = '/camera'
 FRAMEID = 'map'
@@ -21,7 +23,7 @@ IMAGES = [
 def save_images() -> None:
     """Iterate over IMAGES and save to output bag."""
     with Writer('output') as writer:
-        conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__, 'cdr', '')
+        conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__)
 
         for path, timestamp in IMAGES:
             message = CompressedImage(
@@ -33,7 +35,7 @@ def save_images() -> None:
                     frame_id=FRAMEID,
                 ),
                 format='jpeg',  # could also be 'png'
-                data=numpy.fromfile(path, dtype=numpy.uint8),
+                data=np.fromfile(path, dtype=np.uint8),
             )
 
             writer.write(

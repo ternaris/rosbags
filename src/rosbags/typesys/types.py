@@ -4,7 +4,7 @@
 # THIS FILE IS GENERATED, DO NOT EDIT
 """ROS2 message types."""
 
-# flake8: noqa N801
+# ruff: noqa
 
 from __future__ import annotations
 

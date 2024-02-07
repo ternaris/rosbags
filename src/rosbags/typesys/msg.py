@@ -22,7 +22,7 @@ from .base import Nodetype, TypesysError, normalize_fieldname, parse_message_def
 from .peg import Rule, Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    from typing import Optional, Tuple, TypeVar, Union
+    from typing import ClassVar, Tuple, TypeVar, Union
 
     from .base import Constdefs, Fielddefs, Fielddesc, Typesdict
     from .register import Typestore
@@ -181,10 +181,10 @@ def normalize_fieldtype(typename: str, field: Fielddesc, names: list[str]) -> Fi
         ifield = (Nodetype.NAME, name)
 
     if ftype == int(Nodetype.NAME):
-        return ifield  # type: ignore
+        return ifield  # type: ignore[return-value]
 
     assert not isinstance(args, str)
-    return (ftype, (ifield, args[1]))  # type: ignore
+    return (ftype, (ifield, args[1]))  # type: ignore[return-value]
 
 
 def denormalize_msgtype(typename: str) -> str:
@@ -206,7 +206,7 @@ class VisitorMSG(Visitor):
 
     RULES = parse_grammar(GRAMMAR_MSG, re.compile(r'(\s|#[^\n]*$)+', re.M | re.S))
 
-    BASETYPES = {
+    BASETYPES: ClassVar[set[str]] = {
         'bool',
         'octet',
         'int8',
@@ -227,7 +227,7 @@ class VisitorMSG(Visitor):
         children: tuple[StringNode, StringNode, LiteralMatch, ConstValue],
     ) -> tuple[StringNode, tuple[str, str, ConstValue]]:
         """Process const declaration, suppress output."""
-        value: Union[str, bool, int, float]
+        value: str | bool | int | float
         if (typ := children[0][1]) == 'string':
             assert isinstance(children[3], str)
             value = children[3].strip()
@@ -257,7 +257,7 @@ class VisitorMSG(Visitor):
                     normalize_fieldname(field[1][1]),
                     normalize_fieldtype(
                         name,
-                        field[0],  # type: ignore
+                        field[0],  # type: ignore[arg-type]
                         names,
                     ),
                 ) for field in items if field[0] != (Nodetype.CONST, '')
@@ -267,7 +267,7 @@ class VisitorMSG(Visitor):
 
     def visit_msgdef(
         self,
-        children: tuple[str, StringNode, tuple[Optional[T]]],
+        children: tuple[str, StringNode, tuple[T | None]],
     ) -> tuple[str, tuple[T, ...]]:
         """Process single message definition."""
         assert len(children) == 3
@@ -295,7 +295,7 @@ class VisitorMSG(Visitor):
 
     def visit_simple_type_spec(
         self,
-        children: Union[StringNode, tuple[LiteralMatch, LiteralMatch, int]],
+        children: StringNode | tuple[LiteralMatch, LiteralMatch, int],
     ) -> StringNode:
         """Process simple type specifier."""
         if len(children) > 2:
@@ -305,7 +305,7 @@ class VisitorMSG(Visitor):
             return Nodetype.NAME, (children[0][1], children[2])
         typespec = children[1]
         assert isinstance(typespec, str)
-        dct: dict[str, Union[str, tuple[str, int]]] = {
+        dct: dict[str, str | tuple[str, int]] = {
             'time': 'builtin_interfaces/msg/Time',
             'duration': 'builtin_interfaces/msg/Duration',
             'byte': 'octet',
@@ -316,13 +316,16 @@ class VisitorMSG(Visitor):
 
     def visit_scoped_name(
         self,
-        children: Union[StringNode, tuple[StringNode, LiteralMatch, StringNode]],
+        children: StringNode | tuple[StringNode, LiteralMatch, StringNode],
     ) -> StringNode:
         """Process scoped name."""
         if len(children) == 2:
-            return children  # type: ignore
+            return children
         assert len(children) == 3
-        return (Nodetype.NAME, '/'.join(x[1] for x in children if x[0] != Rule.LIT))  # type: ignore
+        return (
+            Nodetype.NAME,
+            '/'.join(x[1] for x in children if x[0] != Rule.LIT),  # type: ignore[misc]
+        )
 
     def visit_identifier(self, children: str) -> StringNode:
         """Process identifier."""
@@ -398,41 +401,39 @@ def gendefhash(
     deftext: list[str] = []
     hashtext: list[str] = []
     if typename not in typestore.FIELDDEFS:
-        raise TypesysError(f'Type {typename!r} is unknown.')
+        msg = f'Type {typename!r} is unknown.'
+        raise TypesysError(msg)
 
     for name, typ, value in typestore.FIELDDEFS[typename][0]:
-        name = name.rstrip('_')
-        deftext.append(f'{typ} {name}={value}')
-        hashtext.append(f'{typ} {name}={value}')
+        stripped_name = name.rstrip('_')
+        deftext.append(f'{typ} {stripped_name}={value}')
+        hashtext.append(f'{typ} {stripped_name}={value}')
 
     for name, desc in typestore.FIELDDEFS[typename][1]:
         if name == 'structure_needs_at_least_one_member':
             continue
-        name = name.rstrip('_')
+        stripped_name = name.rstrip('_')
         if desc[0] == int(Nodetype.BASE):
             args = desc[1]
             if args == 'octet':
                 args = 'byte'
             elif args[0] == 'string':
-                if args[1]:
-                    args = f'string<={args[1]}'
-                else:
-                    args = 'string'
-            deftext.append(f'{args} {name}')
-            hashtext.append(f'{args} {name}')
+                args = f'string<={args[1]}' if args[1] else 'string'
+            deftext.append(f'{args} {stripped_name}')
+            hashtext.append(f'{args} {stripped_name}')
         elif desc[0] == int(Nodetype.NAME):
             args = desc[1]
             assert isinstance(args, str)
             subname = args
             if subname in typemap:
-                deftext.append(f'{typemap[subname]} {name}')
-                hashtext.append(f'{typemap[subname]} {name}')
+                deftext.append(f'{typemap[subname]} {stripped_name}')
+                hashtext.append(f'{typemap[subname]} {stripped_name}')
             else:
                 if subname not in subdefs:
                     subdefs[subname] = ('', '')
                     subdefs[subname] = gendefhash(subname, subdefs, typestore, ros_version)
-                deftext.append(f'{denormalize_msgtype(subname)} {name}')
-                hashtext.append(f'{subdefs[subname][1]} {name}')
+                deftext.append(f'{denormalize_msgtype(subname)} {stripped_name}')
+                hashtext.append(f'{subdefs[subname][1]} {stripped_name}')
         else:
             assert desc[0] == 3 or desc[0] == 4
             assert isinstance(desc[1], tuple)
@@ -443,30 +444,27 @@ def gendefhash(
                 if isubname == 'octet':
                     isubname = 'byte'
                 elif isubname[0] == 'string':
-                    if isubname[1]:
-                        isubname = f'string<={isubname[1]}'
-                    else:
-                        isubname = 'string'
-                deftext.append(f'{isubname}[{count}] {name}')
-                hashtext.append(f'{isubname}[{count}] {name}')
+                    isubname = f'string<={isubname[1]}' if isubname[1] else 'string'
+                deftext.append(f'{isubname}[{count}] {stripped_name}')
+                hashtext.append(f'{isubname}[{count}] {stripped_name}')
             elif isubname in typemap:
                 assert isinstance(isubname, str)
-                deftext.append(f'{typemap[isubname]}[{count}] {name}')
-                hashtext.append(f'{typemap[isubname]}[{count}] {name}')
+                deftext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
+                hashtext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
             else:
                 assert isinstance(isubname, str)
                 if isubname not in subdefs:
                     subdefs[isubname] = ('', '')
                     subdefs[isubname] = gendefhash(isubname, subdefs, typestore, ros_version)
-                deftext.append(f'{denormalize_msgtype(isubname)}[{count}] {name}')
-                hashtext.append(f'{subdefs[isubname][1]} {name}')
+                deftext.append(f'{denormalize_msgtype(isubname)}[{count}] {stripped_name}')
+                hashtext.append(f'{subdefs[isubname][1]} {stripped_name}')
 
     if ros_version == 1 and typename == 'std_msgs/msg/Header':
         deftext.insert(0, 'uint32 seq')
         hashtext.insert(0, 'uint32 seq')
 
     deftext.append('')
-    return '\n'.join(deftext), md5('\n'.join(hashtext).encode()).hexdigest()
+    return '\n'.join(deftext), md5('\n'.join(hashtext).encode()).hexdigest()  # noqa: S324
 
 
 def generate_msgdef(

@@ -11,20 +11,24 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
-import genpy  # type: ignore
-import numpy
-import rosgraph_msgs.msg  # type: ignore
-from rclpy.serialization import deserialize_message  # type: ignore
-from rosbag2_py import ConverterOptions, SequentialReader, StorageOptions  # type: ignore
-from rosidl_runtime_py.utilities import get_message  # type: ignore
+import genpy  # type: ignore[import-not-found]
+import numpy as np
+import rosgraph_msgs.msg  # type: ignore[import-not-found]
+from rclpy.serialization import deserialize_message  # type: ignore[import-not-found]
+from rosbag2_py import (  # type: ignore[import-not-found]
+    ConverterOptions,
+    SequentialReader,
+    StorageOptions,
+)
+from rosidl_runtime_py.utilities import get_message  # type: ignore[import-not-found]
 
 rosgraph_msgs.msg.Log = Mock()
 rosgraph_msgs.msg.TopicStatistics = Mock()
 
-import rosbag.bag  # type:ignore  # noqa: E402
+import rosbag.bag  # type: ignore[import-not-found]  # noqa: E402
 
 if TYPE_CHECKING:
-    from typing import Generator, List, Protocol, Union, runtime_checkable
+    from typing import Generator, Protocol, runtime_checkable
 
     @runtime_checkable
     class NativeMSG(Protocol):
@@ -38,7 +42,7 @@ if TYPE_CHECKING:
 class Reader:
     """Mimimal shim using rosbag2_py to emulate rosbags API."""
 
-    def __init__(self, path: Union[str, Path]):
+    def __init__(self, path: str | Path) -> None:
         """Initialize reader shim."""
         self.reader = SequentialReader()
         self.reader.open(StorageOptions(path, 'sqlite3'), ConverterOptions('', ''))
@@ -52,7 +56,7 @@ class Reader:
             yield topic, timestamp, deserialize_message(data, pytype)
 
 
-def fixup_ros1(conns: List[rosbag.bag._Connection_Info]) -> None:
+def fixup_ros1(conns: list[rosbag.bag._Connection_Info]) -> None:
     """Monkeypatch ROS2 fieldnames onto ROS1 objects.
 
     Args:
@@ -66,11 +70,11 @@ def fixup_ros1(conns: List[rosbag.bag._Connection_Info]) -> None:
 
     if conn := next((x for x in conns if x.datatype == 'sensor_msgs/CameraInfo'), None):
         print('Patching CameraInfo')  # noqa: T201
-        cls = rosbag.bag._get_message_type(conn)
-        cls.d = property(lambda x: x.D, lambda x, y: setattr(x, 'D', y))  # noqa: B010
-        cls.k = property(lambda x: x.K, lambda x, y: setattr(x, 'K', y))  # noqa: B010
-        cls.r = property(lambda x: x.R, lambda x, y: setattr(x, 'R', y))  # noqa: B010
-        cls.p = property(lambda x: x.P, lambda x, y: setattr(x, 'P', y))  # noqa: B010
+        cls = rosbag.bag._get_message_type(conn)  # noqa: SLF001
+        cls.d = property(lambda x: x.D, lambda x, y: setattr(x, 'D', y))
+        cls.k = property(lambda x: x.K, lambda x, y: setattr(x, 'K', y))
+        cls.r = property(lambda x: x.R, lambda x, y: setattr(x, 'R', y))
+        cls.p = property(lambda x: x.P, lambda x, y: setattr(x, 'P', y))
 
 
 def compare(ref: object, msg: object) -> None:
@@ -91,11 +95,11 @@ def compare(ref: object, msg: object) -> None:
         if isinstance(ref, bytes):
             assert msg.tobytes() == ref
         else:
-            assert isinstance(msg, numpy.ndarray)
+            assert isinstance(msg, np.ndarray)
             assert (msg == ref).all()
 
     elif isinstance(msg, list):
-        assert isinstance(ref, (list, numpy.ndarray))
+        assert isinstance(ref, (list, np.ndarray))
         assert len(msg) == len(ref)
         for refitem, msgitem in zip(ref, msg):
             compare(refitem, msgitem)
@@ -148,7 +152,7 @@ def main_bag1_bag2(path1: Path, path2: Path) -> None:
     src1 = reader1.read_messages()
     src2 = Reader(path2).messages()
 
-    fixup_ros1(reader1._connections.values())
+    fixup_ros1(reader1._connections.values())  # noqa: SLF001
 
     for msg1, msg2 in zip(src1, src2):
         assert msg1.topic == msg2[0]

@@ -108,27 +108,27 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (1, b'\x01')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 1  # type: ignore
+        assert msg.data == 1  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (2, b'\x02\x00')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 2  # type: ignore
+        assert msg.data == 2  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (5, b'\x05')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 5  # type: ignore
+        assert msg.data == 5  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (9, b'\x09')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 9  # type: ignore
+        assert msg.data == 9  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (15, b'\x15\x00')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 21  # type: ignore
+        assert msg.data == 21  # type: ignore[attr-defined]
         with pytest.raises(StopIteration):
             next(gen)
 
@@ -173,27 +173,27 @@ def test_anyreader2(bags2: list[Path], strip_types: bool) -> None:
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (1, HEADER + b'\x01')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 1  # type: ignore
+        assert msg.data == 1  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (2, HEADER + b'\x02\x00')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 2  # type: ignore
+        assert msg.data == 2  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (5, HEADER + b'\x05')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 5  # type: ignore
+        assert msg.data == 5  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (9, HEADER + b'\x09')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 9  # type: ignore
+        assert msg.data == 9  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (15, HEADER + b'\x15\x00')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 21  # type: ignore
+        assert msg.data == 21  # type: ignore[attr-defined]
         with pytest.raises(StopIteration):
             next(gen)
 
@@ -214,7 +214,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
     class MockReader:
         """Mock reader."""
 
-        def __init__(self, paths: list[Path]):
+        def __init__(self, paths: list[Path]) -> None:
             """Initialize mock."""
             _ = paths
             self.metadata = {'storage_identifier': 'mcap'}
@@ -226,7 +226,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     'string foo',
                     'msg',
                     0,
-                    None,  # type: ignore
+                    None,  # type: ignore[arg-type]
                     self,
                 ),
                 Connection(
@@ -237,7 +237,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     'module test_msgs { module msg { struct Bar {string bar;}; }; };',
                     'idl',
                     0,
-                    None,  # type: ignore
+                    None,  # type: ignore[arg-type]
                     self,
                 ),
                 Connection(
@@ -247,7 +247,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     '',
                     '',
                     0,
-                    None,  # type: ignore
+                    None,  # type: ignore[arg-type]
                     self,
                 ),
             ]

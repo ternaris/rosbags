@@ -18,7 +18,7 @@ from .base import Nodetype, normalize_fieldname, parse_message_definition
 from .peg import Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Optional, Tuple, Union
+    from typing import Any, Generator, Tuple, Union
 
     from .base import Fielddefs, Fielddesc, Typesdict
 
@@ -264,16 +264,14 @@ class VisitorIDL(Visitor):
     def visit_specification(
         self,
         children: tuple[
-            Optional[
+            tuple[
                 tuple[
-                    tuple[
-                        Nodetype,
-                        list[tuple[Nodetype, tuple[str, str, ConstValue]]],
-                        list[tuple[Nodetype, str, Fielddefs]],
-                    ],
-                    LiteralMatch,
+                    Nodetype,
+                    list[tuple[Nodetype, tuple[str, str, ConstValue]]],
+                    list[tuple[Nodetype, str, Fielddefs]],
                 ],
-            ],
+                LiteralMatch,
+            ] | None,
         ],
     ) -> Typesdict:
         """Process start symbol, return only children of modules."""
@@ -300,7 +298,7 @@ class VisitorIDL(Visitor):
         return {k: (consts[k], v) for k, v in structs.items()}
     # yapf: enable
 
-    def visit_macro(self, _: Union[LiteralMatch, tuple[LiteralMatch, str]]) -> None:
+    def visit_macro(self, _: LiteralMatch | tuple[LiteralMatch, str]) -> None:
         """Process macro, suppress output."""
 
     def visit_include(
@@ -330,15 +328,15 @@ class VisitorIDL(Visitor):
             if item is None or item[0] is None:
                 continue
             assert item[1] == ('LITERAL', ';')
-            item = item[0]
-            if item[0] == Nodetype.CONST:
-                consts.append(item)
-            elif item[0] == Nodetype.STRUCT:
-                structs.append(item)
+            subitem = item[0]
+            if subitem[0] == Nodetype.CONST:
+                consts.append(subitem)
+            elif subitem[0] == Nodetype.STRUCT:
+                structs.append(subitem)
             else:
-                assert item[0] == Nodetype.MODULE
-                consts += item[1]
-                structs += item[2]
+                assert subitem[0] == Nodetype.MODULE
+                consts += subitem[1]
+                structs += subitem[2]
 
         consts = [(ityp, (typ, f'{name}/{subname}', val)) for ityp, (typ, subname, val) in consts]
         structs = [(typ, f'{name}/{subname}', *rest) for typ, subname, *rest in structs]
@@ -355,8 +353,8 @@ class VisitorIDL(Visitor):
 
     def visit_type_dcl(
         self,
-        children: Optional[tuple[Nodetype, str, Fielddefs]],
-    ) -> Optional[tuple[Nodetype, str, Fielddefs]]:
+        children: tuple[Nodetype, str, Fielddefs] | None,
+    ) -> tuple[Nodetype, str, Fielddefs] | None:
         """Process type, pass structs, suppress otherwise."""
         return children if children and children[0] == Nodetype.STRUCT else None
 
@@ -384,9 +382,8 @@ class VisitorIDL(Visitor):
 
     def visit_sequence_type(
         self,
-        children: Union[tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch],
-                        tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch, LiteralNode,
-                              LiteralMatch]],
+        children: tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch] |
+        tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch, LiteralNode, LiteralMatch],
     ) -> tuple[Nodetype, tuple[StringNode, int]]:
         """Process sequence type specification."""
         assert len(children) in {4, 6}
@@ -495,8 +492,8 @@ class VisitorIDL(Visitor):
 
     def visit_string_type(
         self,
-        children: Union[str, tuple[LiteralMatch, LiteralMatch, LiteralNode, LiteralMatch]],
-    ) -> Union[StringNode, tuple[Nodetype, tuple[str, int]]]:
+        children: str | tuple[LiteralMatch, LiteralMatch, LiteralNode, LiteralMatch],
+    ) -> StringNode | tuple[Nodetype, tuple[str, int]]:
         """Prrocess string type specifier."""
         if isinstance(children, str):
             return (Nodetype.BASE, ('string', 0))
@@ -508,7 +505,7 @@ class VisitorIDL(Visitor):
 
     def visit_scoped_name(
         self,
-        children: Union[StringNode, tuple[StringNode, LiteralMatch, StringNode]],
+        children: StringNode | tuple[StringNode, LiteralMatch, StringNode],
     ) -> StringNode:
         """Process scoped name."""
         if len(children) == 2:
@@ -525,17 +522,17 @@ class VisitorIDL(Visitor):
 
     def visit_expression(
         self,
-        children: Union[LiteralNode, tuple[LiteralMatch, LiteralNode],
-                        tuple[LiteralNode, LiteralMatch, LiteralNode]],
-    ) -> Union[LiteralNode, tuple[Nodetype, str, int], tuple[Nodetype, str, int, int]]:
+        children: LiteralNode | tuple[LiteralMatch, LiteralNode] |
+        tuple[LiteralNode, LiteralMatch, LiteralNode],
+    ) -> LiteralNode | tuple[Nodetype, str, int] | tuple[Nodetype, str, int, int]:
         """Process expression, literals are assumed to be integers only."""
-        if children[0] in [
+        if children[0] in {
             Nodetype.LITERAL_STRING,
             Nodetype.LITERAL_NUMBER,
             Nodetype.LITERAL_BOOLEAN,
             Nodetype.LITERAL_CHAR,
             Nodetype.NAME,
-        ]:
+        }:
             assert isinstance(children[1], (str, bool, int, float))
             return (children[0], children[1])
 

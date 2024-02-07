@@ -28,7 +28,10 @@ register_types(add_types)
 # Type import works only after the register_types call,
 # the classname is derived from the msgtype names above.
 
-from rosbags.typesys.types import (  # type: ignore  # noqa
+from rosbags.typesys.types import (  # type: ignore[attr-defined]  # noqa: E402
     custom_msgs__msg__Accel as Accel,
     custom_msgs__msg__Speed as Speed,
 )
+
+Accel(42)
+Speed(42)

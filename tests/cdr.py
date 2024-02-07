@@ -6,23 +6,24 @@ from __future__ import annotations
 
 import sys
 from struct import Struct, pack_into, unpack_from
-from typing import TYPE_CHECKING, Dict, List, Union, cast
+from typing import TYPE_CHECKING, cast
 
-import numpy
-from numpy.typing import NDArray
+import numpy as np
 
 from rosbags.serde.messages import SerdeError, get_msgdef
-from rosbags.serde.typing import Msgdef
 from rosbags.serde.utils import SIZEMAP, Valtype
 from rosbags.typesys import types
 
 if TYPE_CHECKING:
-    from typing import Any, Tuple
+    from typing import Any, Dict, List, Union
 
-    from rosbags.serde.typing import Descriptor
+    from numpy.typing import NDArray
 
-Array = Union[List[Msgdef], List[str], numpy.ndarray]
-BasetypeMap = Dict[str, Struct]
+    from rosbags.serde.typing import Descriptor, Msgdef
+
+    Array = Union[List[Msgdef], List[str], NDArray[np.float64]]
+    BasetypeMap = Dict[str, Struct]
+
 BASETYPEMAP_LE: BasetypeMap = {
     'bool': Struct('?'),
     'int8': Struct('b'),
@@ -53,7 +54,7 @@ BASETYPEMAP_BE: BasetypeMap = {
 
 
 def deserialize_number(rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: str) \
-        -> Tuple[Union[bool, float, int], int]:
+        -> tuple[bool | float | int, int]:
     """Deserialize a single boolean, float, or int.
 
     Args:
@@ -72,7 +73,7 @@ def deserialize_number(rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: st
 
 
 def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) \
-        -> Tuple[str, int]:
+        -> tuple[str, int]:
     """Deserialize a string value.
 
     Args:
@@ -91,7 +92,7 @@ def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) \
 
 
 def deserialize_array(rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, desc: Descriptor) \
-        -> Tuple[Array, int]:
+        -> tuple[Array, int]:
     """Deserialize an array of items of same type.
 
     Args:
@@ -118,7 +119,7 @@ def deserialize_array(rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, des
 
         size = SIZEMAP[desc.args]
         pos = (pos + size - 1) & -size
-        ndarr = numpy.frombuffer(rawdata, dtype=desc.args, count=num, offset=pos)
+        ndarr = np.frombuffer(rawdata, dtype=desc.args, count=num, offset=pos)
         if (bmap is BASETYPEMAP_LE) != (sys.byteorder == 'little'):
             ndarr = ndarr.byteswap()  # no inplace on readonly array
         return ndarr, pos + num * SIZEMAP[desc.args]
@@ -126,15 +127,16 @@ def deserialize_array(rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, des
     if desc.valtype == Valtype.MESSAGE:
         msgs = []
         while (num := num - 1) >= 0:
-            msg, pos = deserialize_message(rawdata, bmap, pos, desc.args)
-            msgs.append(msg)
+            rosmsg, pos = deserialize_message(rawdata, bmap, pos, desc.args)
+            msgs.append(rosmsg)
         return msgs, pos
 
-    raise SerdeError(f'Nested arrays {desc!r} are not supported.')
+    msg = f'Nested arrays {desc!r} are not supported.'
+    raise SerdeError(msg)
 
 
 def deserialize_message(rawdata: bytes, bmap: BasetypeMap, pos: int, msgdef: Msgdef) \
-        -> Tuple[Msgdef, int]:
+        -> tuple[Msgdef, int]:
     """Deserialize a message.
 
     Args:
@@ -147,7 +149,7 @@ def deserialize_message(rawdata: bytes, bmap: BasetypeMap, pos: int, msgdef: Msg
         Deserialized message and new read position.
 
     """
-    values: List[Any] = []
+    values: list[Any] = []
 
     for _, desc in msgdef.fields:
         if desc.valtype == Valtype.MESSAGE:
@@ -204,7 +206,7 @@ def serialize_number(
     bmap: BasetypeMap,
     pos: int,
     basetype: str,
-    val: Union[bool, float, int],
+    val: float,
 ) -> int:
     """Serialize a single boolean, float, or int.
 
@@ -280,7 +282,7 @@ def serialize_array(
         size = SIZEMAP[desc.args]
         pos = (pos + size - 1) & -size
         size *= len(val)
-        val = cast('NDArray[numpy.int_]', val)
+        val = cast('NDArray[np.float64]', val)
         if (bmap is BASETYPEMAP_LE) != (sys.byteorder == 'little'):
             val = val.byteswap()  # no inplace on readonly array
         rawdata[pos:pos + size] = memoryview(val.tobytes())
@@ -291,7 +293,8 @@ def serialize_array(
             pos = serialize_message(rawdata, bmap, pos, item, desc.args)
         return pos
 
-    raise SerdeError(f'Nested arrays {desc!r} are not supported.')  # pragma: no cover
+    msg = f'Nested arrays {desc!r} are not supported.'
+    raise SerdeError(msg)  # pragma: no cover
 
 
 def serialize_message(
@@ -367,7 +370,8 @@ def get_array_size(desc: Descriptor, val: Array, size: int) -> int:
             size = get_size(item, desc.args, size)
         return size
 
-    raise SerdeError(f'Nested arrays {desc!r} are not supported.')  # pragma: no cover
+    msg = f'Nested arrays {desc!r} are not supported.'
+    raise SerdeError(msg)  # pragma: no cover
 
 
 def get_size(message: object, msgdef: Msgdef, size: int = 0) -> int:
@@ -402,7 +406,8 @@ def get_size(message: object, msgdef: Msgdef, size: int = 0) -> int:
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
             if len(val) != length:
-                raise SerdeError(f'Unexpected array length: {len(val)} != {length}.')
+                msg = f'Unexpected array length: {len(val)} != {length}.'
+                raise SerdeError(msg)
             size = get_array_size(subdesc, val, size)
 
         elif desc.valtype == Valtype.SEQUENCE:

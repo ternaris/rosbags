@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-import numpy
+import numpy as np
 import pytest
 
 from rosbags.serde import (
@@ -31,7 +31,7 @@ from rosbags.typesys.types import (
 from .cdr import deserialize, serialize
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Union
+    from typing import Any, Generator
 
 MSG_POLY = (
     (
@@ -220,21 +220,21 @@ def _comparable() -> Generator[None, None, None]:
         This solution is necessary as numpy.ndarray is not directly patchable.
 
     """
-    frombuffer = numpy.frombuffer
+    frombuffer = np.frombuffer
 
-    def arreq(self: MagicMock, other: Union[MagicMock, Any]) -> bool:
+    def arreq(self: MagicMock, other: MagicMock) -> bool:
         lhs = self._mock_wraps
         rhs = getattr(other, '_mock_wraps', other)
-        return (lhs == rhs).all()  # type: ignore
+        return (lhs == rhs).all()  # type: ignore[no-any-return]
 
     class CNDArray(MagicMock):
         """Mock ndarray."""
 
-        def __init__(self, *args: Any, **kwargs: Any):  # noqa: ANN401
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
             super().__init__(*args, **kwargs)
             self.dtype = kwargs['wraps'].dtype
             self.reshape = kwargs['wraps'].reshape
-            self.__eq__ = arreq  # type: ignore
+            self.__eq__ = arreq  # type: ignore[assignment, method-assign]
 
         def byteswap(self, *args: Any) -> CNDArray:  # noqa: ANN401
             """Wrap return value also in mock."""
@@ -243,7 +243,7 @@ def _comparable() -> Generator[None, None, None]:
     def wrap_frombuffer(*args: Any, **kwargs: Any) -> CNDArray:  # noqa: ANN401
         return CNDArray(wraps=frombuffer(*args, **kwargs))
 
-    with patch.object(numpy, 'frombuffer', side_effect=wrap_frombuffer):
+    with patch.object(np, 'frombuffer', side_effect=wrap_frombuffer):
         yield
 
 
@@ -289,7 +289,7 @@ def test_deserializer() -> None:
     assert msg.header.frame_id == 'foo42'
     field = msg.magnetic_field
     assert (field.x, field.y, field.z) == (128., 128., 128.)
-    diag = numpy.diag(msg.magnetic_field_covariance.reshape(3, 3))
+    diag = np.diag(msg.magnetic_field_covariance.reshape(3, 3))
     assert (diag == [1., 1., 1.]).all()
     msg_ros1 = deserialize_ros1(cdr_to_ros1(*MSG_MAGN[:2]), MSG_MAGN[1])
     assert msg_ros1 == msg
@@ -334,13 +334,13 @@ def test_serializer_errors() -> None:
     class Foo:
         """Dummy class."""
 
-        coef: numpy.ndarray[Any, numpy.dtype[numpy.int_]] = numpy.array([1, 2, 3, 4])
+        coef: np.ndarray[Any, np.dtype[np.int_]] = np.array([1, 2, 3, 4])
 
     msg = Foo()
     ret = serialize_cdr(msg, 'shape_msgs/msg/Plane', True)
     assert ret == serialize(msg, 'shape_msgs/msg/Plane', True)
 
-    msg.coef = numpy.array([1, 2, 3, 4, 4])
+    msg.coef = np.array([1, 2, 3, 4, 4])
     with pytest.raises(SerdeError, match='array length'):
         serialize_cdr(msg, 'shape_msgs/msg/Plane', True)
 
@@ -370,25 +370,25 @@ def test_custom_type() -> None:
     msg = custom(
         'str',
         1.5,
-        static_64_64(numpy.array([64, 64], dtype=numpy.uint64)),
+        static_64_64(np.array([64, 64], dtype=np.uint64)),
         static_64_16(64, 16),
         static_16_64(16, 64),
-        dynamic_64_64(numpy.array([33, 33], dtype=numpy.uint64)),
+        dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         dynamic_64_b_64(64, True, 1.25),
         dynamic_64_s(64, 's'),
         dynamic_s_64('s', 64),
         # arrays
         ['str_1', ''],
-        numpy.array([1.5, 0.75], dtype=numpy.float32),
+        np.array([1.5, 0.75], dtype=np.float32),
         [
-            static_64_64(numpy.array([64, 64], dtype=numpy.uint64)),
-            static_64_64(numpy.array([64, 64], dtype=numpy.uint64)),
+            static_64_64(np.array([64, 64], dtype=np.uint64)),
+            static_64_64(np.array([64, 64], dtype=np.uint64)),
         ],
         [static_64_16(64, 16), static_64_16(64, 16)],
         [static_16_64(16, 64), static_16_64(16, 64)],
         [
-            dynamic_64_64(numpy.array([33, 33], dtype=numpy.uint64)),
-            dynamic_64_64(numpy.array([33, 33], dtype=numpy.uint64)),
+            dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
+            dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
         [
             dynamic_64_b_64(64, True, 1.25),
@@ -398,16 +398,16 @@ def test_custom_type() -> None:
         [dynamic_s_64('s', 64), dynamic_s_64('s', 64)],
         # sequences
         ['str_1', ''],
-        numpy.array([1.5, 0.75], dtype=numpy.float32),
+        np.array([1.5, 0.75], dtype=np.float32),
         [
-            static_64_64(numpy.array([64, 64], dtype=numpy.uint64)),
-            static_64_64(numpy.array([64, 64], dtype=numpy.uint64)),
+            static_64_64(np.array([64, 64], dtype=np.uint64)),
+            static_64_64(np.array([64, 64], dtype=np.uint64)),
         ],
         [static_64_16(64, 16), static_64_16(64, 16)],
         [static_16_64(16, 64), static_16_64(16, 64)],
         [
-            dynamic_64_64(numpy.array([33, 33], dtype=numpy.uint64)),
-            dynamic_64_64(numpy.array([33, 33], dtype=numpy.uint64)),
+            dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
+            dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
         [
             dynamic_64_b_64(64, True, 1.25),
@@ -493,7 +493,7 @@ def test_padding_empty_sequence() -> None:
     register_types(dict(get_types_from_msg(SU64_B, 'test_msgs/msg/su64_b')))
 
     su64_b = get_msgdef('test_msgs/msg/su64_b', types).cls
-    msg = su64_b(numpy.array([], dtype=numpy.uint64), True)
+    msg = su64_b(np.array([], dtype=np.uint64), True)
 
     cdr = serialize_cdr(msg, msg.__msgtype__)
     assert cdr[4:] == b'\x00\x00\x00\x00\x01'
@@ -514,7 +514,7 @@ def test_align_after_empty_sequence() -> None:
 
     su64_u64 = get_msgdef('test_msgs/msg/su64_u64', types).cls
     smsg_u64 = get_msgdef('test_msgs/msg/smsg_u64', types).cls
-    msg1 = su64_u64(numpy.array([], dtype=numpy.uint64), 42)
+    msg1 = su64_u64(np.array([], dtype=np.uint64), 42)
     msg2 = smsg_u64([], 42)
 
     cdr = serialize_cdr(msg1, msg1.__msgtype__)

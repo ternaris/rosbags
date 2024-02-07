@@ -17,8 +17,14 @@ from rosbags.typesys.base import hash_rihs01
 from rosbags.typesys.msg import generate_msgdef, get_types_from_msg
 
 if TYPE_CHECKING:
+    import sys
     from types import TracebackType
-    from typing import Literal, Optional, Type, Union
+    from typing import Literal
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
     from .metadata import Metadata
 
@@ -82,7 +88,7 @@ class Writer:
 
         ZSTD = auto()
 
-    def __init__(self, path: Union[Path, str]):
+    def __init__(self, path: Path | str) -> None:
         """Initialize writer.
 
         Args:
@@ -95,16 +101,17 @@ class Writer:
         path = Path(path)
         self.path = path
         if path.exists():
-            raise WriterError(f'{path} exists already, not overwriting.')
+            msg = f'{path} exists already, not overwriting.'
+            raise WriterError(msg)
         self.metapath = path / 'metadata.yaml'
         self.dbpath = path / f'{path.name}.db3'
         self.compression_mode = ''
         self.compression_format = ''
-        self.compressor: Optional[zstandard.ZstdCompressor] = None
+        self.compressor: zstandard.ZstdCompressor | None = None
         self.connections: list[Connection] = []
         self.counts: dict[int, int] = {}
-        self.conn: Optional[sqlite3.Connection] = None
-        self.cursor: Optional[sqlite3.Cursor] = None
+        self.conn: sqlite3.Connection | None = None
+        self.cursor: sqlite3.Cursor | None = None
         self.custom_data: dict[str, str] = {}
         self.added_types: list[str] = []
 
@@ -122,7 +129,8 @@ class Writer:
 
         """
         if self.conn:
-            raise WriterError(f'Cannot set compression, bag {self.path} already open.')
+            msg = f'Cannot set compression, bag {self.path} already open.'
+            raise WriterError(msg)
         if mode == self.CompressionMode.NONE:
             return
         self.compression_mode = mode.name.lower()
@@ -141,7 +149,8 @@ class Writer:
 
         """
         if not isinstance(value, str):
-            raise WriterError(f'Cannot set non-string value {value!r} in custom_data.')
+            msg = f'Cannot set non-string value {value!r} in custom_data.'
+            raise WriterError(msg)
         self.custom_data[key] = value
 
     def open(self) -> None:
@@ -153,7 +162,8 @@ class Writer:
         try:
             self.path.mkdir(mode=0o755, parents=True)
         except FileExistsError:
-            raise WriterError(f'{self.path} exists already, not overwriting.') from None
+            msg = f'{self.path} exists already, not overwriting.'
+            raise WriterError(msg) from None
 
         self.conn = sqlite3.connect(f'file:{self.dbpath}', uri=True)
         self.conn.executescript(self.SQLITE_SCHEMA)
@@ -164,8 +174,8 @@ class Writer:
         topic: str,
         msgtype: str,
         *,
-        msgdef: Optional[str] = None,
-        rihs01: Optional[str] = None,
+        msgdef: str | None = None,
+        rihs01: str | None = None,
         serialization_format: str = 'cdr',
         offered_qos_profiles: str = '',
     ) -> Connection:
@@ -189,7 +199,8 @@ class Writer:
 
         """
         if not self.cursor:
-            raise WriterError('Bag was not opened.')
+            msg = 'Bag was not opened.'
+            raise WriterError(msg)
 
         if msgdef is None or rihs01 is None:
             msgdef, _ = generate_msgdef(msgtype, ros_version=2)
@@ -228,7 +239,8 @@ class Writer:
                 conn.topic == connection.topic and conn.msgtype == connection.msgtype and
                 conn.ext == connection.ext
             ):
-                raise WriterError(f'Connection can only be added once: {connection!r}.')
+                msg = f'Connection can only be added once: {connection!r}.'
+                raise WriterError(msg)
 
         self.connections.append(connection)
         self.counts[connection.id] = 0
@@ -256,9 +268,11 @@ class Writer:
 
         """
         if not self.cursor:
-            raise WriterError('Bag was not opened.')
+            msg = 'Bag was not opened.'
+            raise WriterError(msg)
         if connection not in self.connections:
-            raise WriterError(f'Tried to write to unknown connection {connection!r}.')
+            msg = f'Tried to write to unknown connection {connection!r}.'
+            raise WriterError(msg)
 
         if self.compression_mode == 'message':
             assert self.compressor
@@ -344,16 +358,16 @@ class Writer:
             yaml.default_flow_style = False
             yaml.dump(metadata, metafile)
 
-    def __enter__(self) -> Writer:
+    def __enter__(self) -> Self:
         """Open rosbag2 when entering contextmanager."""
         self.open()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Close rosbag2 when exiting contextmanager."""
         self.close()

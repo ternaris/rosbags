@@ -422,8 +422,8 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
     bio: BinaryIO
     messages: list[tuple[int, int, int]] = []
     chunks = []
-    with path.open('wb') as bio:
-        realbio = bio
+    with path.open('wb') as realbio:
+        bio = realbio
         bio.write(MCAP_HEADER)
         write_record(bio, 0x01, (make_string('ros2'), make_string('test_mcap')))
 
@@ -588,7 +588,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
             bio = realbio
             messages = []
 
-        if request.param in ['indexed', 'partially_indexed', 'chunked_indexed']:
+        if request.param in {'indexed', 'partially_indexed', 'chunked_indexed'}:
             summary_start = bio.tell()
             for schema in SCHEMAS:
                 write_record(bio, *schema)
@@ -732,7 +732,7 @@ def test_bag_mcap_files(tmp_path: Path) -> None:
     with pytest.raises(ReaderError, match='magic is invalid'):
         Reader(tmp_path).open()
 
-    path.write_bytes(b'\x89MCAP0\r\n\xFF')
+    path.write_bytes(b'\x89MCAP0\r\n\xff')
     with pytest.raises(ReaderError, match='Unexpected record'):
         Reader(tmp_path).open()
 

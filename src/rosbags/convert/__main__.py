@@ -29,8 +29,9 @@ def pathtype(exists: bool = True) -> Callable[[str], Path]:
     def topath(pathname: str) -> Path:
         path = Path(pathname)
         if exists != path.exists():
+            msg = f'{path} should {"exist" if exists else "not exist"}.'
             raise argparse.ArgumentTypeError(
-                f'{path} should {"exist" if exists else "not exist"}.',
+                msg,
             )
         return path
 

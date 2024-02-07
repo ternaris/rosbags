@@ -13,11 +13,10 @@ from rosbags.serde import cdr_to_ros1, deserialize_cdr, ros1_to_cdr, serialize_c
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional
 
 
 @pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
-def test_roundtrip(tmp_path: Path, fmt: Optional[Writer.CompressionFormat]) -> None:
+def test_roundtrip(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
     """Test full data roundtrip."""
 
     class Foo:

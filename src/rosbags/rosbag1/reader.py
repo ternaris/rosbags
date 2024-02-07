@@ -14,6 +14,7 @@ from enum import Enum, IntEnum
 from functools import reduce
 from io import BytesIO
 from itertools import groupby
+from operator import add
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, NamedTuple
 
@@ -23,6 +24,7 @@ from rosbags.interfaces import Connection, ConnectionExtRosbag1, TopicInfo
 from rosbags.typesys.msg import normalize_msgtype
 
 if TYPE_CHECKING:
+    import sys
     from types import TracebackType
     from typing import (
         BinaryIO,
@@ -30,11 +32,13 @@ if TYPE_CHECKING:
         Generator,
         Iterable,
         Literal,
-        Optional,
         Tuple,
-        Type,
-        Union,
     )
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
     Unpack = Callable[[bytes], Tuple[int]]
     UnpackFrom = Callable[[bytes, int], Tuple[int]]
@@ -116,9 +120,9 @@ class IndexData(NamedTuple):
         return NotImplemented  # pragma: no cover
 
 
-deserialize_uint8: Unpack = struct.Struct('<B').unpack  # type: ignore
-deserialize_uint32: UnpackFrom = struct.Struct('<L').unpack_from  # type: ignore
-deserialize_uint64: Unpack = struct.Struct('<Q').unpack  # type: ignore
+deserialize_uint8: Unpack = struct.Struct('<B').unpack
+deserialize_uint32: UnpackFrom = struct.Struct('<L').unpack_from
+deserialize_uint64: Unpack = struct.Struct('<Q').unpack
 
 
 def deserialize_time(val: bytes) -> int:
@@ -131,7 +135,7 @@ def deserialize_time(val: bytes) -> int:
         Deserialized value.
 
     """
-    unpacked: tuple[int, int] = struct.unpack('<LL', val)  # type: ignore
+    unpacked: tuple[int, int] = struct.unpack('<LL', val)
     sec, nsec = unpacked
     return sec * 10**9 + nsec
 
@@ -155,7 +159,8 @@ class Header(Dict[str, Any]):
         try:
             return deserialize_uint8(self[name])[0]
         except (KeyError, struct.error) as err:
-            raise ReaderError(f'Could not read uint8 field {name!r}.') from err
+            msg = f'Could not read uint8 field {name!r}.'
+            raise ReaderError(msg) from err
 
     def get_uint32(self, name: str) -> int:
         """Get uint32 value from field.
@@ -173,7 +178,8 @@ class Header(Dict[str, Any]):
         try:
             return deserialize_uint32(self[name], 0)[0]
         except (KeyError, struct.error) as err:
-            raise ReaderError(f'Could not read uint32 field {name!r}.') from err
+            msg = f'Could not read uint32 field {name!r}.'
+            raise ReaderError(msg) from err
 
     def get_uint64(self, name: str) -> int:
         """Get uint64 value from field.
@@ -191,7 +197,8 @@ class Header(Dict[str, Any]):
         try:
             return deserialize_uint64(self[name])[0]
         except (KeyError, struct.error) as err:
-            raise ReaderError(f'Could not read uint64 field {name!r}.') from err
+            msg = f'Could not read uint64 field {name!r}.'
+            raise ReaderError(msg) from err
 
     def get_string(self, name: str) -> str:
         """Get string value from field.
@@ -211,7 +218,8 @@ class Header(Dict[str, Any]):
             assert isinstance(value, bytes)
             return value.decode()
         except (KeyError, ValueError) as err:
-            raise ReaderError(f'Could not read string field {name!r}.') from err
+            msg = f'Could not read string field {name!r}.'
+            raise ReaderError(msg) from err
 
     def get_time(self, name: str) -> int:
         """Get time value from field.
@@ -229,10 +237,11 @@ class Header(Dict[str, Any]):
         try:
             return deserialize_time(self[name])
         except (KeyError, struct.error) as err:
-            raise ReaderError(f'Could not read time field {name!r}.') from err
+            msg = f'Could not read time field {name!r}.'
+            raise ReaderError(msg) from err
 
     @classmethod
-    def read(cls: Type[Header], src: BinaryIO, expect: Optional[RecordType] = None) -> Header:
+    def read(cls: type[Header], src: BinaryIO, expect: RecordType | None = None) -> Header:
         """Read header from file handle.
 
         Args:
@@ -249,7 +258,8 @@ class Header(Dict[str, Any]):
         try:
             binary = read_bytes(src, read_uint32(src))
         except ReaderError as err:
-            raise ReaderError('Header could not be read from file.') from err
+            msg = 'Header could not be read from file.'
+            raise ReaderError(msg) from err
 
         header = cls()
         pos = 0
@@ -258,15 +268,18 @@ class Header(Dict[str, Any]):
             try:
                 size = deserialize_uint32(binary, pos)[0]
             except struct.error as err:
-                raise ReaderError('Header field size could not be read.') from err
+                msg = 'Header field size could not be read.'
+                raise ReaderError(msg) from err
             pos += 4
 
             if pos + size > length:
-                raise ReaderError('Declared field size is too large for header.')
+                msg = 'Declared field size is too large for header.'
+                raise ReaderError(msg)
 
-            name, sep, value = binary[pos:pos + size].partition(b'=')
+            name, sep, value = binary[pos : pos + size].partition(b'=')
             if not sep:
-                raise ReaderError('Header field could not be parsed.')
+                msg = 'Header field could not be parsed.'
+                raise ReaderError(msg)
             pos += size
 
             header[name.decode()] = value
@@ -274,7 +287,8 @@ class Header(Dict[str, Any]):
         if expect:
             have = header.get_uint8('op')
             if expect != have:
-                raise ReaderError(f'Record of type {RecordType(have).name!r} is unexpected.')
+                msg = f'Record of type {RecordType(have).name!r} is unexpected.'
+                raise ReaderError(msg)
 
         return header
 
@@ -295,7 +309,8 @@ def read_uint32(src: BinaryIO) -> int:
     try:
         return deserialize_uint32(src.read(4), 0)[0]
     except struct.error as err:
-        raise ReaderError('Could not read uint32.') from err
+        msg = 'Could not read uint32.'
+        raise ReaderError(msg) from err
 
 
 def read_bytes(src: BinaryIO, size: int) -> bytes:
@@ -314,7 +329,8 @@ def read_bytes(src: BinaryIO, size: int) -> bytes:
     """
     data = src.read(size)
     if len(data) != size:
-        raise ReaderError(f'Got only {len(data)} of requested {size} bytes.')
+        msg = f'Got only {len(data)} of requested {size} bytes.'
+        raise ReaderError(msg)
     return data
 
 
@@ -339,7 +355,7 @@ class Reader:
 
     """
 
-    def __init__(self, path: Union[str, Path]):
+    def __init__(self, path: str | Path) -> None:
         """Initialize.
 
         Args:
@@ -351,12 +367,13 @@ class Reader:
         """
         self.path = Path(path)
         if not self.path.exists():
-            raise ReaderError(f'File {str(self.path)!r} does not exist.')
+            msg = f'File {str(self.path)!r} does not exist.'
+            raise ReaderError(msg)
 
-        self.bio: Optional[BinaryIO] = None
+        self.bio: BinaryIO | None = None
         self.connections: list[Connection] = []
         self.indexes: dict[int, list[IndexData]] = {}
-        self.index_data_header_offsets: Optional[tuple[int, int]] = None
+        self.index_data_header_offsets: tuple[int, int] | None = None
         self.chunk_infos: list[ChunkInfo] = []
         self.chunks: dict[int, Chunk] = {}
         self.current_chunk: tuple[int, BinaryIO] = (-1, BytesIO())
@@ -366,34 +383,40 @@ class Reader:
         try:
             self.bio = self.path.open('rb')
         except OSError as err:
-            raise ReaderError(f'Could not open file {str(self.path)!r}: {err.strerror}.') from err
+            msg = f'Could not open file {str(self.path)!r}: {err.strerror}.'
+            raise ReaderError(msg) from err
 
         try:
             magic = self.bio.readline().decode()
             if not magic:
-                raise ReaderError(f'File {str(self.path)!r} seems to be empty.')
+                msg = f'File {str(self.path)!r} seems to be empty.'
+                raise ReaderError(msg)  # noqa: TRY301
 
             matches = re.match(r'#ROSBAG V(\d+).(\d+)\n', magic)
             if not matches:
-                raise ReaderError('File magic is invalid.')
+                msg = 'File magic is invalid.'
+                raise ReaderError(msg)  # noqa: TRY301
             major, minor = matches.groups()
             version = int(major) * 100 + int(minor)
             if version != 200:
-                raise ReaderError(f'Bag version {version!r} is not supported.')
+                msg = f'Bag version {version!r} is not supported.'
+                raise ReaderError(msg)  # noqa: TRY301
 
             header = Header.read(self.bio, RecordType.BAGHEADER)
             index_pos = header.get_uint64('index_pos')
             conn_count = header.get_uint32('conn_count')
             chunk_count = header.get_uint32('chunk_count')
             try:
-                encryptor: Optional[str] = header.get_string('encryptor')
+                encryptor: str | None = header.get_string('encryptor')
             except ReaderError:
                 encryptor = None
             if encryptor:
-                raise ReaderError(f'Bag encryption {encryptor!r} is not supported.') from None
+                msg = f'Bag encryption {encryptor!r} is not supported.'
+                raise ReaderError(msg) from None  # noqa: TRY301
 
             if index_pos == 0:
-                raise ReaderError('Bag is not indexed, reindex before reading.')
+                msg = 'Bag is not indexed, reindex before reading.'
+                raise ReaderError(msg)  # noqa: TRY301
 
             if chunk_count == 0:
                 return
@@ -403,7 +426,8 @@ class Reader:
                 self.connections = [self.read_connection() for _ in range(conn_count)]
                 self.chunk_infos = [self.read_chunk_info() for _ in range(chunk_count)]
             except ReaderError as err:
-                raise ReaderError(f'Bag index looks damaged: {err.args}') from None
+                msg = f'Bag index looks damaged: {err.args}'
+                raise ReaderError(msg) from None
 
             self.chunks = {}
             indexes: dict[int, list[IndexData]] = defaultdict(list)
@@ -421,7 +445,8 @@ class Reader:
                     *x[0:5],
                     len(self.indexes[x.id]),
                     *x[6:],
-                ) for x in self.connections
+                )
+                for x in self.connections
             ]
         except ReaderError:
             self.close()
@@ -452,7 +477,7 @@ class Reader:
     @property
     def message_count(self) -> int:
         """Total message count."""
-        return reduce(lambda x, y: x + y, (x.msgcount for x in self.topics.values()), 0)
+        return reduce(add, (x.msgcount for x in self.topics.values()), 0)
 
     @property
     def topics(self) -> dict[str, TopicInfo]:
@@ -464,7 +489,7 @@ class Reader:
         ):
             connections = list(group)
             msgcount = reduce(
-                lambda x, y: x + y,
+                add,
                 (y.connection_counts.get(x.id, 0) for x in connections for y in self.chunk_infos),
             )
 
@@ -512,7 +537,8 @@ class Reader:
 
         ver = header.get_uint32('ver')
         if ver != 1:
-            raise ReaderError(f'CHUNK_INFO version {ver} is not supported.')
+            msg = f'CHUNK_INFO version {ver} is not supported.'
+            raise ReaderError(msg)
 
         chunk_pos = header.get_uint64('chunk_pos')
         count = header.get_uint32('count')
@@ -543,7 +569,8 @@ class Reader:
                 Compression.LZ4.value: lz4_decompress,
             }[compression]
         except KeyError:
-            raise ReaderError(f'Compression {compression!r} is not supported.') from None
+            msg = f'Compression {compression!r} is not supported.'
+            raise ReaderError(msg) from None
 
         return Chunk(
             datasize,
@@ -569,7 +596,7 @@ class Reader:
 
         buf = self.bio.read(55)
         if not self.index_data_header_offsets:
-            size, = deserialize_uint32(buf, 0)
+            (size,) = deserialize_uint32(buf, 0)
             assert size == 47
             idx = 4
             connpos = -1
@@ -581,7 +608,8 @@ class Reader:
                     idx += 8
                 elif char == 114:  # ord(b'r')
                     if (ver := buf[idx + 8]) != 1:
-                        raise ReaderError(f'IDXDATA version {ver} is not supported.')
+                        msg = f'IDXDATA version {ver} is not supported.'
+                        raise ReaderError(msg)
                     idx += 12
                 elif char == 110:  # ord(b'n')
                     connpos = idx + 9
@@ -593,9 +621,9 @@ class Reader:
             self.index_data_header_offsets = (connpos, countpos)
         connpos, countpos = self.index_data_header_offsets
 
-        conn, = deserialize_uint32(buf, connpos)
-        count, = deserialize_uint32(buf, countpos)
-        size, = deserialize_uint32(buf, 51)
+        (conn,) = deserialize_uint32(buf, connpos)
+        (count,) = deserialize_uint32(buf, countpos)
+        (size,) = deserialize_uint32(buf, 51)
         assert size == count * 12
 
         index = indexes[conn]
@@ -603,15 +631,15 @@ class Reader:
         idx = 0
         while idx < size:
             time = deserialize_uint32(buf, idx)[0] * 10**9 + deserialize_uint32(buf, idx + 4)[0]
-            offset, = deserialize_uint32(buf, idx + 8)
+            (offset,) = deserialize_uint32(buf, idx + 8)
             idx += 12
             index.append(IndexData(time, pos, offset))
 
     def messages(
         self,
         connections: Iterable[Connection] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
@@ -629,7 +657,8 @@ class Reader:
 
         """
         if not self.bio:
-            raise ReaderError('Rosbag is not open.')
+            msg = 'Rosbag is not open.'
+            raise ReaderError(msg)
 
         if not connections:
             connections = self.connections
@@ -662,23 +691,24 @@ class Reader:
                 chunk.seek(read_uint32(chunk), os.SEEK_CUR)
 
             if have != RecordType.MSGDATA:
-                raise ReaderError('Expected to find message data.')
+                msg = 'Expected to find message data.'
+                raise ReaderError(msg)
 
             data = read_bytes(chunk, read_uint32(chunk))
             connection = connmap[header.get_uint32('conn')]
             assert entry.time == header.get_time('time')
             yield connection, entry.time, data
 
-    def __enter__(self) -> Reader:
+    def __enter__(self) -> Self:
         """Open rosbag1 when entering contextmanager."""
         self.open()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Close rosbag1 when exiting contextmanager."""
         self.close()

@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import functools
+import operator
 from contextlib import suppress
 from dataclasses import dataclass
 from heapq import merge
@@ -11,8 +13,14 @@ from itertools import groupby
 from typing import TYPE_CHECKING
 
 from rosbags.interfaces import TopicInfo
-from rosbags.rosbag1 import Reader as Reader1, ReaderError as ReaderError1
-from rosbags.rosbag2 import Reader as Reader2, ReaderError as ReaderError2
+from rosbags.rosbag1 import (
+    Reader as Reader1,
+    ReaderError as ReaderError1,
+)
+from rosbags.rosbag2 import (
+    Reader as Reader2,
+    ReaderError as ReaderError2,
+)
 from rosbags.serde import deserialize_cdr, deserialize_ros1
 from rosbags.typesys import get_types_from_msg, register_types, types
 from rosbags.typesys.idl import get_types_from_idl
@@ -21,16 +29,21 @@ if TYPE_CHECKING:
     import sys
     from pathlib import Path
     from types import TracebackType
-    from typing import Any, Generator, Iterable, Literal, Optional, Sequence, Type, Union
+    from typing import Any, Generator, Iterable, Literal, Sequence
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
+
+    if sys.version_info >= (3, 10):
+        from typing import TypeGuard
+    else:
+        from typing_extensions import TypeGuard
 
     from rosbags.interfaces import Connection
     from rosbags.typesys.base import Typesdict
     from rosbags.typesys.register import Typestore
-
-    if sys.version_info < (3, 10):
-        from typing_extensions import TypeGuard
-    else:
-        from typing import TypeGuard
 
 
 class AnyReaderError(Exception):
@@ -40,7 +53,7 @@ class AnyReaderError(Exception):
 ReaderErrors = (ReaderError1, ReaderError2)
 
 
-def is_reader1(val: Union[Sequence[Reader1], Sequence[Reader2]]) -> TypeGuard[Sequence[Reader1]]:
+def is_reader1(val: Sequence[Reader1] | Sequence[Reader2]) -> TypeGuard[Sequence[Reader1]]:
     """Determine wether all items are Reader1 instances."""
     return all(isinstance(x, Reader1) for x in val)
 
@@ -59,10 +72,10 @@ class SimpleTypeStore:
 class AnyReader:
     """Unified rosbag1 and rosbag2 reader."""
 
-    readers: Union[Sequence[Reader1], Sequence[Reader2]]
+    readers: Sequence[Reader1] | Sequence[Reader2]
     typestore: Typestore
 
-    def __init__(self, paths: Sequence[Path]):
+    def __init__(self, paths: Sequence[Path]) -> None:
         """Initialize RosbagReader.
 
         Opens one or multiple rosbag1 recordings or a single rosbag2 recording.
@@ -75,13 +88,16 @@ class AnyReader:
 
         """
         if not paths:
-            raise AnyReaderError('Must call with at least one path.')
+            msg = 'Must call with at least one path.'
+            raise AnyReaderError(msg)
 
         if len(paths) > 1 and any((x / 'metadata.yaml').exists() for x in paths):
-            raise AnyReaderError('Opening of multiple rosbag2 recordings is not supported.')
+            msg = 'Opening of multiple rosbag2 recordings is not supported.'
+            raise AnyReaderError(msg)
 
         if missing := [x for x in paths if not x.exists()]:
-            raise AnyReaderError(f'The following paths are missing: {missing!r}')
+            msg = f'The following paths are missing: {missing!r}'
+            raise AnyReaderError(msg)
 
         self.paths = paths
         self.is2 = (paths[0] / 'metadata.yaml').exists()
@@ -170,16 +186,16 @@ class AnyReader:
                 reader.close()
         self.isopen = False
 
-    def __enter__(self) -> AnyReader:
+    def __enter__(self) -> Self:
         """Open rosbags when entering contextmanager."""
         self.open()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Close rosbags when exiting contextmanager."""
         self.close()
@@ -223,7 +239,7 @@ class AnyReader:
                 msgtypes.pop() if len(msgtypes := {x.msgtype for x in infos}) == 1 else None,
                 msgdefs.pop() if len(msgdefs := {x.msgdef for x in infos}) == 1 else None,
                 sum(x.msgcount for x in infos),
-                sum((x.connections for x in infos), []),
+                functools.reduce(operator.iadd, (x.connections for x in infos), []),
             )
 
         return {
@@ -239,8 +255,8 @@ class AnyReader:
     def messages(
         self,
         connections: Iterable[Any] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Any, int, bytes], None, None]:
         """Read messages from bags.
 
@@ -256,7 +272,7 @@ class AnyReader:
         """
         assert self.isopen
 
-        def get_owner(connection: Connection) -> Union[Reader1, Reader2]:
+        def get_owner(connection: Connection) -> Reader1 | Reader2:
             assert isinstance(connection.owner, (Reader1, Reader2))
             return connection.owner
 

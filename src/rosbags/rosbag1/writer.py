@@ -21,8 +21,14 @@ from rosbags.typesys.msg import denormalize_msgtype, generate_msgdef
 from .reader import RecordType
 
 if TYPE_CHECKING:
+    import sys
     from types import TracebackType
-    from typing import BinaryIO, Callable, Literal, Optional, Type, Union
+    from typing import BinaryIO, Callable, Literal
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 
 class WriterError(Exception):
@@ -102,7 +108,7 @@ class Header(Dict[str, Any]):
         """
         self[name] = serialize_time(value)
 
-    def write(self, dst: BinaryIO, opcode: Optional[RecordType] = None) -> int:
+    def write(self, dst: BinaryIO, opcode: RecordType | None = None) -> int:
         """Write to file handle.
 
         Args:
@@ -116,7 +122,7 @@ class Header(Dict[str, Any]):
         data = b''
 
         if opcode:
-            keqv = 'op='.encode() + serialize_uint8(opcode)
+            keqv = b'op=' + serialize_uint8(opcode)
             data += serialize_uint32(len(keqv)) + keqv
 
         for key, value in self.items():
@@ -142,7 +148,7 @@ class Writer:
         BZ2 = auto()
         LZ4 = auto()
 
-    def __init__(self, path: Union[Path, str]):
+    def __init__(self, path: Path | str) -> None:
         """Initialize writer.
 
         Args:
@@ -155,8 +161,9 @@ class Writer:
         path = Path(path)
         self.path = path
         if path.exists():
-            raise WriterError(f'{path} exists already, not overwriting.')
-        self.bio: Optional[BinaryIO] = None
+            msg = f'{path} exists already, not overwriting.'
+            raise WriterError(msg)
+        self.bio: BinaryIO | None = None
         self.compressor: Callable[[bytes], bytes] = lambda x: x
         self.compression_format = 'none'
         self.connections: list[Connection] = []
@@ -178,12 +185,17 @@ class Writer:
 
         """
         if self.bio:
-            raise WriterError(f'Cannot set compression, bag {self.path} already open.')
+            msg = f'Cannot set compression, bag {self.path} already open.'
+            raise WriterError(msg)
 
         self.compression_format = fmt.name.lower()
 
-        bz2: Callable[[bytes], bytes] = lambda x: bz2_compress(x, 9)
-        lz4: Callable[[bytes], bytes] = lambda x: lz4_compress(x, 0)  # type: ignore
+        def bz2(x: bytes) -> bytes:
+            return bz2_compress(x, 9)
+
+        def lz4(x: bytes) -> bytes:
+            return lz4_compress(x, 0)  # type: ignore[no-any-return]
+
         self.compressor = {
             'bz2': bz2,
             'lz4': lz4,
@@ -194,7 +206,8 @@ class Writer:
         try:
             self.bio = self.path.open('xb')
         except FileExistsError:
-            raise WriterError(f'{self.path} exists already, not overwriting.') from None
+            msg = f'{self.path} exists already, not overwriting.'
+            raise WriterError(msg) from None
 
         assert self.bio
         self.bio.write(b'#ROSBAG V2.0\n')
@@ -210,10 +223,10 @@ class Writer:
         self,
         topic: str,
         msgtype: str,
-        msgdef: Optional[str] = None,
-        md5sum: Optional[str] = None,
-        callerid: Optional[str] = None,
-        latching: Optional[int] = None,
+        msgdef: str | None = None,
+        md5sum: str | None = None,
+        callerid: str | None = None,
+        latching: int | None = None,
     ) -> Connection:
         """Add a connection.
 
@@ -235,7 +248,8 @@ class Writer:
 
         """
         if not self.bio:
-            raise WriterError('Bag was not opened.')
+            msg = 'Bag was not opened.'
+            raise WriterError(msg)
 
         if msgdef is None or md5sum is None:
             msgdef, md5sum = generate_msgdef(msgtype)
@@ -257,9 +271,8 @@ class Writer:
         )
 
         if any(x[1:] == connection[1:] for x in self.connections):
-            raise WriterError(
-                f'Connections can only be added once with same arguments: {connection!r}.',
-            )
+            msg = f'Connections can only be added once with same arguments: {connection!r}.'
+            raise WriterError(msg)
 
         bio = self.chunks[-1].data
         self.write_connection(connection, bio)
@@ -280,10 +293,12 @@ class Writer:
 
         """
         if not self.bio:
-            raise WriterError('Bag was not opened.')
+            msg = 'Bag was not opened.'
+            raise WriterError(msg)
 
         if connection not in self.connections:
-            raise WriterError(f'There is no connection {connection!r}.') from None
+            msg = f'There is no connection {connection!r}.'
+            raise WriterError(msg) from None
 
         chunk = self.chunks[-1]
         chunk.connections[connection.id].append((timestamp, chunk.data.tell()))
@@ -393,16 +408,16 @@ class Writer:
 
         self.bio.close()
 
-    def __enter__(self) -> Writer:
+    def __enter__(self) -> Self:
         """Open rosbag1 when entering contextmanager."""
         self.open()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         """Close rosbag1 when exiting contextmanager."""
         self.close()

@@ -98,7 +98,7 @@ def compile_lines(lines: list[str]) -> ModuleType:
     spec = spec_from_loader('tmpmod', loader=None)
     assert spec
     module = module_from_spec(spec)
-    exec('\n'.join(lines), module.__dict__)
+    exec('\n'.join(lines), module.__dict__)  # noqa: S102
     return module
 
 

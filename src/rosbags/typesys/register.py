@@ -13,7 +13,7 @@ from . import types
 from .base import TypesysError
 
 if TYPE_CHECKING:
-    from typing import Any, Protocol, Union
+    from typing import Any, Protocol
 
     from .base import Fielddesc, Typesdict
 
@@ -51,7 +51,7 @@ def get_typehint(desc: Fielddesc) -> str:
 
     assert desc[0] == 3 or desc[0] == 4
     sub = desc[1][0]
-    sub1: Union[str, tuple[str, int]] = sub[1]
+    sub1: str | tuple[str, int] = sub[1]
     if isinstance(sub1, str) and (sub1 == 'octet' or INTLIKE.match(sub1)):
         typ = {
             'bool': 'bool_',
@@ -79,7 +79,7 @@ def generate_python_code(typs: Typesdict) -> str:
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""ROS2 message types."""',
         '',
-        '# flake8: noqa N801',
+        '# ruff: noqa',
         '',
         'from __future__ import annotations',
         '',
@@ -174,7 +174,7 @@ def register_types(typs: Typesdict, typestore: Typestore = types) -> None:
     assert spec
     module = module_from_spec(spec)
     sys.modules[name] = module
-    exec(code, module.__dict__)
+    exec(code, module.__dict__)  # noqa: S102
     fielddefs: Typesdict = module.FIELDDEFS
 
     for name, (_, fields) in fielddefs.items():
@@ -183,9 +183,10 @@ def register_types(typs: Typesdict, typestore: Typestore = types) -> None:
         if have := typestore.FIELDDEFS.get(name):
             _, have_fields = have
             have_fields = [(x[0].lower(), x[1]) for x in have_fields]
-            fields = [(x[0].lower(), x[1]) for x in fields]
-            if have_fields != fields:
-                raise TypesysError(f'Type {name!r} is already present with different definition.')
+            new_fields = [(x[0].lower(), x[1]) for x in fields]
+            if have_fields != new_fields:
+                msg = f'Type {name!r} is already present with different definition.'
+                raise TypesysError(msg)
 
     for name in fielddefs.keys() - typestore.FIELDDEFS.keys():
         pyname = name.replace('/', '__')

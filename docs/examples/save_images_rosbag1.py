@@ -1,12 +1,14 @@
 """Example: Save images as rosbag1."""
 
-import numpy
+import numpy as np
 
 from rosbags.rosbag1 import Writer
 from rosbags.serde import serialize_ros1
-from rosbags.typesys.types import builtin_interfaces__msg__Time as Time
-from rosbags.typesys.types import sensor_msgs__msg__CompressedImage as CompressedImage
-from rosbags.typesys.types import std_msgs__msg__Header as Header
+from rosbags.typesys.types import (
+    builtin_interfaces__msg__Time as Time,
+    sensor_msgs__msg__CompressedImage as CompressedImage,
+    std_msgs__msg__Header as Header,
+)
 
 TOPIC = '/camera'
 FRAMEID = 'map'
@@ -33,7 +35,7 @@ def save_images() -> None:
                     frame_id=FRAMEID,
                 ),
                 format='jpeg',  # could also be 'png'
-                data=numpy.fromfile(path, dtype=numpy.uint8),
+                data=np.fromfile(path, dtype=np.uint8),
             )
 
             writer.write(

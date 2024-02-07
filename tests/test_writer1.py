@@ -13,7 +13,6 @@ from rosbags.rosbag1 import Writer, WriterError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional
 
 
 def test_no_overwrite(tmp_path: Path) -> None:
@@ -188,7 +187,7 @@ def test_compression_errors(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
-def test_compression_modes(tmp_path: Path, fmt: Optional[Writer.CompressionFormat]) -> None:
+def test_compression_modes(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
     """Test compression modes."""
     path = tmp_path / 'test.bag'
     writer = Writer(path)
@@ -202,7 +201,7 @@ def test_compression_modes(tmp_path: Path, fmt: Optional[Writer.CompressionForma
 
 
 @pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
-def test_chunksize_is_correct(tmp_path: Path, fmt: Optional[Writer.CompressionFormat]) -> None:
+def test_chunksize_is_correct(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
     """Test chunksize is correct."""
     path = tmp_path / 'test1.bag'
     writer = Writer(path)

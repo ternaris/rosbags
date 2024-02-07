@@ -29,8 +29,8 @@ def remove_topic(src: Path, dst: Path, topic: str) -> None:
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
-                ext.serialization_format,
-                ext.offered_qos_profiles,
+                serialization_format=ext.serialization_format,
+                offered_qos_profiles=ext.offered_qos_profiles,
             )
 
         rconns = [reader.connections[x] for x in conn_map]

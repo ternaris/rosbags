@@ -7,21 +7,25 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2
-from rosbags.rosbag1 import Reader as Reader1
-from rosbags.rosbag1 import ReaderError as ReaderError1
-from rosbags.rosbag1 import Writer as Writer1
-from rosbags.rosbag1 import WriterError as WriterError1
-from rosbags.rosbag2 import Reader as Reader2
-from rosbags.rosbag2 import ReaderError as ReaderError2
-from rosbags.rosbag2 import Writer as Writer2
-from rosbags.rosbag2 import WriterError as WriterError2
+from rosbags.rosbag1 import (
+    Reader as Reader1,
+    ReaderError as ReaderError1,
+    Writer as Writer1,
+    WriterError as WriterError1,
+)
+from rosbags.rosbag2 import (
+    Reader as Reader2,
+    ReaderError as ReaderError2,
+    Writer as Writer2,
+    WriterError as WriterError2,
+)
 from rosbags.serde import cdr_to_ros1, ros1_to_cdr
 from rosbags.typesys import get_types_from_msg, register_types
 from rosbags.typesys.msg import generate_msgdef
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional, Sequence
+    from typing import Sequence
 
 LATCH = """
 - history: 3
@@ -124,7 +128,8 @@ def convert_1to2(
             if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
         ]
         if not connections:
-            raise ConverterError('No connections left for conversion.')
+            msg = 'No connections left for conversion.'
+            raise ConverterError(msg)
         for rconn in connections:
             candidate = upgrade_connection(rconn)
             assert isinstance(candidate.ext, ConnectionExtRosbag2)
@@ -147,8 +152,8 @@ def convert_1to2(
             connmap[rconn.id] = conn
 
         for rconn, timestamp, data in reader.messages(connections=connections):
-            data = ros1_to_cdr(data, rconn.msgtype)
-            writer.write(connmap[rconn.id], timestamp, data)
+            cdrdata = ros1_to_cdr(data, rconn.msgtype)
+            writer.write(connmap[rconn.id], timestamp, cdrdata)
 
 
 def convert_2to1(
@@ -176,7 +181,8 @@ def convert_2to1(
             if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
         ]
         if not connections:
-            raise ConverterError('No connections left for conversion.')
+            msg = 'No connections left for conversion.'
+            raise ConverterError(msg)
         for rconn in connections:
             candidate = downgrade_connection(rconn)
             assert isinstance(candidate.ext, ConnectionExtRosbag1)
@@ -199,13 +205,13 @@ def convert_2to1(
             connmap[rconn.id] = conn
 
         for rconn, timestamp, data in reader.messages(connections=connections):
-            data = cdr_to_ros1(data, rconn.msgtype)
-            writer.write(connmap[rconn.id], timestamp, data)
+            ros1data = cdr_to_ros1(data, rconn.msgtype)
+            writer.write(connmap[rconn.id], timestamp, ros1data)
 
 
 def convert(
     src: Path,
-    dst: Optional[Path],
+    dst: Path | None,
     exclude_topics: Sequence[str] = (),
     include_topics: Sequence[str] = (),
 ) -> None:
@@ -225,14 +231,18 @@ def convert(
     upgrade = src.suffix == '.bag'
     dst = dst if dst else src.with_suffix('' if upgrade else '.bag')
     if dst.exists():
-        raise ConverterError(f'Output path {str(dst)!r} exists already.')
+        msg = f'Output path {str(dst)!r} exists already.'
+        raise ConverterError(msg)
     func = convert_1to2 if upgrade else convert_2to1
 
     try:
         func(src, dst, exclude_topics, include_topics)
     except (ReaderError1, ReaderError2) as err:
-        raise ConverterError(f'Reading source bag: {err}') from err
+        msg = f'Reading source bag: {err}'
+        raise ConverterError(msg) from err
     except (WriterError1, WriterError2) as err:
-        raise ConverterError(f'Writing destination bag: {err}') from err
-    except Exception as err:
-        raise ConverterError(f'Converting rosbag: {err!r}') from err
+        msg = f'Writing destination bag: {err}'
+        raise ConverterError(msg) from err
+    except Exception as err:  # noqa: BLE001
+        msg = f'Converting rosbag: {err!r}'
+        raise ConverterError(msg) from err

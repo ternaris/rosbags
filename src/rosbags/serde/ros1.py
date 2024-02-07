@@ -15,20 +15,18 @@ import sys
 from itertools import tee
 from typing import TYPE_CHECKING, Iterator, cast
 
-from .typing import Field
 from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
 
 if TYPE_CHECKING:
-    from typing import Union
 
-    from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize
+    from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize, Field
 
 
 def generate_ros1_to_cdr(
     fields: list[Field],
     typename: str,
     copy: bool,
-) -> Union[Bitcvt, BitcvtSize]:
+) -> Bitcvt | BitcvtSize:
     """Generate ROS1 to CDR conversion function.
 
     Args:
@@ -180,14 +178,14 @@ def generate_ros1_to_cdr(
             aligned = anext_before
 
     lines.append('  return ipos, opos')
-    return getattr(compile_lines(lines), funcname)  # type: ignore
+    return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
 def generate_cdr_to_ros1(
     fields: list[Field],
     typename: str,
     copy: bool,
-) -> Union[Bitcvt, BitcvtSize]:
+) -> Bitcvt | BitcvtSize:
     """Generate CDR to ROS1 conversion function.
 
     Args:
@@ -337,7 +335,7 @@ def generate_cdr_to_ros1(
             aligned = anext_before
 
     lines.append('  return ipos, opos')
-    return getattr(compile_lines(lines), funcname)  # type: ignore
+    return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
 def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSize, int]:
@@ -392,8 +390,7 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
             if subdesc.valtype == Valtype.BASE:
                 if subdesc.args[0] == 'string':
                     lines.append(f'  val = message.{fieldname}')
-                    for idx in range(length):
-                        lines.append(f'  pos += 4 + len(val[{idx}].encode())')
+                    lines.extend(f'  pos += 4 + len(val[{idx}].encode())' for idx in range(length))
                     is_stat = False
                 else:
                     lines.append(f'  pos += {length * SIZEMAP[subdesc.args]}')
@@ -410,8 +407,9 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
                         f'  func = get_msgdef("{subdesc.args.name}", typestore).getsize_ros1',
                     )
                     lines.append(f'  val = message.{fieldname}')
-                    for idx in range(length):
-                        lines.append(f'  pos = func(pos, val[{idx}], typestore)')
+                    lines.extend(
+                        f'  pos = func(pos, val[{idx}], typestore)' for idx in range(length)
+                    )
                     is_stat = False
         else:
             assert desc.valtype == Valtype.SEQUENCE
@@ -526,8 +524,9 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 assert subdesc.valtype == Valtype.MESSAGE
                 name = subdesc.args.name
                 lines.append(f'  func = get_msgdef("{name}", typestore).serialize_ros1')
-                for idx in range(length):
-                    lines.append(f'  pos = func(rawdata, pos, val[{idx}], typestore)')
+                lines.extend(
+                    f'  pos = func(rawdata, pos, val[{idx}], typestore)' for idx in range(length)
+                )
         else:
             assert desc.valtype == Valtype.SEQUENCE
             lines.append('  pack_int32_le(rawdata, pos, len(val))')
@@ -557,7 +556,7 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 lines.append('    pos = func(rawdata, pos, item, typestore)')
 
     lines.append('  return pos')
-    return compile_lines(lines).serialize_ros1  # type: ignore
+    return compile_lines(lines).serialize_ros1  # type: ignore[no-any-return]
 
 
 def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
@@ -691,4 +690,4 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
                 lines.append('  values.append(value)')
 
     lines.append('  return cls(*values), pos')
-    return compile_lines(lines).deserialize_ros1  # type: ignore
+    return compile_lines(lines).deserialize_ros1  # type: ignore[no-any-return]

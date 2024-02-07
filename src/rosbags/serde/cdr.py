@@ -15,11 +15,10 @@ import sys
 from itertools import tee
 from typing import TYPE_CHECKING, Iterator, cast
 
-from .typing import Field
 from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
 
 if TYPE_CHECKING:
-    from .typing import CDRDeser, CDRSer, CDRSerSize
+    from .typing import CDRDeser, CDRSer, CDRSerSize, Field
 
 
 def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
@@ -299,7 +298,7 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
     lines.append('  return pos')
-    return compile_lines(lines).serialize_cdr  # type: ignore
+    return compile_lines(lines).serialize_cdr  # type: ignore[no-any-return]
 
 
 def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
@@ -457,4 +456,4 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
             aligned = anext_before
 
     lines.append('  return cls(*values), pos')
-    return compile_lines(lines).deserialize_cdr  # type: ignore
+    return compile_lines(lines).deserialize_cdr  # type: ignore[no-any-return]

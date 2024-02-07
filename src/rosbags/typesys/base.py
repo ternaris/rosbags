@@ -8,6 +8,7 @@ import json
 import keyword
 from enum import IntEnum, auto
 from hashlib import sha256
+from itertools import starmap
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -91,9 +92,10 @@ def parse_message_definition(visitor: Visitor, text: str) -> Typesdict:
         pos = rule.skip_ws(text, 0)
         npos, trees = rule.parse(text, pos)
         assert npos == len(text), f'Could not parse: {text!r}'
-        return visitor.visit(trees)  # type: ignore
-    except Exception as err:
-        raise TypesysError(f'Could not parse: {text!r}') from err
+        return visitor.visit(trees)  # type: ignore[no-any-return]
+    except Exception as err:  # noqa: BLE001
+        msg = f'Could not parse: {text!r}'
+        raise TypesysError(msg) from err
 
 
 TIDMAP = {
@@ -159,16 +161,15 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
             assert isinstance(rest, str)
             subtype = rest
             get_struct(subtype)
-        else:
-            if isinstance(rest, tuple):
-                assert isinstance(rest[0], str)
-                if rest[1]:
-                    string_capacity = rest[1]
-                    tid = increment + TIDMAP['bounded_string']
-                else:
-                    tid = increment + TIDMAP['string']
+        elif isinstance(rest, tuple):
+            assert isinstance(rest[0], str)
+            if rest[1]:
+                string_capacity = rest[1]
+                tid = increment + TIDMAP['bounded_string']
             else:
-                tid = increment + TIDMAP[rest]
+                tid = increment + TIDMAP['string']
+        else:
+            tid = increment + TIDMAP[rest]
 
         return {
             'name': name,
@@ -186,10 +187,13 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
         if typ not in struct_cache:
             struct_cache[typ] = {
                 'type_name': typ,
-                'fields': [
-                    get_field(x, y) for x, y in typestore.FIELDDEFS[typ][1] or
-                    [('structure_needs_at_least_one_member', (1, 'uint8'))]
-                ],
+                'fields': list(
+                    starmap(
+                        get_field,
+                        typestore.FIELDDEFS[typ][1]
+                        or [('structure_needs_at_least_one_member', (1, 'uint8'))],
+                    )
+                ),
             }
         return struct_cache[typ]
 

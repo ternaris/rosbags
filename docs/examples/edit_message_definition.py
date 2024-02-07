@@ -11,10 +11,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from build.lib.rosbags.serde.serdes import serialize_ros1
-
 from rosbags.highlevel.anyreader import AnyReader, SimpleTypeStore
 from rosbags.rosbag1 import Writer
+from rosbags.serde.serdes import serialize_ros1
 from rosbags.typesys import get_types_from_msg
 from rosbags.typesys.msg import gendefhash
 from rosbags.typesys.register import register_types
@@ -56,7 +55,7 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
         get_types_from_msg(CAMERAINFO_DEFINITION, 'sensor_msgs/msg/CameraInfo'),
         typestore,
     )
-    CameraInfo = typestore.sensor_msgs__msg__CameraInfo  # type: ignore[attr-defined]
+    CameraInfo = typestore.sensor_msgs__msg__CameraInfo  # type: ignore[attr-defined] # noqa: N806
 
     with AnyReader([src]) as reader, Writer(dst) as writer:
         conn_map = {}
@@ -101,6 +100,6 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
                     binning_y=msg.binning_y,
                     roi=msg.roi,
                 )
-                data = serialize_ros1(converted_msg, wconn.msgtype, typestore)
+                outdata = serialize_ros1(converted_msg, wconn.msgtype, typestore)
 
-            writer.write(wconn, timestamp, data)
+            writer.write(wconn, timestamp, outdata)

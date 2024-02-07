@@ -16,7 +16,7 @@ from .errors import ReaderError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import BinaryIO, Callable, Generator, Iterable, Optional
+    from typing import BinaryIO, Callable, Generator, Iterable
 
     from rosbags.interfaces import Connection
 
@@ -85,8 +85,8 @@ class Msg(NamedTuple):
 
     timestamp: int
     offset: int
-    connection: Optional[Connection]
-    data: Optional[bytes]
+    connection: Connection | None
+    data: bytes | None
 
 
 def read_sized(bio: BinaryIO) -> bytes:
@@ -111,7 +111,7 @@ def read_string(bio: BinaryIO) -> str:
 
 DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
     '': lambda x, _: x,
-    'lz4': lambda x, _: lz4_decompress(x),  # type: ignore
+    'lz4': lambda x, _: lz4_decompress(x),
     'zstd': zstandard.ZstdDecompressor().decompress,
 }
 
@@ -157,39 +157,44 @@ def msgsrc(
 class MCAPFile:
     """Mcap format reader."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         """Initialize."""
         self.path = path
-        self.bio: Optional[BinaryIO] = None
+        self.bio: BinaryIO | None = None
         self.data_start = 0
         self.data_end = 0
         self.schemas: dict[int, Schema] = {}
         self.channels: dict[int, Channel] = {}
         self.chunks: list[ChunkInfo] = []
-        self.statistics: Optional[Statistics] = None
+        self.statistics: Statistics | None = None
 
     def open(self) -> None:
         """Open MCAP."""
         try:
             self.bio = self.path.open('rb')
         except OSError as err:
-            raise ReaderError(f'Could not open file {str(self.path)!r}: {err.strerror}.') from err
+            msg = f'Could not open file {str(self.path)!r}: {err.strerror}.'
+            raise ReaderError(msg) from err
 
         magic = self.bio.read(8)
         if not magic:
-            raise ReaderError(f'File {str(self.path)!r} seems to be empty.')
+            msg = f'File {str(self.path)!r} seems to be empty.'
+            raise ReaderError(msg)
 
         if magic != b'\x89MCAP0\r\n':
-            raise ReaderError('File magic is invalid.')
+            msg = 'File magic is invalid.'
+            raise ReaderError(msg)
 
         op_ = ord(self.bio.read(1))
         if op_ != 0x01:
-            raise ReaderError('Unexpected record.')
+            msg = 'Unexpected record.'
+            raise ReaderError(msg)
 
         recio = BytesIO(read_sized(self.bio))
         profile = read_string(recio)
         if profile != 'ros2':
-            raise ReaderError('Profile is not ros2.')
+            msg = 'Profile is not ros2.'
+            raise ReaderError(msg)
         self.data_start = self.bio.tell()
 
         self.bio.seek(-37, 2)
@@ -197,7 +202,8 @@ class MCAPFile:
         data = self.bio.read()
         magic = data[-8:]
         if magic != b'\x89MCAP0\r\n':
-            raise ReaderError('File end magic is invalid.')
+            msg = 'File end magic is invalid.'
+            raise ReaderError(msg)
 
         assert len(data) == 37
         assert data[0:9] == b'\x02\x14\x00\x00\x00\x00\x00\x00\x00', data[0:9]
@@ -222,7 +228,7 @@ class MCAPFile:
         while True:
             op_ = ord(bio.read(1))
 
-            if op_ in (0x02, 0x0e):
+            if op_ in {0x02, 0x0e}:
                 break
 
             if op_ == 0x03:
@@ -249,7 +255,7 @@ class MCAPFile:
 
             elif op_ == 0x08:
                 bio.seek(8, 1)
-                chunk = ChunkInfo(  # type: ignore
+                chunk = ChunkInfo(  # type: ignore[call-arg]
                     *unpack_from('<QQQQ', bio.read(32), 0),
                     {
                         x[0]: x[1] for x in
@@ -285,7 +291,7 @@ class MCAPFile:
                         bio.read(42),
                         0,
                     ),
-                    read_bytes(bio),  # type: ignore
+                    read_bytes(bio),  # type: ignore[call-arg]
                 )
 
             elif op_ == 0x0d:
@@ -358,8 +364,8 @@ class MCAPFile:
     def messages_scan(
         self,
         connections: Iterable[Connection],
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages by scanning whole bag."""
         assert self.bio
@@ -451,8 +457,8 @@ class MCAPFile:
     def messages(
         self,
         connections: Iterable[Connection],
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
@@ -512,7 +518,7 @@ class ReaderMcap:
         self,
         paths: Iterable[Path],
         connections: Iterable[Connection],
-    ):
+    ) -> None:
         """Set up storage reader.
 
         Args:
@@ -547,8 +553,8 @@ class ReaderMcap:
     def messages(
         self,
         connections: Iterable[Connection] = (),
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
+        start: int | None = None,
+        stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 

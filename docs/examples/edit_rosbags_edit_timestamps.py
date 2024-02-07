@@ -28,8 +28,8 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
-                ext.serialization_format,
-                ext.offered_qos_profiles,
+                serialization_format=ext.serialization_format,
+                offered_qos_profiles=ext.offered_qos_profiles,
             )
 
         for conn, timestamp, data in reader.messages():
@@ -39,6 +39,6 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
                 headstamp = head.stamp.sec * 10**9 + head.stamp.nanosec + offset
                 head.stamp.sec = headstamp // 10**9
                 head.stamp.nanosec = headstamp % 10**9
-                data = serialize_cdr(msg, conn.msgtype)
+                outdata = serialize_cdr(msg, conn.msgtype)
 
-            writer.write(conn_map[conn.id], timestamp + offset, data)
+            writer.write(conn_map[conn.id], timestamp + offset, outdata)

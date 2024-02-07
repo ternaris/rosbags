@@ -61,8 +61,9 @@ def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
             if entry[0] == int(Valtype.SEQUENCE):
                 assert not isinstance(entry[1][0], str)
                 return Descriptor(Valtype.SEQUENCE, (fixup(entry[1][0]), entry[1][1]))
+            msg = f'Unknown field type {entry[0]!r} encountered.'
             raise SerdeError(  # pragma: no cover
-                f'Unknown field type {entry[0]!r} encountered.',
+                msg,
             )
 
         fields = [Field(name, fixup(desc)) for name, desc in entries]
@@ -84,9 +85,9 @@ def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
             getsize_ros1,
             generate_serialize_ros1(fields, typename),
             generate_deserialize_ros1(fields, typename),
-            generate_ros1_to_cdr(fields, typename, False),  # type: ignore
-            generate_ros1_to_cdr(fields, typename, True),  # type: ignore
-            generate_cdr_to_ros1(fields, typename, False),  # type: ignore
-            generate_cdr_to_ros1(fields, typename, True),  # type: ignore
+            generate_ros1_to_cdr(fields, typename, False),  # type: ignore[arg-type]
+            generate_ros1_to_cdr(fields, typename, True),  # type: ignore[arg-type]
+            generate_cdr_to_ros1(fields, typename, False),  # type: ignore[arg-type]
+            generate_cdr_to_ros1(fields, typename, True),  # type: ignore[arg-type]
         )
     return cache[typename]

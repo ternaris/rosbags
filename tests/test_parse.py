@@ -364,14 +364,14 @@ def test_register_types() -> None:
     """Test type registeration."""
     assert 'foo' not in types.FIELDDEFS
     register_types({})
-    register_types({'foo': [[], [('b', (1, 'bool'))]]})  # type: ignore
+    register_types({'foo': [[], [('b', (1, 'bool'))]]})  # type: ignore[dict-item]
     assert 'foo' in types.FIELDDEFS
 
-    register_types({'std_msgs/msg/Header': [[], []]})  # type: ignore
+    register_types({'std_msgs/msg/Header': [[], []]})  # type: ignore[dict-item]
     assert len(types.FIELDDEFS['std_msgs/msg/Header'][1]) == 2
 
     with pytest.raises(TypesysError, match='different definition'):
-        register_types({'foo': [[], [('x', (1, 'bool'))]]})  # type: ignore
+        register_types({'foo': [[], [('x', (1, 'bool'))]]})  # type: ignore[dict-item]
 
 
 def test_generate_msgdef() -> None:

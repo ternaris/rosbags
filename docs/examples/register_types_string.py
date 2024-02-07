@@ -14,7 +14,9 @@ register_types(get_types_from_msg(STRIDX_MSG, 'custom_msgs/msg/StrIdx'))
 # Type import works only after the register_types call,
 # the classname is derived from the msgtype name above
 
-from rosbags.typesys.types import custom_msgs__msg__StrIdx as StrIdx  # type: ignore  # noqa
+from rosbags.typesys.types import (  # type: ignore[attr-defined]  # noqa: E402
+    custom_msgs__msg__StrIdx as StrIdx,
+)
 
 message = StrIdx(string='foo', index=42)
 

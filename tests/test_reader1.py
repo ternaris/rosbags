@@ -16,10 +16,10 @@ from rosbags.rosbag1.reader import IndexData
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Sequence, Union
+    from typing import Any, Sequence
 
 
-def ser(data: Union[dict[str, Any], bytes]) -> bytes:
+def ser(data: dict[str, Any] | bytes) -> bytes:
     """Serialize record header."""
     if isinstance(data, dict):
         fields = []
@@ -60,7 +60,7 @@ def create_message(
     cid: int = 1,
     time: int = 0,
     msg: int = 0,
-) -> tuple[dict[str, Union[bytes, int]], bytes]:
+) -> tuple[dict[str, bytes | int], bytes]:
     """Create message record."""
     return {
         'op': b'\x02',
@@ -114,8 +114,8 @@ def write_bag(
                             'count': 0,
                             'msgs': b'',
                         }
-                    index[conn]['count'] += 1  # type: ignore
-                    index[conn]['msgs'] += pack('<LLL', time, 0, offset)  # type: ignore
+                    index[conn]['count'] += 1  # type:ignore[operator]
+                    index[conn]['msgs'] += pack('<LLL', time, 0, offset)  # type: ignore[operator]
 
                     add = ser(head) + ser(data)
                     chunk_bytes += add
@@ -180,13 +180,13 @@ def test_indexdata() -> None:
     assert not x42_1_0 < x42_2_0
     assert x42_1_0 <= x42_2_0
     assert x42_1_0 == x42_2_0
-    assert not x42_1_0 != x42_2_0  # noqa
+    assert not x42_1_0 != x42_2_0  # noqa: SIM202
     assert x42_1_0 >= x42_2_0
     assert not x42_1_0 > x42_2_0
 
     assert x42_1_0 < x43_3_0
     assert x42_1_0 <= x43_3_0
-    assert not x42_1_0 == x43_3_0  # noqa
+    assert not x42_1_0 == x43_3_0  # noqa: SIM201
     assert x42_1_0 != x43_3_0
     assert not x42_1_0 >= x43_3_0
     assert not x42_1_0 > x43_3_0

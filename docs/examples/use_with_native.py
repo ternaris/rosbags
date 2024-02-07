@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
-import numpy
+import numpy as np
 
 if TYPE_CHECKING:
     from typing import Any
@@ -37,7 +37,7 @@ def to_native(msg: Any) -> Any:  # noqa: ANN401
             value = to_native(value)
         elif isinstance(value, list):
             value = [to_native(x) for x in value]
-        elif isinstance(value, numpy.ndarray):
+        elif isinstance(value, np.ndarray):
             value = value.tolist()
         fields[name] = value
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
         'rgb8',
         False,
         4 * 3,
-        numpy.zeros(4 * 4 * 3, dtype=numpy.uint8),
+        np.zeros(4 * 4 * 3, dtype=np.uint8),
     )
 
     native_image = to_native(image)
