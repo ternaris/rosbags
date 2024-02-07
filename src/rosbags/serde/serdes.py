@@ -18,11 +18,7 @@ if TYPE_CHECKING:
     from rosbags.typesys.register import Typestore
 
 
-def deserialize_cdr(
-    rawdata: bytes,
-    typename: str,
-    typestore: Typestore = types,
-) -> Any:  # noqa: ANN401
+def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore = types) -> Any:  # noqa: ANN401
     """Deserialize raw data into a message object.
 
     Args:
@@ -73,11 +69,7 @@ def serialize_cdr(
     return rawdata.toreadonly()
 
 
-def deserialize_ros1(
-    rawdata: bytes,
-    typename: str,
-    typestore: Typestore = types,
-) -> Any:  # noqa: ANN401
+def deserialize_ros1(rawdata: bytes, typename: str, typestore: Typestore = types) -> Any:  # noqa: ANN401
     """Deserialize raw data into a message object.
 
     Args:
@@ -96,11 +88,7 @@ def deserialize_ros1(
     return message
 
 
-def serialize_ros1(
-    message: object,
-    typename: str,
-    typestore: Typestore = types,
-) -> memoryview:
+def serialize_ros1(message: object, typename: str, typestore: Typestore = types) -> memoryview:
     """Serialize message object to bytes.
 
     Args:
@@ -138,13 +126,7 @@ def ros1_to_cdr(raw: bytes, typename: str, typestore: Typestore = types) -> memo
     """
     msgdef = get_msgdef(typename, typestore)
 
-    ipos, opos = msgdef.getsize_ros1_to_cdr(
-        raw,
-        0,
-        None,
-        0,
-        typestore,
-    )
+    ipos, opos = msgdef.getsize_ros1_to_cdr(raw, 0, None, 0, typestore)
     assert ipos == len(raw)
 
     raw = memoryview(raw)
@@ -152,13 +134,7 @@ def ros1_to_cdr(raw: bytes, typename: str, typestore: Typestore = types) -> memo
     rawdata = memoryview(bytearray(size))
     pack_into('BB', rawdata, 0, 0, True)
 
-    ipos, opos = msgdef.ros1_to_cdr(
-        raw,
-        0,
-        rawdata[4:],
-        0,
-        typestore,
-    )
+    ipos, opos = msgdef.ros1_to_cdr(raw, 0, rawdata[4:], 0, typestore)
     assert ipos == len(raw)
     assert opos + 4 == size
     return rawdata.toreadonly()
@@ -183,26 +159,14 @@ def cdr_to_ros1(raw: bytes, typename: str, typestore: Typestore = types) -> memo
 
     msgdef = get_msgdef(typename, typestore)
 
-    ipos, opos = msgdef.getsize_cdr_to_ros1(
-        raw[4:],
-        0,
-        None,
-        0,
-        typestore,
-    )
+    ipos, opos = msgdef.getsize_cdr_to_ros1(raw[4:], 0, None, 0, typestore)
     assert ipos + 4 + 3 >= len(raw)
 
     raw = memoryview(raw)
     size = opos
     rawdata = memoryview(bytearray(size))
 
-    ipos, opos = msgdef.cdr_to_ros1(
-        raw[4:],
-        0,
-        rawdata,
-        0,
-        typestore,
-    )
+    ipos, opos = msgdef.cdr_to_ros1(raw[4:], 0, rawdata, 0, typestore)
     assert ipos + 4 + 3 >= len(raw)
     assert opos == size
     return rawdata.toreadonly()

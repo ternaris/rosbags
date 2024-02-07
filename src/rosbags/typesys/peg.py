@@ -81,13 +81,13 @@ class RuleLiteral(Rule):
 
         """
         super().__init__(value, rules, whitespace, name)
-        self.value = value[1:-1].replace('\\\'', '\'')
+        self.value = value[1:-1].replace("\\'", "'")
 
     def parse(self, text: str, pos: int) -> tuple[int, Any]:
         """Apply rule at position."""
         value = self.value
         assert isinstance(value, str)
-        if text[pos:pos + len(value)] == value:
+        if text[pos : pos + len(value)] == value:
             npos = pos + len(value)
             npos = self.skip_ws(text, npos)
             return npos, (self.LIT, value)
@@ -302,9 +302,9 @@ def parse_grammar(
                 rule = collapse_tokens(stack[index:], rules, whitespace)
                 stack = stack[:index]
                 stack.append(rule)
-            elif len(tok) > 2 and tok[:2] == 'r\'':
+            elif len(tok) > 2 and tok[:2] == "r'":
                 stack.append(RuleRegex(tok, rules, whitespace))
-            elif tok[0] == '\'':
+            elif tok[0] == "'":
                 stack.append(RuleLiteral(tok, rules, whitespace))
             else:
                 stack.append(RuleToken(tok, rules, whitespace))

@@ -15,10 +15,7 @@ def guess_msgtype(path: Path) -> str:
 
 add_types = {}
 
-for pathstr in [
-    '/path/to/custom_msgs/msg/Speed.msg',
-    '/path/to/custom_msgs/msg/Accel.msg',
-]:
+for pathstr in ['/path/to/custom_msgs/msg/Speed.msg', '/path/to/custom_msgs/msg/Accel.msg']:
     msgpath = Path(pathstr)
     msgdef = msgpath.read_text(encoding='utf-8')
     add_types.update(get_types_from_msg(msgdef, guess_msgtype(msgpath)))

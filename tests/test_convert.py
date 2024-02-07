@@ -27,20 +27,21 @@ def test_cliwrapper(tmp_path: Path) -> None:
     (tmp_path / 'subdir').mkdir()
     (tmp_path / 'ros1.bag').write_text('')
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt']), \
-         pytest.raises(SystemExit):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt']
+    ), pytest.raises(SystemExit):
         main()
     assert not cvrt.called
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt', str(tmp_path / 'no.bag')]), \
-         pytest.raises(SystemExit):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'no.bag')]
+    ), pytest.raises(SystemExit):
         main()
     assert not cvrt.called
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag')]):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag')]
+    ):
         main()
     cvrt.assert_called_with(
         src=tmp_path / 'ros1.bag',
@@ -49,29 +50,21 @@ def test_cliwrapper(tmp_path: Path) -> None:
         include_topics=[],
     )
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'ros1.bag'),
-                                    '--dst',
-                                    str(tmp_path / 'subdir')]), \
-         pytest.raises(SystemExit):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag'), '--dst', str(tmp_path / 'subdir')]
+    ), pytest.raises(SystemExit):
         main()
     assert not cvrt.called
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'ros1.bag'),
-                                    '--dst',
-                                    str(tmp_path / 'ros2.bag')]), \
-         pytest.raises(SystemExit):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag'), '--dst', str(tmp_path / 'ros2.bag')]
+    ), pytest.raises(SystemExit):
         main()
     assert not cvrt.called
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'ros1.bag'),
-                                    '--dst',
-                                    str(tmp_path / 'target')]):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag'), '--dst', str(tmp_path / 'target')]
+    ):
         main()
     cvrt.assert_called_with(
         src=tmp_path / 'ros1.bag',
@@ -80,37 +73,29 @@ def test_cliwrapper(tmp_path: Path) -> None:
         include_topics=[],
     )
 
-    with patch.object(sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag')]), \
-         patch('builtins.print') as mock_print, \
-         patch('rosbags.convert.__main__.convert', side_effect=ConverterError('exc')), \
-         pytest.raises(SystemExit):
+    with patch.object(sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag')]), patch(
+        'builtins.print'
+    ) as mock_print, patch(
+        'rosbags.convert.__main__.convert', side_effect=ConverterError('exc')
+    ), pytest.raises(SystemExit):
         main()
     mock_print.assert_called_with('ERROR: exc')
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt', str(tmp_path / 'subdir')]):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'subdir')]
+    ):
         main()
-    cvrt.assert_called_with(
-        src=tmp_path / 'subdir',
-        dst=None,
-        exclude_topics=[],
-        include_topics=[],
-    )
+    cvrt.assert_called_with(src=tmp_path / 'subdir', dst=None, exclude_topics=[], include_topics=[])
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'subdir'),
-                                    '--dst',
-                                    str(tmp_path / 'ros1.bag')]), \
-         pytest.raises(SystemExit):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'subdir'), '--dst', str(tmp_path / 'ros1.bag')]
+    ), pytest.raises(SystemExit):
         main()
     assert not cvrt.called
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'subdir'),
-                                    '--dst',
-                                    str(tmp_path / 'target.bag')]):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'subdir'), '--dst', str(tmp_path / 'target.bag')]
+    ):
         main()
     cvrt.assert_called_with(
         src=tmp_path / 'subdir',
@@ -119,18 +104,17 @@ def test_cliwrapper(tmp_path: Path) -> None:
         include_topics=[],
     )
 
-    with patch.object(sys, 'argv', ['cvt', str(tmp_path / 'subdir')]), \
-         patch('builtins.print') as mock_print, \
-         patch('rosbags.convert.__main__.convert', side_effect=ConverterError('exc')), \
-         pytest.raises(SystemExit):
+    with patch.object(sys, 'argv', ['cvt', str(tmp_path / 'subdir')]), patch(
+        'builtins.print'
+    ) as mock_print, patch(
+        'rosbags.convert.__main__.convert', side_effect=ConverterError('exc')
+    ), pytest.raises(SystemExit):
         main()
     mock_print.assert_called_with('ERROR: exc')
 
-    with patch('rosbags.convert.__main__.convert') as cvrt, \
-         patch.object(sys, 'argv', ['cvt',
-                                    str(tmp_path / 'ros1.bag'),
-                                    '--exclude-topic',
-                                    '/foo']):
+    with patch('rosbags.convert.__main__.convert') as cvrt, patch.object(
+        sys, 'argv', ['cvt', str(tmp_path / 'ros1.bag'), '--exclude-topic', '/foo']
+    ):
         main()
     cvrt.assert_called_with(
         src=tmp_path / 'ros1.bag',
@@ -148,12 +132,13 @@ def test_convert_1to2(tmp_path: Path) -> None:
     with pytest.raises(ConverterError, match='exists already'):
         convert(Path('foo.bag'), tmp_path / 'subdir')
 
-    with patch('rosbags.convert.converter.Reader1') as reader, \
-         patch('rosbags.convert.converter.Writer2') as writer, \
-         patch('rosbags.convert.converter.get_types_from_msg', return_value={'typ': 'def'}), \
-         patch('rosbags.convert.converter.register_types') as register_types, \
-         patch('rosbags.convert.converter.ros1_to_cdr') as ros1_to_cdr:
-
+    with patch('rosbags.convert.converter.Reader1') as reader, patch(
+        'rosbags.convert.converter.Writer2'
+    ) as writer, patch(
+        'rosbags.convert.converter.get_types_from_msg', return_value={'typ': 'def'}
+    ), patch('rosbags.convert.converter.register_types') as register_types, patch(
+        'rosbags.convert.converter.ros1_to_cdr'
+    ) as ros1_to_cdr:
         readerinst = reader.return_value.__enter__.return_value
         writerinst = writer.return_value.__enter__.return_value
 
@@ -263,10 +248,9 @@ def test_convert_2to1(tmp_path: Path) -> None:
     with pytest.raises(ConverterError, match='exists already'):
         convert(Path('subdir'), tmp_path / 'foo.bag')
 
-    with patch('rosbags.convert.converter.Reader2') as reader, \
-         patch('rosbags.convert.converter.Writer1') as writer, \
-         patch('rosbags.convert.converter.cdr_to_ros1') as cdr_to_ros1:
-
+    with patch('rosbags.convert.converter.Reader2') as reader, patch(
+        'rosbags.convert.converter.Writer1'
+    ) as writer, patch('rosbags.convert.converter.cdr_to_ros1') as cdr_to_ros1:
         readerinst = reader.return_value.__enter__.return_value
         writerinst = writer.return_value.__enter__.return_value
 

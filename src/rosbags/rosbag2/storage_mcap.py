@@ -135,10 +135,7 @@ def msgsrc(
         op_ = ord(subio.read(1))
         if op_ == 0x05:
             recio = BytesIO(read_sized(subio))
-            channel_id, _, log_time, _ = unpack_from(
-                '<HIQQ',
-                recio.read(22),
-            )
+            channel_id, _, log_time, _ = unpack_from('<HIQQ', recio.read(22))
             if start <= log_time < stop and channel_id in channel_map:
                 messages.append(
                     Msg(
@@ -208,7 +205,7 @@ class MCAPFile:
         assert len(data) == 37
         assert data[0:9] == b'\x02\x14\x00\x00\x00\x00\x00\x00\x00', data[0:9]
 
-        summary_start, = unpack_from('<Q', data, 9)
+        (summary_start,) = unpack_from('<Q', data, 9)
         if summary_start:
             self.data_end = summary_start
             self.read_index()
@@ -228,22 +225,17 @@ class MCAPFile:
         while True:
             op_ = ord(bio.read(1))
 
-            if op_ in {0x02, 0x0e}:
+            if op_ in {0x02, 0x0E}:
                 break
 
             if op_ == 0x03:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
-                schemas[key] = Schema(
-                    key,
-                    read_string(bio),
-                    read_string(bio),
-                    read_string(bio),
-                )
+                (key,) = unpack_from('<H', bio.read(2))
+                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
 
             elif op_ == 0x04:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
+                (key,) = unpack_from('<H', bio.read(2))
                 schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
@@ -258,8 +250,8 @@ class MCAPFile:
                 chunk = ChunkInfo(  # type: ignore[call-arg]
                     *unpack_from('<QQQQ', bio.read(32), 0),
                     {
-                        x[0]: x[1] for x in
-                        iter_unpack('<HQ', bio.read(unpack_from('<I', bio.read(4))[0]))
+                        x[0]: x[1]
+                        for x in iter_unpack('<HQ', bio.read(unpack_from('<I', bio.read(4))[0]))
                     },
                     *unpack_from('<Q', bio.read(8), 0),
                     read_string(bio),
@@ -280,21 +272,17 @@ class MCAPFile:
                 )
                 chunks.append(chunk)
 
-            elif op_ == 0x0a:
+            elif op_ == 0x0A:
                 skip_sized(bio)
 
-            elif op_ == 0x0b:
+            elif op_ == 0x0B:
                 bio.seek(8, 1)
                 self.statistics = Statistics(
-                    *unpack_from(
-                        '<QHIIIIQQ',
-                        bio.read(42),
-                        0,
-                    ),
+                    *unpack_from('<QHIIIIQQ', bio.read(42), 0),
                     read_bytes(bio),  # type: ignore[call-arg]
                 )
 
-            elif op_ == 0x0d:
+            elif op_ == 0x0D:
                 skip_sized(bio)
 
             else:
@@ -321,16 +309,11 @@ class MCAPFile:
 
             if op_ == 0x03:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
-                schemas[key] = Schema(
-                    key,
-                    read_string(bio),
-                    read_string(bio),
-                    read_string(bio),
-                )
+                (key,) = unpack_from('<H', bio.read(2))
+                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
             elif op_ == 0x04:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
+                (key,) = unpack_from('<H', bio.read(2))
                 schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
@@ -343,7 +326,7 @@ class MCAPFile:
                 bio.seek(8, 1)
                 _, _, uncompressed_size, _ = unpack_from('<QQQI', bio.read(28))
                 compression = read_string(bio)
-                compressed_size, = unpack_from('<Q', bio.read(8))
+                (compressed_size,) = unpack_from('<Q', bio.read(8))
                 bio = BytesIO(
                     DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
                 )
@@ -379,10 +362,13 @@ class MCAPFile:
         if channels:
             read_meta = False
             channel_map = {
-                cid: conn for conn in connections if (
+                cid: conn
+                for conn in connections
+                if (
                     cid := next(
                         (
-                            cid for cid, x in self.channels.items()
+                            cid
+                            for cid, x in self.channels.items()
                             if x.schema == conn.msgtype and x.topic == conn.topic
                         ),
                         None,
@@ -403,16 +389,11 @@ class MCAPFile:
 
             if op_ == 0x03 and read_meta:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
-                schemas[key] = Schema(
-                    key,
-                    read_string(bio),
-                    read_string(bio),
-                    read_string(bio),
-                )
+                (key,) = unpack_from('<H', bio.read(2))
+                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
             elif op_ == 0x04 and read_meta:
                 bio.seek(8, 1)
-                key, = unpack_from('<H', bio.read(2))
+                (key,) = unpack_from('<H', bio.read(2))
                 schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
@@ -423,7 +404,8 @@ class MCAPFile:
                 )
                 conn = next(
                     (
-                        x for x in connections
+                        x
+                        for x in connections
                         if x.topic == channels[key].topic and x.msgtype == schema_name
                     ),
                     None,
@@ -436,11 +418,11 @@ class MCAPFile:
                 if start <= timestamp < stop and channel_id in channel_map:
                     yield channel_map[channel_id], timestamp, data
             elif op_ == 0x06:
-                size, = unpack_from('<Q', bio.read(8))
+                (size,) = unpack_from('<Q', bio.read(8))
                 start_time, end_time, uncompressed_size, _ = unpack_from('<QQQI', bio.read(28))
                 if read_meta or (start < end_time and start_time < stop):
                     compression = read_string(bio)
-                    compressed_size, = unpack_from('<Q', bio.read(8))
+                    (compressed_size,) = unpack_from('<Q', bio.read(8))
                     bio = BytesIO(
                         DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
                     )
@@ -478,10 +460,13 @@ class MCAPFile:
             return
 
         channel_map = {
-            cid: conn for conn in connections if (
+            cid: conn
+            for conn in connections
+            if (
                 cid := next(
                     (
-                        cid for cid, x in self.channels.items()
+                        cid
+                        for cid, x in self.channels.items()
                         if x.schema == conn.msgtype and x.topic == conn.topic
                     ),
                     None,
@@ -498,9 +483,10 @@ class MCAPFile:
                 self.bio,
             )
             for x in self.chunks
-            if x.message_start_time != 0 and (start is None or start < x.message_end_time) and
-            (stop is None or x.message_start_time < stop) and
-            (any(x.channel_count.get(cid, 0) for cid in channel_map))
+            if x.message_start_time != 0
+            and (start is None or start < x.message_end_time)
+            and (stop is None or x.message_start_time < stop)
+            and (any(x.channel_count.get(cid, 0) for cid in channel_map))
         ]
 
         for timestamp, offset, connection, data in heapq.merge(*chunks):
@@ -514,11 +500,7 @@ class MCAPFile:
 class ReaderMcap:
     """Mcap storage reader."""
 
-    def __init__(
-        self,
-        paths: Iterable[Path],
-        connections: Iterable[Connection],
-    ) -> None:
+    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]) -> None:
         """Set up storage reader.
 
         Args:

@@ -135,10 +135,13 @@ class Reader:
                         offered_qos_profiles=x['topic_metadata'].get('offered_qos_profiles', ''),
                     ),
                     owner=self,
-                ) for idx, x in enumerate(self.metadata['topics_with_message_count'])
+                )
+                for idx, x in enumerate(self.metadata['topics_with_message_count'])
             ]
             noncdr = {
-                fmt for x in self.connections if isinstance(x.ext, ConnectionExtRosbag2)
+                fmt
+                for x in self.connections
+                if isinstance(x.ext, ConnectionExtRosbag2)
                 if (fmt := x.ext.serialization_format) != 'cdr'
             }
             if noncdr:

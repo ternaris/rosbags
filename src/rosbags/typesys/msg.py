@@ -260,7 +260,9 @@ class VisitorMSG(Visitor):
                         field[0],  # type: ignore[arg-type]
                         names,
                     ),
-                ) for field in items if field[0] != (Nodetype.CONST, '')
+                )
+                for field in items
+                if field[0] != (Nodetype.CONST, '')
             ]
             res[name] = consts, fields
         return res
@@ -393,10 +395,11 @@ def gendefhash(
         TypesysError: Type does not exist.
 
     """
-    typemap = {
-        'builtin_interfaces/msg/Time': 'time',
-        'builtin_interfaces/msg/Duration': 'duration',
-    } if ros_version == 1 else {}
+    typemap = (
+        {'builtin_interfaces/msg/Time': 'time', 'builtin_interfaces/msg/Duration': 'duration'}
+        if ros_version == 1
+        else {}
+    )
 
     deftext: list[str] = []
     hashtext: list[str] = []

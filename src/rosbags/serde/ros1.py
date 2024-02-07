@@ -18,15 +18,10 @@ from typing import TYPE_CHECKING, Iterator, cast
 from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
 
 if TYPE_CHECKING:
-
     from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize, Field
 
 
-def generate_ros1_to_cdr(
-    fields: list[Field],
-    typename: str,
-    copy: bool,
-) -> Bitcvt | BitcvtSize:
+def generate_ros1_to_cdr(fields: list[Field], typename: str, copy: bool) -> Bitcvt | BitcvtSize:
     """Generate ROS1 to CDR conversion function.
 
     Args:
@@ -181,11 +176,7 @@ def generate_ros1_to_cdr(
     return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
-def generate_cdr_to_ros1(
-    fields: list[Field],
-    typename: str,
-    copy: bool,
-) -> Bitcvt | BitcvtSize:
+def generate_cdr_to_ros1(fields: list[Field], typename: str, copy: bool) -> Bitcvt | BitcvtSize:
     """Generate CDR to ROS1 conversion function.
 
     Args:
@@ -260,9 +251,7 @@ def generate_cdr_to_ros1(
                         lines.append('  ipos += 4')
                         lines.append('  opos += 4')
                         if copy:
-                            lines.append(
-                                '  output[opos:opos + length] = input[ipos:ipos + length]',
-                            )
+                            lines.append('  output[opos:opos + length] = input[ipos:ipos + length]')
                         lines.append('  ipos += length + 1')
                         lines.append('  opos += length')
                     aligned = 1
@@ -502,7 +491,7 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
             lines.append(f'  if len(val) != {length}:')
-            lines.append('    raise SerdeError(\'Unexpected array length\')')
+            lines.append("    raise SerdeError('Unexpected array length')")
 
             if subdesc.valtype == Valtype.BASE:
                 if subdesc.args[0] == 'string':
@@ -663,8 +652,7 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
                     lines.append('  for _ in range(size):')
                     lines.append('    length = unpack_int32_le(rawdata, pos)[0]')
                     lines.append(
-                        '    value.append(bytes(rawdata[pos + 4:pos + 4 + length])'
-                        '.decode())',
+                        '    value.append(bytes(rawdata[pos + 4:pos + 4 + length]).decode())',
                     )
                     lines.append('    pos += 4 + length')
                     lines.append('  values.append(value)')

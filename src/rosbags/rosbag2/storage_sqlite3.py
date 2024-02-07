@@ -22,11 +22,7 @@ if TYPE_CHECKING:
 class ReaderSqlite3:
     """Sqlite3 storage reader."""
 
-    def __init__(
-        self,
-        paths: Iterable[Path],
-        connections: Iterable[Connection],
-    ) -> None:
+    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]) -> None:
         """Set up storage reader.
 
         Args:
@@ -58,7 +54,7 @@ class ReaderSqlite3:
 
         cur = self.dbconns[-1].cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
-            schema, = cur.execute('SELECT schema_version FROM schema').fetchone()
+            (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone()
         elif any(x[1] == 'offered_qos_profiles' for x in cur.execute('PRAGMA table_info(topics)')):
             schema = 2
         else:
@@ -71,7 +67,8 @@ class ReaderSqlite3:
                     'encoding': x[1],
                     'msgdef': x[2],
                     'digest': x[3],
-                } for x in cur.execute(
+                }
+                for x in cur.execute(
                     'SELECT topic_type, encoding, encoded_message_definition, type_description_hash'
                     ' FROM message_definitions ORDER BY id',
                 )
@@ -162,9 +159,7 @@ class ReaderSqlite3:
             cur = conn.cursor()
             cur.execute('SELECT name,id FROM topics')
             connmap: dict[int, Connection] = {
-                row[1]: next((x
-                              for x in self.connections
-                              if x.topic == row[0]), None)  # type: ignore[arg-type]
+                row[1]: next((x for x in self.connections if x.topic == row[0]), None)  # type: ignore[arg-type]
                 for row in cur
             }
 

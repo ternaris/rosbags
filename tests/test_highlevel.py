@@ -31,16 +31,16 @@ def bags1(tmp_path: Path) -> list[Path]:
         tmp_path / 'ros1_3.bag',
         tmp_path / 'bad.bag',
     ]
-    with (Writer1(paths[0])) as writer:
+    with Writer1(paths[0]) as writer:
         topic1 = writer.add_connection('/topic1', 'std_msgs/msg/Int8')
         topic2 = writer.add_connection('/topic2', 'std_msgs/msg/Int16')
         writer.write(topic1, 1, b'\x01')
         writer.write(topic2, 2, b'\x02\x00')
         writer.write(topic1, 9, b'\x09')
-    with (Writer1(paths[1])) as writer:
+    with Writer1(paths[1]) as writer:
         topic1 = writer.add_connection('/topic1', 'std_msgs/msg/Int8')
         writer.write(topic1, 5, b'\x05')
-    with (Writer1(paths[2])) as writer:
+    with Writer1(paths[2]) as writer:
         topic2 = writer.add_connection('/topic2', 'std_msgs/msg/Int16')
         writer.write(topic2, 15, b'\x15\x00')
 
@@ -56,7 +56,7 @@ def bags2(tmp_path: Path) -> list[Path]:
         tmp_path / 'ros2_1',
         tmp_path / 'bad',
     ]
-    with (Writer2(paths[0])) as writer:
+    with Writer2(paths[0]) as writer:
         topic1 = writer.add_connection('/topic1', 'std_msgs/msg/Int8')
         topic2 = writer.add_connection('/topic2', 'std_msgs/msg/Int16')
         writer.write(topic1, 1, HEADER + b'\x01')
@@ -152,10 +152,14 @@ def test_anyreader2(bags2: list[Path], strip_types: bool) -> None:
     with pytest.raises(AnyReaderError, match='YAML'):
         AnyReader([bags2[1]])
 
-    ctx: AbstractContextManager[None] = patch(  # type: ignore[assignment]
-        'rosbags.rosbag2.storage_sqlite3.ReaderSqlite3.get_definitions',
-        return_value={},
-    ) if strip_types else nullcontext()
+    ctx: AbstractContextManager[None] = (
+        patch(  # type: ignore[assignment]
+            'rosbags.rosbag2.storage_sqlite3.ReaderSqlite3.get_definitions',
+            return_value={},
+        )
+        if strip_types
+        else nullcontext()
+    )
     with ctx, AnyReader([bags2[0]]) as reader:
         assert reader.duration == 15
         assert reader.start_time == 1
@@ -255,8 +259,9 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
         def open(self) -> None:
             """Unused."""
 
-    with patch('rosbags.highlevel.anyreader.Reader2', MockReader), \
-         patch('rosbags.highlevel.anyreader.register_types') as mock_register_types:
+    with patch('rosbags.highlevel.anyreader.Reader2', MockReader), patch(
+        'rosbags.highlevel.anyreader.register_types'
+    ) as mock_register_types:
         AnyReader([bags2[0]]).open()
     mock_register_types.assert_called_once()
     assert mock_register_types.call_args[0][0] == {

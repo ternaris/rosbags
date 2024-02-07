@@ -61,10 +61,8 @@ def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
             if entry[0] == int(Valtype.SEQUENCE):
                 assert not isinstance(entry[1][0], str)
                 return Descriptor(Valtype.SEQUENCE, (fixup(entry[1][0]), entry[1][1]))
-            msg = f'Unknown field type {entry[0]!r} encountered.'
-            raise SerdeError(  # pragma: no cover
-                msg,
-            )
+            msg = f'Unknown field type {entry[0]!r} encountered.'  # pragma: no cover
+            raise SerdeError(msg)  # pragma: no cover
 
         fields = [Field(name, fixup(desc)) for name, desc in entries]
 

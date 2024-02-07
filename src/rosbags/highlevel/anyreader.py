@@ -243,7 +243,8 @@ class AnyReader:
             )
 
         return {
-            name: summarize(infos) for name, infos in groupby(
+            name: summarize(infos)
+            for name, infos in groupby(
                 sorted(
                     (x for reader in self.readers for x in reader.topics.items()),
                     key=lambda x: x[0],
@@ -278,8 +279,10 @@ class AnyReader:
 
         if connections:
             generators = [
-                reader.messages(connections=list(conns), start=start, stop=stop) for reader, conns
-                in groupby(sorted(connections, key=lambda x: id(get_owner(x))), key=get_owner)
+                reader.messages(connections=list(conns), start=start, stop=stop)
+                for reader, conns in groupby(
+                    sorted(connections, key=lambda x: id(get_owner(x))), key=get_owner
+                )
             ]
         else:
             generators = [reader.messages(start=start, stop=stop) for reader in self.readers]

@@ -260,7 +260,6 @@ class VisitorIDL(Visitor):
         super().__init__()
         self.typedefs: dict[str, Fielddesc] = {}
 
-    # yapf: disable
     def visit_specification(
         self,
         children: tuple[
@@ -271,7 +270,8 @@ class VisitorIDL(Visitor):
                     list[tuple[Nodetype, str, Fielddefs]],
                 ],
                 LiteralMatch,
-            ] | None,
+            ]
+            | None,
         ],
     ) -> Typesdict:
         """Process start symbol, return only children of modules."""
@@ -296,18 +296,13 @@ class VisitorIDL(Visitor):
                 if ssubitem[1] not in consts:
                     consts[ssubitem[1]] = []
         return {k: (consts[k], v) for k, v in structs.items()}
-    # yapf: enable
 
     def visit_macro(self, _: LiteralMatch | tuple[LiteralMatch, str]) -> None:
         """Process macro, suppress output."""
 
-    def visit_include(
-        self,
-        _: tuple[LiteralMatch, tuple[LiteralMatch, str, LiteralMatch]],
-    ) -> None:
+    def visit_include(self, _: tuple[LiteralMatch, tuple[LiteralMatch, str, LiteralMatch]]) -> None:
         """Process include, suppress output."""
 
-    # yapf: disable
     def visit_module_dcl(
         self,
         children: tuple[tuple[()], LiteralMatch, StringNode, LiteralMatch, Any, LiteralMatch],
@@ -342,7 +337,6 @@ class VisitorIDL(Visitor):
         structs = [(typ, f'{name}/{subname}', *rest) for typ, subname, *rest in structs]
 
         return (Nodetype.MODULE, consts, structs)
-    # yapf: enable
 
     def visit_const_dcl(
         self,
@@ -382,8 +376,8 @@ class VisitorIDL(Visitor):
 
     def visit_sequence_type(
         self,
-        children: tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch] |
-        tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch, LiteralNode, LiteralMatch],
+        children: tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch]
+        | tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch, LiteralNode, LiteralMatch],
     ) -> tuple[Nodetype, tuple[StringNode, int]]:
         """Process sequence type specification."""
         assert len(children) in {4, 6}
@@ -395,7 +389,6 @@ class VisitorIDL(Visitor):
             return (Nodetype.SEQUENCE, (children[2], count))
         return (Nodetype.SEQUENCE, (children[2], 0))
 
-    # yapf: disable
     def create_struct_field(
         self,
         parts: tuple[
@@ -422,7 +415,6 @@ class VisitorIDL(Visitor):
             return name
 
         yield from ((normalize_fieldname(x[1][1]), resolve_name(typename)) for x in flat if x)
-    # yapf: enable
 
     def visit_struct_dcl(
         self,
@@ -448,7 +440,6 @@ class VisitorIDL(Visitor):
         assert len(children) == 2
         return (Nodetype.ADECLARATOR, children[0], children[1][0][1])
 
-    # yapf: disable
     def visit_annotation(
         self,
         children: tuple[
@@ -477,7 +468,6 @@ class VisitorIDL(Visitor):
         assert all(len(x) == 3 for x in flat)
         retparams = [(x[0], x[2]) for x in flat]
         return (Nodetype.ANNOTATION, children[1][1], retparams)
-    # yapf: enable
 
     def visit_base_type_spec(self, children: str) -> StringNode:
         """Process base type specifier."""
@@ -522,8 +512,9 @@ class VisitorIDL(Visitor):
 
     def visit_expression(
         self,
-        children: LiteralNode | tuple[LiteralMatch, LiteralNode] |
-        tuple[LiteralNode, LiteralMatch, LiteralNode],
+        children: LiteralNode
+        | tuple[LiteralMatch, LiteralNode]
+        | tuple[LiteralNode, LiteralMatch, LiteralNode],
     ) -> LiteralNode | tuple[Nodetype, str, int] | tuple[Nodetype, str, int, int]:
         """Process expression, literals are assumed to be integers only."""
         if children[0] in {
@@ -580,10 +571,7 @@ class VisitorIDL(Visitor):
         children: tuple[tuple[LiteralMatch, str, LiteralMatch], ...],
     ) -> StringNode:
         """Process string literal."""
-        return (
-            Nodetype.LITERAL_STRING,
-            ''.join(x[1] for x in children),
-        )
+        return (Nodetype.LITERAL_STRING, ''.join(x[1] for x in children))
 
 
 def get_types_from_idl(text: str) -> Typesdict:

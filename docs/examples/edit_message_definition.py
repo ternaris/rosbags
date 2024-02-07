@@ -82,10 +82,7 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
             wconn = conn_map[conn.id]
 
             if conn.msgtype == 'sensor_msgs/msg/CameraInfo':
-                msg = cast(
-                    'sensor_msgs__msg__CameraInfo',
-                    reader.deserialize(data, conn.msgtype),
-                )
+                msg = cast('sensor_msgs__msg__CameraInfo', reader.deserialize(data, conn.msgtype))
                 converted_msg = CameraInfo(
                     header=msg.header,
                     height=msg.height,

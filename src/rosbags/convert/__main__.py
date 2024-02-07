@@ -30,9 +30,7 @@ def pathtype(exists: bool = True) -> Callable[[str], Path]:
         path = Path(pathname)
         if exists != path.exists():
             msg = f'{path} should {"exist" if exists else "not exist"}.'
-            raise argparse.ArgumentTypeError(
-                msg,
-            )
+            raise argparse.ArgumentTypeError(msg)
         return path
 
     return topath
@@ -41,11 +39,7 @@ def pathtype(exists: bool = True) -> Callable[[str], Path]:
 def main() -> None:
     """Parse cli arguments and run conversion."""
     parser = argparse.ArgumentParser(description='Convert between rosbag1 and rosbag2.')
-    parser.add_argument(
-        'src',
-        type=pathtype(),
-        help='source path to read rosbag1 or rosbag2 from',
-    )
+    parser.add_argument('src', type=pathtype(), help='source path to read rosbag1 or rosbag2 from')
     parser.add_argument(
         '--dst',
         type=pathtype(exists=False),

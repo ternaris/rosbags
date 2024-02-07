@@ -57,15 +57,15 @@ MSG_MAGN = (
         b'\x00\x00\x00\x00\x00\x00\x60\x40'  # x = 128
         b'\x00\x00\x00\x00\x00\x00\x60\x40'  # y = 128
         b'\x00\x00\x00\x00\x00\x00\x60\x40'  # z = 128
-        b'\x00\x00\x00\x00\x00\x00\xF0\x3F'  # covariance matrix = 3x3 diag
+        b'\x00\x00\x00\x00\x00\x00\xf0\x3f'  # covariance matrix = 3x3 diag
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
-        b'\x00\x00\x00\x00\x00\x00\xF0\x3F'
+        b'\x00\x00\x00\x00\x00\x00\xf0\x3f'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
-        b'\x00\x00\x00\x00\x00\x00\xF0\x3F'
+        b'\x00\x00\x00\x00\x00\x00\xf0\x3f'
     ),
     'sensor_msgs/msg/MagneticField',
     True,
@@ -80,15 +80,15 @@ MSG_MAGN_BIG = (
         b'\x40\x60\x00\x00\x00\x00\x00\x00'  # x = 128
         b'\x40\x60\x00\x00\x00\x00\x00\x00'  # y = 128
         b'\x40\x60\x00\x00\x00\x00\x00\x00'  # z = 128
-        b'\x3F\xF0\x00\x00\x00\x00\x00\x00'  # covariance matrix = 3x3 diag
+        b'\x3f\xf0\x00\x00\x00\x00\x00\x00'  # covariance matrix = 3x3 diag
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
-        b'\x3F\xF0\x00\x00\x00\x00\x00\x00'
+        b'\x3f\xf0\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
-        b'\x3F\xF0\x00\x00\x00\x00\x00\x00'
+        b'\x3f\xf0\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00'  # garbage
     ),
     'sensor_msgs/msg/MagneticField',
@@ -254,9 +254,9 @@ def test_serde(message: tuple[bytes, str, bool]) -> None:
 
     serdeser = serialize_cdr(deserialize_cdr(rawdata, typ), typ, is_little)
     assert serdeser == serialize(deserialize(rawdata, typ), typ, is_little)
-    assert serdeser == rawdata[:len(serdeser)]
+    assert serdeser == rawdata[: len(serdeser)]
     assert len(rawdata) - len(serdeser) < 4
-    assert all(x == 0 for x in rawdata[len(serdeser):])
+    assert all(x == 0 for x in rawdata[len(serdeser) :])
 
     if rawdata[1] == 1:
         rawdata = cdr_to_ros1(rawdata, typ)
@@ -288,9 +288,9 @@ def test_deserializer() -> None:
     assert msg.header.stamp.nanosec == 256
     assert msg.header.frame_id == 'foo42'
     field = msg.magnetic_field
-    assert (field.x, field.y, field.z) == (128., 128., 128.)
+    assert (field.x, field.y, field.z) == (128.0, 128.0, 128.0)
     diag = np.diag(msg.magnetic_field_covariance.reshape(3, 3))
-    assert (diag == [1., 1., 1.]).all()
+    assert (diag == [1.0, 1.0, 1.0]).all()
     msg_ros1 = deserialize_ros1(cdr_to_ros1(*MSG_MAGN[:2]), MSG_MAGN[1])
     assert msg_ros1 == msg
 
@@ -390,10 +390,7 @@ def test_custom_type() -> None:
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
-        [
-            dynamic_64_b_64(64, True, 1.25),
-            dynamic_64_b_64(64, True, 1.25),
-        ],
+        [dynamic_64_b_64(64, True, 1.25), dynamic_64_b_64(64, True, 1.25)],
         [dynamic_64_s(64, 's'), dynamic_64_s(64, 's')],
         [dynamic_s_64('s', 64), dynamic_s_64('s', 64)],
         # sequences
@@ -409,10 +406,7 @@ def test_custom_type() -> None:
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
-        [
-            dynamic_64_b_64(64, True, 1.25),
-            dynamic_64_b_64(64, True, 1.25),
-        ],
+        [dynamic_64_b_64(64, True, 1.25), dynamic_64_b_64(64, True, 1.25)],
         [dynamic_64_s(64, 's'), dynamic_64_s(64, 's')],
         [dynamic_s_64('s', 64), dynamic_s_64('s', 64)],
     )
@@ -429,8 +423,7 @@ def test_ros1_to_cdr() -> None:
     """Test ROS1 to CDR conversion."""
     msgtype = 'test_msgs/msg/static_16_64'
     register_types(dict(get_types_from_msg(STATIC_16_64, msgtype)))
-    msg_ros = (b'\x01\x00'
-               b'\x00\x00\x00\x00\x00\x00\x00\x02')
+    msg_ros = b'\x01\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00'
         b'\x01\x00'
@@ -442,13 +435,9 @@ def test_ros1_to_cdr() -> None:
 
     msgtype = 'test_msgs/msg/dynamic_s_64'
     register_types(dict(get_types_from_msg(DYNAMIC_S_64, msgtype)))
-    msg_ros = (b'\x01\x00\x00\x00X'
-               b'\x00\x00\x00\x00\x00\x00\x00\x02')
+    msg_ros = b'\x01\x00\x00\x00X' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
-        b'\x00\x01\x00\x00'
-        b'\x02\x00\x00\x00X\x00'
-        b'\x00\x00'
-        b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        b'\x00\x01\x00\x00' b'\x02\x00\x00\x00X\x00' b'\x00\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     )
     assert ros1_to_cdr(msg_ros, msgtype) == msg_cdr
     assert serialize_cdr(deserialize_ros1(msg_ros, msgtype), msgtype) == msg_cdr
@@ -458,8 +447,7 @@ def test_cdr_to_ros1() -> None:
     """Test CDR to ROS1 conversion."""
     msgtype = 'test_msgs/msg/static_16_64'
     register_types(dict(get_types_from_msg(STATIC_16_64, msgtype)))
-    msg_ros = (b'\x01\x00'
-               b'\x00\x00\x00\x00\x00\x00\x00\x02')
+    msg_ros = b'\x01\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00'
         b'\x01\x00'
@@ -471,13 +459,9 @@ def test_cdr_to_ros1() -> None:
 
     msgtype = 'test_msgs/msg/dynamic_s_64'
     register_types(dict(get_types_from_msg(DYNAMIC_S_64, msgtype)))
-    msg_ros = (b'\x01\x00\x00\x00X'
-               b'\x00\x00\x00\x00\x00\x00\x00\x02')
+    msg_ros = b'\x01\x00\x00\x00X' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
-        b'\x00\x01\x00\x00'
-        b'\x02\x00\x00\x00X\x00'
-        b'\x00\x00'
-        b'\x00\x00\x00\x00\x00\x00\x00\x02'
+        b'\x00\x01\x00\x00' b'\x02\x00\x00\x00X\x00' b'\x00\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     )
     assert cdr_to_ros1(msg_cdr, msgtype) == msg_ros
     assert serialize_ros1(deserialize_cdr(msg_cdr, msgtype), msgtype) == msg_ros
@@ -558,10 +542,8 @@ def test_empty_message_handling() -> None:
         b'\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\xff\xff\xff\xff\xff\xff\xff\xff'
     )
-    unaligned_ros1_bytes = (b'\xff\xff\xff\xff'
-                            b'\xff\xff\xff\xff\xff\xff\xff\xff')
-    aligned_ros1_bytes = (b'\xff\xff\xff\xff\xff\xff\xff\xff'
-                          b'\xff\xff\xff\xff\xff\xff\xff\xff')
+    unaligned_ros1_bytes = b'\xff\xff\xff\xff' b'\xff\xff\xff\xff\xff\xff\xff\xff'
+    aligned_ros1_bytes = b'\xff\xff\xff\xff\xff\xff\xff\xff' b'\xff\xff\xff\xff\xff\xff\xff\xff'
 
     assert serialize_cdr(unaligned_msg, unaligned_msg.__msgtype__) == unaligned_cdr_bytes
     assert serialize_cdr(aligned_msg, aligned_msg.__msgtype__) == aligned_cdr_bytes

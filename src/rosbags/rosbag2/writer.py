@@ -236,22 +236,16 @@ class Writer:
         )
         for conn in self.connections:
             if (
-                conn.topic == connection.topic and conn.msgtype == connection.msgtype and
-                conn.ext == connection.ext
+                conn.topic == connection.topic
+                and conn.msgtype == connection.msgtype
+                and conn.ext == connection.ext
             ):
                 msg = f'Connection can only be added once: {connection!r}.'
                 raise WriterError(msg)
 
         self.connections.append(connection)
         self.counts[connection.id] = 0
-        meta = (
-            connection.id,
-            topic,
-            msgtype,
-            serialization_format,
-            offered_qos_profiles,
-            rihs01,
-        )
+        meta = (connection.id, topic, msgtype, serialization_format, offered_qos_profiles, rihs01)
         self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
         return connection
 
@@ -316,12 +310,8 @@ class Writer:
                 'version': 8,
                 'storage_identifier': 'sqlite3',
                 'relative_file_paths': [self.dbpath.name],
-                'duration': {
-                    'nanoseconds': duration,
-                },
-                'starting_time': {
-                    'nanoseconds_since_epoch': start,
-                },
+                'duration': {'nanoseconds': duration},
+                'starting_time': {'nanoseconds_since_epoch': start},
                 'message_count': count,
                 'topics_with_message_count': [
                     {
@@ -333,19 +323,17 @@ class Writer:
                             'type_description_hash': x.digest,
                         },
                         'message_count': self.counts[x.id],
-                    } for x in self.connections if isinstance(x.ext, ConnectionExtRosbag2)
+                    }
+                    for x in self.connections
+                    if isinstance(x.ext, ConnectionExtRosbag2)
                 ],
                 'compression_format': self.compression_format,
                 'compression_mode': self.compression_mode,
                 'files': [
                     {
                         'path': self.dbpath.name,
-                        'starting_time': {
-                            'nanoseconds_since_epoch': start,
-                        },
-                        'duration': {
-                            'nanoseconds': duration,
-                        },
+                        'starting_time': {'nanoseconds_since_epoch': start},
+                        'duration': {'nanoseconds': duration},
                         'message_count': count,
                     },
                 ],

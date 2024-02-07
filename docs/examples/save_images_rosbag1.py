@@ -14,10 +14,7 @@ TOPIC = '/camera'
 FRAMEID = 'map'
 
 # Contains filenames and their timestamps
-IMAGES = [
-    ('homer.jpg', 42),
-    ('marge.jpg', 43),
-]
+IMAGES = [('homer.jpg', 42), ('marge.jpg', 43)]
 
 
 def save_images() -> None:
@@ -26,20 +23,13 @@ def save_images() -> None:
         conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__)
 
         for path, timestamp in IMAGES:
-            message = CompressedImage(
+            msg = CompressedImage(
                 Header(
-                    stamp=Time(
-                        sec=int(timestamp // 10**9),
-                        nanosec=int(timestamp % 10**9),
-                    ),
+                    stamp=Time(sec=int(timestamp // 10**9), nanosec=int(timestamp % 10**9)),
                     frame_id=FRAMEID,
                 ),
                 format='jpeg',  # could also be 'png'
                 data=np.fromfile(path, dtype=np.uint8),
             )
 
-            writer.write(
-                conn,
-                timestamp,
-                serialize_ros1(message, CompressedImage.__msgtype__),
-            )
+            writer.write(conn, timestamp, serialize_ros1(msg, CompressedImage.__msgtype__))

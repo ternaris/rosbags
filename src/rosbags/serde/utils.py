@@ -104,7 +104,4 @@ def compile_lines(lines: list[str]) -> ModuleType:
 
 def ndtype(typ: str) -> str:
     """Normalize numpy dtype."""
-    return {
-        'bool': 'bool_',
-        'octet': 'uint8',
-    }.get(typ, typ)
+    return {'bool': 'bool_', 'octet': 'uint8'}.get(typ, typ)

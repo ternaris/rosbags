@@ -251,8 +251,9 @@ def test_failure_cases(tmp_path: Path) -> None:
     metadata = tmp_path / 'metadata.yaml'
 
     metadata.write_text('')
-    with pytest.raises(ReaderError, match='not read'), \
-         mock.patch.object(Path, 'read_text', side_effect=PermissionError):
+    with pytest.raises(ReaderError, match='not read'), mock.patch.object(
+        Path, 'read_text', side_effect=PermissionError
+    ):
         Reader(tmp_path)
 
     metadata.write_text('  invalid:\nthis is not yaml')
@@ -322,8 +323,7 @@ def test_failure_cases(tmp_path: Path) -> None:
             compression_mode='""',
         ),
     )
-    with pytest.raises(ReaderError, match='not open database'), \
-         Reader(tmp_path) as reader:
+    with pytest.raises(ReaderError, match='not open database'), Reader(tmp_path) as reader:
         next(reader.messages())
 
 
@@ -486,8 +486,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<Q', message_index_start - chunk_start),
                 struct.pack('<I', 10 * len(message_index_offsets)),
                 *(struct.pack('<HQ', *x) for x in message_index_offsets),
-                struct.pack('<Q',
-                            realbio.tell() - message_index_start),
+                struct.pack('<Q', realbio.tell() - message_index_start),
                 compression,
                 compressed_size,
                 uncompressed_size,
@@ -578,8 +577,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<Q', message_index_start - chunk_start),
                 struct.pack('<I', 10 * len(message_index_offsets)),
                 *(struct.pack('<HQ', *x) for x in message_index_offsets),
-                struct.pack('<Q',
-                            realbio.tell() - message_index_start),
+                struct.pack('<Q', realbio.tell() - message_index_start),
                 compression,
                 compressed_size,
                 uncompressed_size,
@@ -600,10 +598,10 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                     write_record(bio, 0x08, chunk)
 
             summary_offset_start = 0
-            write_record(bio, 0x0a, (b'ignored',))
+            write_record(bio, 0x0A, (b'ignored',))
             write_record(
                 bio,
-                0x0b,
+                0x0B,
                 (
                     struct.pack('<Q', 4),
                     struct.pack('<H', 3),
@@ -616,8 +614,8 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                     struct.pack('<I', 0),
                 ),
             )
-            write_record(bio, 0x0d, (b'ignored',))
-            write_record(bio, 0xff, (b'ignored',))
+            write_record(bio, 0x0D, (b'ignored',))
+            write_record(bio, 0xFF, (b'ignored',))
         else:
             summary_start = 0
             summary_offset_start = 0

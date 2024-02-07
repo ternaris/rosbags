@@ -26,14 +26,7 @@ from rosbags.typesys.msg import normalize_msgtype
 if TYPE_CHECKING:
     import sys
     from types import TracebackType
-    from typing import (
-        BinaryIO,
-        Callable,
-        Generator,
-        Iterable,
-        Literal,
-        Tuple,
-    )
+    from typing import BinaryIO, Callable, Generator, Iterable, Literal, Tuple
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -441,12 +434,7 @@ class Reader:
             self.indexes = {x.id: sorted(indexes[x.id]) for x in self.connections}
 
             self.connections = [
-                Connection(
-                    *x[0:5],
-                    len(self.indexes[x.id]),
-                    *x[6:],
-                )
-                for x in self.connections
+                Connection(*x[0:5], len(self.indexes[x.id]), *x[6:]) for x in self.connections
             ]
         except ReaderError:
             self.close()
@@ -523,10 +511,7 @@ class Reader:
             msgdef,
             md5sum,
             0,
-            ConnectionExtRosbag1(
-                callerid,
-                latching,
-            ),
+            ConnectionExtRosbag1(callerid, latching),
             self,
         )
 
@@ -572,11 +557,7 @@ class Reader:
             msg = f'Compression {compression!r} is not supported.'
             raise ReaderError(msg) from None
 
-        return Chunk(
-            datasize,
-            datapos,
-            decompressor,
-        )
+        return Chunk(datasize, datapos, decompressor)
 
     def read_index_data(self, pos: int, indexes: dict[int, list[IndexData]]) -> None:
         """Read index data from position.

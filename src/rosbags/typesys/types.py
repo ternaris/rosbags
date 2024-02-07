@@ -4,6 +4,7 @@
 # THIS FILE IS GENERATED, DO NOT EDIT
 """ROS2 message types."""
 
+# fmt: off
 # ruff: noqa
 
 from __future__ import annotations

@@ -167,9 +167,7 @@ class Writer:
         self.compressor: Callable[[bytes], bytes] = lambda x: x
         self.compression_format = 'none'
         self.connections: list[Connection] = []
-        self.chunks: list[WriteChunk] = [
-            WriteChunk(BytesIO(), -1, 2**64, 0, defaultdict(list)),
-        ]
+        self.chunks: list[WriteChunk] = [WriteChunk(BytesIO(), -1, 2**64, 0, defaultdict(list))]
         self.chunk_threshold = 1 * (1 << 20)
 
     def set_compression(self, fmt: CompressionFormat) -> None:
@@ -196,10 +194,7 @@ class Writer:
         def lz4(x: bytes) -> bytes:
             return lz4_compress(x, 0)  # type: ignore[no-any-return]
 
-        self.compressor = {
-            'bz2': bz2,
-            'lz4': lz4,
-        }[self.compression_format]
+        self.compressor = {'bz2': bz2, 'lz4': lz4}[self.compression_format]
 
     def open(self) -> None:
         """Open rosbag1 for writing."""
@@ -263,10 +258,7 @@ class Writer:
             msgdef,
             md5sum,
             -1,
-            ConnectionExtRosbag1(
-                callerid,
-                latching,
-            ),
+            ConnectionExtRosbag1(callerid, latching),
             self,
         )
 

@@ -19,9 +19,13 @@ if TYPE_CHECKING:
 
     Basetype = Union[str, Tuple[Literal['string'], int]]
     Constdefs = List[Tuple[str, str, Any]]
-    Fielddesc = Union[Tuple[Literal[1], Basetype], Tuple[Literal[2], str],
-                      Tuple[Literal[3, 4], Tuple[Union[Tuple[Literal[1], Basetype],
-                                                       Tuple[Literal[2], str]], int]]]
+    Fielddesc = Union[
+        Tuple[Literal[1], Basetype],
+        Tuple[Literal[2], str],
+        Tuple[
+            Literal[3, 4], Tuple[Union[Tuple[Literal[1], Basetype], Tuple[Literal[2], str]], int]
+        ],
+    ]
     Fielddefs = List[Tuple[str, Fielddesc]]
     Typesdict = Dict[str, Tuple[Constdefs, Fielddefs]]
 
@@ -155,7 +159,6 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
         else:
             typ, rest = desc
 
-        # assert isinstance(rest, (str, tuple))
         if typ == 2:
             tid = increment + 1
             assert isinstance(rest, str)

@@ -53,8 +53,9 @@ BASETYPEMAP_BE: BasetypeMap = {
 }
 
 
-def deserialize_number(rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: str) \
-        -> tuple[bool | float | int, int]:
+def deserialize_number(
+    rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: str
+) -> tuple[bool | float | int, int]:
     """Deserialize a single boolean, float, or int.
 
     Args:
@@ -72,8 +73,7 @@ def deserialize_number(rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: st
     return dtype.unpack_from(rawdata, pos)[0], pos + size
 
 
-def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) \
-        -> tuple[str, int]:
+def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) -> tuple[str, int]:
     """Deserialize a string value.
 
     Args:
@@ -87,12 +87,13 @@ def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) \
     """
     pos = (pos + 4 - 1) & -4
     length = bmap['int32'].unpack_from(rawdata, pos)[0]
-    val = bytes(rawdata[pos + 4:pos + 4 + length - 1])
+    val = bytes(rawdata[pos + 4 : pos + 4 + length - 1])
     return val.decode(), pos + 4 + length
 
 
-def deserialize_array(rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, desc: Descriptor) \
-        -> tuple[Array, int]:
+def deserialize_array(
+    rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, desc: Descriptor
+) -> tuple[Array, int]:
     """Deserialize an array of items of same type.
 
     Args:
@@ -135,8 +136,9 @@ def deserialize_array(rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, des
     raise SerdeError(msg)
 
 
-def deserialize_message(rawdata: bytes, bmap: BasetypeMap, pos: int, msgdef: Msgdef) \
-        -> tuple[Msgdef, int]:
+def deserialize_message(
+    rawdata: bytes, bmap: BasetypeMap, pos: int, msgdef: Msgdef
+) -> tuple[Msgdef, int]:
     """Deserialize a message.
 
     Args:
@@ -227,8 +229,7 @@ def serialize_number(
     return pos + size
 
 
-def serialize_string(rawdata: memoryview, bmap: BasetypeMap, pos: int, val: str) \
-        -> int:
+def serialize_string(rawdata: memoryview, bmap: BasetypeMap, pos: int, val: str) -> int:
     """Deserialize a string value.
 
     Args:
@@ -246,7 +247,7 @@ def serialize_string(rawdata: memoryview, bmap: BasetypeMap, pos: int, val: str)
 
     pos = (pos + 4 - 1) & -4
     bmap['int32'].pack_into(rawdata, pos, length)
-    rawdata[pos + 4:pos + 4 + length - 1] = bval
+    rawdata[pos + 4 : pos + 4 + length - 1] = bval
     return pos + 4 + length
 
 
@@ -285,7 +286,7 @@ def serialize_array(
         val = cast('NDArray[np.float64]', val)
         if (bmap is BASETYPEMAP_LE) != (sys.byteorder == 'little'):
             val = val.byteswap()  # no inplace on readonly array
-        rawdata[pos:pos + size] = memoryview(val.tobytes())
+        rawdata[pos : pos + size] = memoryview(val.tobytes())
         return pos + size
 
     if desc.valtype == Valtype.MESSAGE:

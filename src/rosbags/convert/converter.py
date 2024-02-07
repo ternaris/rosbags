@@ -68,10 +68,7 @@ def upgrade_connection(rconn: Connection) -> Connection:
         '',
         '',
         0,
-        ConnectionExtRosbag2(
-            'cdr',
-            LATCH if rconn.ext.latching else '',
-        ),
+        ConnectionExtRosbag2('cdr', LATCH if rconn.ext.latching else ''),
         None,
     )
 
@@ -95,10 +92,7 @@ def downgrade_connection(rconn: Connection) -> Connection:
         msgdef,
         md5sum,
         -1,
-        ConnectionExtRosbag1(
-            None,
-            int('durability: 1' in rconn.ext.offered_qos_profiles),
-        ),
+        ConnectionExtRosbag1(None, int('durability: 1' in rconn.ext.offered_qos_profiles)),
         None,
     )
 
@@ -124,7 +118,8 @@ def convert_1to2(
     with Reader1(src) as reader, Writer2(dst) as writer:
         connmap: dict[int, Connection] = {}
         connections = [
-            x for x in reader.connections
+            x
+            for x in reader.connections
             if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
         ]
         if not connections:
@@ -136,8 +131,9 @@ def convert_1to2(
             for conn in writer.connections:
                 assert isinstance(conn.ext, ConnectionExtRosbag2)
                 if (
-                    conn.topic == candidate.topic and conn.msgtype == candidate.msgtype and
-                    conn.ext == candidate.ext
+                    conn.topic == candidate.topic
+                    and conn.msgtype == candidate.msgtype
+                    and conn.ext == candidate.ext
                 ):
                     break
             else:
@@ -177,7 +173,8 @@ def convert_2to1(
     with Reader2(src) as reader, Writer1(dst) as writer:
         connmap: dict[int, Connection] = {}
         connections = [
-            x for x in reader.connections
+            x
+            for x in reader.connections
             if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
         ]
         if not connections:
@@ -189,8 +186,9 @@ def convert_2to1(
             for conn in writer.connections:
                 assert isinstance(conn.ext, ConnectionExtRosbag1)
                 if (
-                    conn.topic == candidate.topic and conn.digest == candidate.digest and
-                    conn.ext.latching == candidate.ext.latching
+                    conn.topic == candidate.topic
+                    and conn.digest == candidate.digest
+                    and conn.ext.latching == candidate.ext.latching
                 ):
                     break
             else:

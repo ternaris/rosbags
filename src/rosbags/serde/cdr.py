@@ -223,7 +223,7 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
             lines.append(f'  if len(val) != {length}:')
-            lines.append('    raise SerdeError(\'Unexpected array length\')')
+            lines.append("    raise SerdeError('Unexpected array length')")
 
             if subdesc.valtype == Valtype.BASE:
                 if subdesc.args[0] == 'string':
@@ -415,8 +415,7 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
                     lines.append('    pos = (pos + 4 - 1) & -4')
                     lines.append(f'    length = unpack_int32_{endianess}(rawdata, pos)[0]')
                     lines.append(
-                        '    value.append(bytes(rawdata[pos + 4:pos + 4 + length - 1])'
-                        '.decode())',
+                        '    value.append(bytes(rawdata[pos + 4:pos + 4 + length - 1]).decode())',
                     )
                     lines.append('    pos += 4 + length')
                     lines.append('  values.append(value)')

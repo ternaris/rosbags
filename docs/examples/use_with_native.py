@@ -52,10 +52,7 @@ if __name__ == '__main__':
     )
 
     image = sensor_msgs__msg__Image(
-        std_msgs__msg__Header(
-            builtin_interfaces__msg__Time(42, 666),
-            '/frame',
-        ),
+        std_msgs__msg__Header(builtin_interfaces__msg__Time(42, 666), '/frame'),
         4,
         4,
         'rgb8',

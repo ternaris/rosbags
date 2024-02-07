@@ -94,8 +94,7 @@ def test_write_errors(tmp_path: Path) -> None:
     with pytest.raises(WriterError, match='not opened'):
         Writer(path).write(Mock(), 42, b'DEADBEEF')
 
-    with Writer(path) as writer, \
-         pytest.raises(WriterError, match='is no connection'):
+    with Writer(path) as writer, pytest.raises(WriterError, match='is no connection'):
         writer.write(Mock(), 42, b'DEADBEEF')
     path.unlink()
 
@@ -181,8 +180,7 @@ def test_write_simple(tmp_path: Path) -> None:
 def test_compression_errors(tmp_path: Path) -> None:
     """Test compression modes."""
     path = tmp_path / 'test.bag'
-    with Writer(path) as writer, \
-         pytest.raises(WriterError, match='already open'):
+    with Writer(path) as writer, pytest.raises(WriterError, match='already open'):
         writer.set_compression(writer.CompressionFormat.BZ2)
 
 

@@ -79,6 +79,7 @@ def generate_python_code(typs: Typesdict) -> str:
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""ROS2 message types."""',
         '',
+        '# fmt: off',
         '# ruff: noqa',
         '',
         'from __future__ import annotations',
@@ -107,8 +108,8 @@ def generate_python_code(typs: Typesdict) -> str:
                 (
                     f'    {fname}: {get_typehint(desc)}'
                     f'{" = 0" if fname == "structure_needs_at_least_one_member" else ""}'
-                ) for fname, desc in fields or
-                [('structure_needs_at_least_one_member', (1, 'uint8'))]
+                )
+                for fname, desc in fields or [('structure_needs_at_least_one_member', (1, 'uint8'))]
             ],
             *[
                 f'    {fname}: ClassVar[{get_typehint((1, ftype))}] = {fvalue!r}'
@@ -131,7 +132,7 @@ def generate_python_code(typs: Typesdict) -> str:
     for name, (consts, fields) in typs.items():
         pyname = name.replace('/', '__')
         lines += [
-            f'    \'{name}\': (',
+            f"    '{name}': (",
             *(
                 [
                     '        [',
@@ -140,12 +141,15 @@ def generate_python_code(typs: Typesdict) -> str:
                         for fname, ftype, fvalue in consts
                     ],
                     '        ],',
-                ] if consts else ['        [],']
+                ]
+                if consts
+                else ['        [],']
             ),
             '        [',
             *[
-                f'            ({fname!r}, {get_ftype(ftype)!r}),' for fname, ftype in fields or
-                [('structure_needs_at_least_one_member', (1, 'uint8'))]
+                f'            ({fname!r}, {get_ftype(ftype)!r}),'
+                for fname, ftype in fields
+                or [('structure_needs_at_least_one_member', (1, 'uint8'))]
             ],
             '        ],',
             '    ),',
