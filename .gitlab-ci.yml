@@ -10,11 +10,11 @@ test:
     - python3.8 -m venv venv
     - venv/bin/python -m pip install -r requirements-dev.txt
     - venv/bin/python -m pip install -e .[dev]
-    - venv/bin/pytest --cov-report=term --cov-report=xml --junit-xml=report.xml
-    - venv/bin/flake8 src tests
-    - venv/bin/mypy --no-error-summary src tests
-    - venv/bin/pylint --jobs 0 --score n src tests
-    - venv/bin/yapf -dpr src tests
+    - venv/bin/python -m pytest --cov=src --cov-report=term --cov-report=xml --junit-xml=report.xml
+    - venv/bin/python -m mypy --no-error-summary docs src tests tools
+    - venv/bin/python -m reuse lint
+    - venv/bin/python -m ruff check docs src tests tools
+    - venv/bin/python -m ruff format --diff docs src tests tools
     - venv/bin/sphinx-build docs public
   coverage: '/\d+\%\s*$/'
   artifacts:

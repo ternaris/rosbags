@@ -1,21 +1,6 @@
 # Copyright 2020-2023  Ternaris.
 # SPDX-License-Identifier: Apache-2.0
-"""Sphinx config."""
-
-import typing
-
-# https://github.com/sphinx-doc/sphinx/issues/9243
-import sphinx.builders.html as _1
-import sphinx.builders.latex as _2
-import sphinx.builders.texinfo as _3
-import sphinx.builders.text as _4
-import sphinx.ext.autodoc as _5
-
-__all__ = ['_1', '_2', '_3', '_4', '_5']
-
-# pylint: disable=invalid-name,redefined-builtin
-
-typing.TYPE_CHECKING = True
+"""Sphinx Configuration."""
 
 project = 'Rosbags'
 copyright = '2020-2023, Ternaris'

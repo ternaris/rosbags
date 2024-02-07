@@ -1,6 +1,75 @@
 [build-system]
-requires = ["setuptools>=65.4.0", "wheel"]
+requires = ["setuptools>=68", "setuptools-scm[toml]"]
 build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "rosbags"
+authors = [
+  { name = "Ternaris", email = "team@ternaris.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+description = "Pure Python library to read, modify, convert, and write rosbag files."
+dependencies = [
+  "lz4",
+  "numpy",
+  "ruamel.yaml",
+  "zstandard",
+]
+dynamic = ["version"]
+keywords = [
+  "cdr",
+  "conversion",
+  "deserialization",
+  "idl",
+  "mcap",
+  "message",
+  "msg",
+  "reader",
+  "ros",
+  "ros2",
+  "rosbag",
+  "rosbag2",
+  "serialization",
+  "writer",
+]
+license = { text = "Apache-2.0" }
+readme = "README.rst"
+requires-python = ">=3.8.2"
+
+[project.optional-dependencies]
+dev = [
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "reuse",
+  "ruff",
+  "sphinx",
+  "sphinx-autodoc-typehints",
+  "sphinx-rtd-theme",
+]
+
+[project.scripts]
+rosbags-convert = "rosbags.convert.__main__:main"
+
+[project.urls]
+Homepage = "https://gitlab.com/ternaris/rosbags"
+Documentation = "https://ternaris.gitlab.io/rosbags"
+Source = "https://gitlab.com/ternaris/rosbags"
+Issues = "https://gitlab.com/ternaris/rosbags/issues"
+Changelog = "https://gitlab.com/ternaris/rosbags/-/blob/master/CHANGES.rst"
 
 
 [tool.coverage]
@@ -15,43 +84,9 @@ run.branch = true
 run.source = ["src"]
 
 
-[tool.flake8]
-avoid_escape = false
-docstring_convention = "all"
-docstring_style = "google"
-extend_exclude = ["venv"]
-ignore = [
-  # do not require annotation of `self`
-  "ANN101",
-  # do not apply to google convention
-  "D203",
-  "D213",
-  "D215",
-  "D406",
-  "D407",
-  "D408",
-  "D409",
-  # handled by B001
-  "E722",
-  # allow line break after binary operator
-  "W504",
-]
-max_line_length = 100
-strictness = "long"
-suppress_none_returning = true
-
-
-[tool.isort]
-include_trailing_comma = true
-line_length = 100
-multi_line_output = 3
-
-
 [tool.mypy]
 explicit_package_bases = true
-fast_module_lookup = true
 mypy_path = "src"
-namespace_packages = true
 strict = true
 
 
@@ -60,55 +95,55 @@ module = "lz4.frame"
 ignore_missing_imports = true
 
 
-[tool.pydocstyle]
-convention = "google"
-add_select = ["D204", "D400", "D401", "D404", "D413"]
+[tool.pytest.ini_options]
+addopts = ["--verbose"]
 
 
-[tool.pylint.'MESSAGES CONTROL']
-enable = "all"
-disable = [
-  "duplicate-code",
-  "locally-disabled",
-  "suppressed-message",
-  "ungrouped-imports",
-  # isort (pylint FAQ)
-  "wrong-import-order",
-  # mccabe (pylint FAQ)
-  "too-many-branches",
-  # fixme
-  "fixme",
-  # pep8-naming (pylint FAQ, keep: invalid-name)
-  "bad-classmethod-argument",
-  "bad-mcs-classmethod-argument",
-  "no-self-argument",
-  # pycodestyle (pylint FAQ)
-  "bad-indentation",
-  "bare-except",
-  "line-too-long",
-  "missing-final-newline",
-  "multiple-statements",
-  "trailing-whitespace",
-  "unnecessary-semicolon",
-  "unneeded-not",
-  # pydocstyle (pylint FAQ)
-  "missing-class-docstring",
-  "missing-function-docstring",
-  "missing-module-docstring",
-  # pyflakes (pylint FAQ)
-  "undefined-variable",
-  "unused-import",
-  "unused-variable",
+[tool.ruff]
+line-length = 100
+namespace-packages = ["docs", "docs/examples", "tools/bench", "tools/compare"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+  "ALL",
+  "D204",
+  "D400",
+  "D401",
+  "D404",
+  "D413",
+]
+ignore = [
+  "ANN101",
+  "C901",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "PLR2004",
+  # allow asserts
+  "S101",
+  # trailing comma
+  "COM812",
+  # single line string concat
+  "ISC001",
 ]
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+known-first-party = ["rosbags"]
 
-[tool.pytest.ini_options]
-addopts = ["--cov=src", "--verbose"]
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "(?i)# (C)opyright 2020 - 2024 Ternaris\n# (S)PDX-License-Identifier: Apache-2.0"
+
+[tool.ruff.lint.flake8-quotes]
+avoid-escape = false
+inline-quotes = "single"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 
-[tool.yapf]
-based_on_style = "google"
-column_limit = 100
-allow_split_before_dict_value = false
-dedent_closing_brackets = true
-indent_dictionary_value = false
+[tool.setuptools_scm]

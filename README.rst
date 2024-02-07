@@ -9,6 +9,9 @@
 .. image:: https://img.shields.io/pypi/pyversions/rosbags
    :alt: python versions
 
+.. image:: https://img.shields.io/pypi/dm/rosbags
+   :alt: PyPI - Downloads
+
 =======
 Rosbags
 =======
