@@ -42,6 +42,7 @@ def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore = types)
 def serialize_cdr(
     message: object,
     typename: str,
+    *,
     little_endian: bool = sys.byteorder == 'little',
     typestore: Typestore = types,
 ) -> memoryview:
@@ -132,7 +133,7 @@ def ros1_to_cdr(raw: bytes, typename: str, typestore: Typestore = types) -> memo
     raw = memoryview(raw)
     size = 4 + opos
     rawdata = memoryview(bytearray(size))
-    pack_into('BB', rawdata, 0, 0, True)
+    pack_into('BB', rawdata, 0, 0, 1)
 
     ipos, opos = msgdef.ros1_to_cdr(raw, 0, rawdata[4:], 0, typestore)
     assert ipos == len(raw)

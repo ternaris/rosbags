@@ -252,8 +252,8 @@ def test_serde(message: tuple[bytes, str, bool]) -> None:
     """Test serialization deserialization roundtrip."""
     rawdata, typ, is_little = message
 
-    serdeser = serialize_cdr(deserialize_cdr(rawdata, typ), typ, is_little)
-    assert serdeser == serialize(deserialize(rawdata, typ), typ, is_little)
+    serdeser = serialize_cdr(deserialize_cdr(rawdata, typ), typ, little_endian=is_little)
+    assert serdeser == serialize(deserialize(rawdata, typ), typ, little_endian=is_little)
     assert serdeser == rawdata[: len(serdeser)]
     assert len(rawdata) - len(serdeser) < 4
     assert all(x == 0 for x in rawdata[len(serdeser) :])
@@ -310,20 +310,20 @@ def test_serializer() -> None:
         data = 7
 
     msg = Foo()
-    ret = serialize_cdr(msg, 'std_msgs/msg/Int8', True)
-    assert ret == serialize(msg, 'std_msgs/msg/Int8', True)
+    ret = serialize_cdr(msg, 'std_msgs/msg/Int8', little_endian=True)
+    assert ret == serialize(msg, 'std_msgs/msg/Int8', little_endian=True)
     assert ret == b'\x00\x01\x00\x00\x07'
 
-    ret = serialize_cdr(msg, 'std_msgs/msg/Int8', False)
-    assert ret == serialize(msg, 'std_msgs/msg/Int8', False)
+    ret = serialize_cdr(msg, 'std_msgs/msg/Int8', little_endian=False)
+    assert ret == serialize(msg, 'std_msgs/msg/Int8', little_endian=False)
     assert ret == b'\x00\x00\x00\x00\x07'
 
-    ret = serialize_cdr(msg, 'std_msgs/msg/Int16', True)
-    assert ret == serialize(msg, 'std_msgs/msg/Int16', True)
+    ret = serialize_cdr(msg, 'std_msgs/msg/Int16', little_endian=True)
+    assert ret == serialize(msg, 'std_msgs/msg/Int16', little_endian=True)
     assert ret == b'\x00\x01\x00\x00\x07\x00'
 
-    ret = serialize_cdr(msg, 'std_msgs/msg/Int16', False)
-    assert ret == serialize(msg, 'std_msgs/msg/Int16', False)
+    ret = serialize_cdr(msg, 'std_msgs/msg/Int16', little_endian=False)
+    assert ret == serialize(msg, 'std_msgs/msg/Int16', little_endian=False)
     assert ret == b'\x00\x00\x00\x00\x00\x07'
 
 
@@ -337,12 +337,12 @@ def test_serializer_errors() -> None:
         coef: np.ndarray[Any, np.dtype[np.int_]] = np.array([1, 2, 3, 4])
 
     msg = Foo()
-    ret = serialize_cdr(msg, 'shape_msgs/msg/Plane', True)
-    assert ret == serialize(msg, 'shape_msgs/msg/Plane', True)
+    ret = serialize_cdr(msg, 'shape_msgs/msg/Plane', little_endian=True)
+    assert ret == serialize(msg, 'shape_msgs/msg/Plane', little_endian=True)
 
     msg.coef = np.array([1, 2, 3, 4, 4])
     with pytest.raises(SerdeError, match='array length'):
-        serialize_cdr(msg, 'shape_msgs/msg/Plane', True)
+        serialize_cdr(msg, 'shape_msgs/msg/Plane', little_endian=True)
 
 
 @pytest.mark.usefixtures('_comparable')
@@ -374,7 +374,7 @@ def test_custom_type() -> None:
         static_64_16(64, 16),
         static_16_64(16, 64),
         dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
-        dynamic_64_b_64(64, True, 1.25),
+        dynamic_64_b_64(64, b=True, f64=1.25),
         dynamic_64_s(64, 's'),
         dynamic_s_64('s', 64),
         # arrays
@@ -390,7 +390,7 @@ def test_custom_type() -> None:
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
-        [dynamic_64_b_64(64, True, 1.25), dynamic_64_b_64(64, True, 1.25)],
+        [dynamic_64_b_64(64, b=True, f64=1.25), dynamic_64_b_64(64, b=True, f64=1.25)],
         [dynamic_64_s(64, 's'), dynamic_64_s(64, 's')],
         [dynamic_s_64('s', 64), dynamic_s_64('s', 64)],
         # sequences
@@ -406,7 +406,7 @@ def test_custom_type() -> None:
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
             dynamic_64_64(np.array([33, 33], dtype=np.uint64)),
         ],
-        [dynamic_64_b_64(64, True, 1.25), dynamic_64_b_64(64, True, 1.25)],
+        [dynamic_64_b_64(64, b=True, f64=1.25), dynamic_64_b_64(64, b=True, f64=1.25)],
         [dynamic_64_s(64, 's'), dynamic_64_s(64, 's')],
         [dynamic_s_64('s', 64), dynamic_s_64('s', 64)],
     )
@@ -477,7 +477,7 @@ def test_padding_empty_sequence() -> None:
     register_types(dict(get_types_from_msg(SU64_B, 'test_msgs/msg/su64_b')))
 
     su64_b = get_msgdef('test_msgs/msg/su64_b', types).cls
-    msg = su64_b(np.array([], dtype=np.uint64), True)
+    msg = su64_b(np.array([], dtype=np.uint64), b=True)
 
     cdr = serialize_cdr(msg, msg.__msgtype__)
     assert cdr[4:] == b'\x00\x00\x00\x00\x01'

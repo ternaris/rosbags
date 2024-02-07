@@ -143,9 +143,36 @@ def test_convert_1to2(tmp_path: Path) -> None:
         writerinst = writer.return_value.__enter__.return_value
 
         connections = [
-            Connection(1, '/topic', 'typ', 'def', '', -1, ConnectionExtRosbag1(None, False), None),
-            Connection(2, '/topic', 'typ', 'def', '', -1, ConnectionExtRosbag1(None, True), None),
-            Connection(3, '/other', 'typ', 'def', '', -1, ConnectionExtRosbag1(None, False), None),
+            Connection(
+                1,
+                '/topic',
+                'typ',
+                'def',
+                '',
+                -1,
+                ConnectionExtRosbag1(None, latching=False),
+                None,
+            ),
+            Connection(
+                2,
+                '/topic',
+                'typ',
+                'def',
+                '',
+                -1,
+                ConnectionExtRosbag1(None, latching=True),
+                None,
+            ),
+            Connection(
+                3,
+                '/other',
+                'typ',
+                'def',
+                '',
+                -1,
+                ConnectionExtRosbag1(None, latching=False),
+                None,
+            ),
             Connection(
                 4,
                 '/other',
@@ -153,7 +180,7 @@ def test_convert_1to2(tmp_path: Path) -> None:
                 'def',
                 '',
                 -1,
-                ConnectionExtRosbag1('caller', False),
+                ConnectionExtRosbag1('caller', latching=False),
                 None,
             ),
         ]
@@ -305,7 +332,7 @@ def test_convert_2to1(tmp_path: Path) -> None:
                 '',
                 '8b94c1b53db61fb6aed406028ad6332a',
                 -1,
-                ConnectionExtRosbag1(None, False),
+                ConnectionExtRosbag1(None, latching=False),
                 None,
             ),
             Connection(
@@ -315,7 +342,7 @@ def test_convert_2to1(tmp_path: Path) -> None:
                 '',
                 '8b94c1b53db61fb6aed406028ad6332a',
                 -1,
-                ConnectionExtRosbag1(None, True),
+                ConnectionExtRosbag1(None, latching=True),
                 None,
             ),
             Connection(
@@ -325,7 +352,7 @@ def test_convert_2to1(tmp_path: Path) -> None:
                 '',
                 '8b94c1b53db61fb6aed406028ad6332a',
                 -1,
-                ConnectionExtRosbag1(None, False),
+                ConnectionExtRosbag1(None, latching=False),
                 None,
             ),
         ]

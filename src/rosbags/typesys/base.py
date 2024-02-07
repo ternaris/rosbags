@@ -115,15 +115,15 @@ TIDMAP = {
     'float64': 11,
     'float128': 12,
     'char': 13,
-    # 'wchar': 14,
+    # Unsupported 'wchar': 14,
     'bool': 15,
     'octet': 16,
     'string': 17,
-    # 'wstring': 18,
-    # 'fixed_string': 19,
-    # 'fixed_wstring': 20,
+    # Unsupported 'wstring': 18,
+    # Unsupported 'fixed_string': 19,
+    # Unsupported 'fixed_wstring': 20,
     'bounded_string': 21,
-    # 'bounded_wstring': 22,
+    # Unsupported 'bounded_wstring': 22,
 }
 
 

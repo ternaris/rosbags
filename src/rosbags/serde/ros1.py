@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize, Field
 
 
-def generate_ros1_to_cdr(fields: list[Field], typename: str, copy: bool) -> Bitcvt | BitcvtSize:
+def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> Bitcvt | BitcvtSize:
     """Generate ROS1 to CDR conversion function.
 
     Args:
@@ -176,7 +176,7 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, copy: bool) -> Bitc
     return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
-def generate_cdr_to_ros1(fields: list[Field], typename: str, copy: bool) -> Bitcvt | BitcvtSize:
+def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> Bitcvt | BitcvtSize:
     """Generate CDR to ROS1 conversion function.
 
     Args:

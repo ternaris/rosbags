@@ -144,7 +144,7 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
 
 
 @pytest.mark.parametrize('strip_types', [False, True])
-def test_anyreader2(bags2: list[Path], strip_types: bool) -> None:
+def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
     """Test AnyReader on rosbag2."""
     with pytest.raises(AnyReaderError, match='multiple rosbag2'):
         AnyReader(bags2)

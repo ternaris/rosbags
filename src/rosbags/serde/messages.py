@@ -83,9 +83,9 @@ def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
             getsize_ros1,
             generate_serialize_ros1(fields, typename),
             generate_deserialize_ros1(fields, typename),
-            generate_ros1_to_cdr(fields, typename, False),  # type: ignore[arg-type]
-            generate_ros1_to_cdr(fields, typename, True),  # type: ignore[arg-type]
-            generate_cdr_to_ros1(fields, typename, False),  # type: ignore[arg-type]
-            generate_cdr_to_ros1(fields, typename, True),  # type: ignore[arg-type]
+            generate_ros1_to_cdr(fields, typename, copy=False),  # type: ignore[arg-type]
+            generate_ros1_to_cdr(fields, typename, copy=True),  # type: ignore[arg-type]
+            generate_cdr_to_ros1(fields, typename, copy=False),  # type: ignore[arg-type]
+            generate_cdr_to_ros1(fields, typename, copy=True),  # type: ignore[arg-type]
         )
     return cache[typename]

@@ -56,7 +56,7 @@ if __name__ == '__main__':
         4,
         4,
         'rgb8',
-        False,
+        False,  # noqa: FBT003
         4 * 3,
         np.zeros(4 * 4 * 3, dtype=np.uint8),
     )

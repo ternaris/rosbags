@@ -422,6 +422,7 @@ def get_size(message: object, msgdef: Msgdef, size: int = 0) -> int:
 def serialize(
     message: object,
     typename: str,
+    *,
     little_endian: bool = sys.byteorder == 'little',
 ) -> memoryview:
     """Serialize message object to bytes.
