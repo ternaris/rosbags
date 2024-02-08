@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import IntEnum, auto
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Dict
 
 from lz4.frame import compress as lz4_compress
 
@@ -65,7 +65,7 @@ def serialize_time(val: int) -> bytes:
     return struct.pack('<LL', sec, nsec)
 
 
-class Header(Dict[str, Any]):
+class Header(Dict[str, bytes]):
     """Record header."""
 
     def set_uint32(self, name: str, value: int) -> None:

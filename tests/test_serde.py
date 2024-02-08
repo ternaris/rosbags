@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -31,7 +31,15 @@ from rosbags.typesys.types import (
 from .cdr import deserialize, serialize
 
 if TYPE_CHECKING:
-    from typing import Any, Generator
+    import sys
+    from typing import Generator
+
+    if sys.version_info >= (3, 10):
+        from typing import ParamSpec
+    else:
+        from typing_extensions import ParamSpec
+
+    P = ParamSpec('P')
 
 MSG_POLY = (
     (
@@ -222,28 +230,28 @@ def _comparable() -> Generator[None, None, None]:
     """
     frombuffer = np.frombuffer
 
-    def arreq(self: MagicMock, other: MagicMock) -> bool:
-        lhs = self._mock_wraps
-        rhs = getattr(other, '_mock_wraps', other)
-        return (lhs == rhs).all()  # type: ignore[no-any-return]
+    class CNDArray:
+        """Comparable ndarray."""
 
-    class CNDArray(MagicMock):
-        """Mock ndarray."""
+        def __init__(self, child: np.ndarray[int, np.dtype[np.uint8]]) -> None:
+            self.child = child
 
-        def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-            super().__init__(*args, **kwargs)
-            self.dtype = kwargs['wraps'].dtype
-            self.reshape = kwargs['wraps'].reshape
-            self.__eq__ = arreq  # type: ignore[assignment, method-assign]
+        def __eq__(self, other: object) -> bool:
+            if isinstance(other, CNDArray):
+                other = other.child
+            assert isinstance(other, np.ndarray)
+            return bool(np.equal(self.child, other).all())
 
-        def byteswap(self, *args: Any) -> CNDArray:  # noqa: ANN401
-            """Wrap return value also in mock."""
-            return CNDArray(wraps=self._mock_wraps.byteswap(*args))
+        def byteswap(self) -> CNDArray:
+            return CNDArray(self.child.byteswap())
 
-    def wrap_frombuffer(*args: Any, **kwargs: Any) -> CNDArray:  # noqa: ANN401
-        return CNDArray(wraps=frombuffer(*args, **kwargs))
+        def __getattr__(self, name: str) -> object:
+            return getattr(self.child, name)
 
-    with patch.object(np, 'frombuffer', side_effect=wrap_frombuffer):
+    def wrap_frombuffer(mem: bytes, dtype: str, count: int, offset: int) -> CNDArray:
+        return CNDArray(frombuffer(mem, dtype=dtype, count=count, offset=offset))
+
+    with patch.object(np, 'frombuffer', wrap_frombuffer):
         yield
 
 
@@ -334,7 +342,7 @@ def test_serializer_errors() -> None:
     class Foo:
         """Dummy class."""
 
-        coef: np.ndarray[Any, np.dtype[np.int_]] = np.array([1, 2, 3, 4])
+        coef: np.ndarray[int, np.dtype[np.uint8]] = np.array([1, 2, 3, 4])
 
     msg = Foo()
     ret = serialize_cdr(msg, 'shape_msgs/msg/Plane', little_endian=True)

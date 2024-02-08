@@ -4,26 +4,47 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar, Union
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Tuple
+    from typing import Callable, Literal
 
-    from rosbags.interfaces.typing import Typestore
+    from rosbags.interfaces.typing import Basetype, Typestore
 
-    Bitcvt = Callable[[bytes, int, bytes, int, Typestore], Tuple[int, int]]
-    BitcvtSize = Callable[[bytes, int, None, int, Typestore], Tuple[int, int]]
+    from .utils import Valtype
 
-    CDRDeser = Callable[[bytes, int, type, Typestore], Tuple[Any, int]]
+    Bitcvt = Callable[[bytes, int, bytes, int, Typestore], 'tuple[int, int]']
+    BitcvtSize = Callable[[bytes, int, None, int, Typestore], 'tuple[int, int]']
+
+    CDRDeser = Callable[[bytes, int, type, Typestore], 'tuple[T, int]']
     CDRSer = Callable[[bytes, int, object, Typestore], int]
     CDRSerSize = Callable[[int, object, Typestore], int]
 
+T = TypeVar('T')
 
-class Descriptor(NamedTuple):
+
+class DescriptorBase(NamedTuple):
     """Value type descriptor."""
 
-    valtype: int
-    args: Any
+    valtype: Literal[Valtype.BASE]
+    args: Basetype
+
+
+class DescriptorType(NamedTuple):
+    """Value type descriptor."""
+
+    valtype: Literal[Valtype.MESSAGE]
+    args: Msgdef[object]
+
+
+class DescriptorSeq(NamedTuple):
+    """Value type descriptor."""
+
+    valtype: Literal[Valtype.SEQUENCE, Valtype.ARRAY]
+    args: tuple[Descriptor, int]
+
+
+Descriptor = Union[DescriptorBase, DescriptorType, DescriptorSeq]
 
 
 class Field(NamedTuple):
@@ -33,22 +54,22 @@ class Field(NamedTuple):
     descriptor: Descriptor
 
 
-class Msgdef(NamedTuple):
+class Msgdef(NamedTuple, Generic[T]):
     """Metadata of a message."""
 
     name: str
     fields: list[Field]
-    cls: Any
+    cls: type
     size_cdr: int
     getsize_cdr: CDRSerSize
     serialize_cdr_le: CDRSer
     serialize_cdr_be: CDRSer
-    deserialize_cdr_le: CDRDeser
-    deserialize_cdr_be: CDRDeser
+    deserialize_cdr_le: CDRDeser[T]
+    deserialize_cdr_be: CDRDeser[T]
     size_ros1: int
     getsize_ros1: CDRSerSize
     serialize_ros1: CDRSer
-    deserialize_ros1: CDRDeser
+    deserialize_ros1: CDRDeser[T]
     getsize_ros1_to_cdr: BitcvtSize
     ros1_to_cdr: Bitcvt
     getsize_cdr_to_ros1: BitcvtSize

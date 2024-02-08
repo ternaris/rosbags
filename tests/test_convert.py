@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import call, patch
 
 import pytest
@@ -17,9 +16,6 @@ from rosbags.convert.converter import LATCH
 from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2
 from rosbags.rosbag1 import ReaderError
 from rosbags.rosbag2 import WriterError
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 def test_cliwrapper(tmp_path: Path) -> None:
@@ -207,7 +203,7 @@ def test_convert_1to2(tmp_path: Path) -> None:
 
         writerinst.connections = []
 
-        def add_connection(*_1: Any, **_2: Any) -> Connection:  # noqa: ANN401
+        def add_connection(*_1: str, **_2: str) -> Connection:
             """Mock for Writer.add_connection."""
             writerinst.connections = [
                 conn for _, conn in zip(range(len(writerinst.connections) + 1), wconnections)
@@ -373,7 +369,7 @@ def test_convert_2to1(tmp_path: Path) -> None:
 
         writerinst.connections = []
 
-        def add_connection(*_: Any) -> Connection:  # noqa: ANN401
+        def add_connection(*_: str) -> Connection:
             """Mock for Writer.add_connection."""
             writerinst.connections = [
                 conn for _, conn in zip(range(len(writerinst.connections) + 1), wconnections)

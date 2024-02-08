@@ -9,19 +9,19 @@ import sys
 from importlib.util import module_from_spec, spec_from_loader
 from typing import TYPE_CHECKING
 
+from rosbags.interfaces import Nodetype
+
 from . import types
 from .base import TypesysError
 
 if TYPE_CHECKING:
-    from typing import Any
-
-    from rosbags.interfaces.typing import Fielddesc, Typesdict, Typestore
+    from rosbags.interfaces.typing import FieldDesc, Typesdict, Typestore
 
 
 INTLIKE = re.compile('^u?(bool|int|float)')
 
 
-def get_typehint(desc: Fielddesc) -> str:
+def get_typehint(desc: FieldDesc) -> str:
     """Get python type hint for field.
 
     Args:
@@ -31,29 +31,29 @@ def get_typehint(desc: Fielddesc) -> str:
         Type hint for field.
 
     """
-    if desc[0] == 1:
-        if isinstance(desc[1], tuple) or desc[1] == 'string':
+    if desc[0] == Nodetype.BASE:
+        if desc[1][0] == 'string':
             return 'str'
-        assert isinstance(desc[1], str)
-        typ = 'int' if desc[1] == 'octet' else desc[1]
+        typ = 'int' if desc[1][0] == 'octet' else desc[1][0]
         match = INTLIKE.match(typ)
         assert match, typ
         return match.group(1)
 
-    if desc[0] == 2:
+    if desc[0] == Nodetype.NAME:
         assert isinstance(desc[1], str)
         return desc[1].replace('/', '__')
 
-    assert desc[0] == 3 or desc[0] == 4
+    assert desc[0] in {Nodetype.ARRAY, Nodetype.SEQUENCE}
     sub = desc[1][0]
-    sub1: str | tuple[str, int] = sub[1]
-    if isinstance(sub1, str) and (sub1 == 'octet' or INTLIKE.match(sub1)):
-        typ = {
-            'bool': 'bool_',
-            'octet': 'uint8',
-        }.get(sub1, sub1)
-        return f'numpy.ndarray[Any, numpy.dtype[numpy.{typ}]]'
-    assert isinstance(sub, tuple)
+    if sub[0] == Nodetype.BASE:
+        typ = sub[1][0]
+        if typ == 'octet' or INTLIKE.match(typ):
+            typ = {
+                'bool': 'bool_',
+                'octet': 'uint8',
+            }.get(typ, typ)
+            return f'numpy.ndarray[None, numpy.dtype[numpy.{typ}]]'
+
     return f'list[{get_typehint(sub)}]'
 
 
@@ -82,6 +82,8 @@ def generate_python_code(typs: Typesdict) -> str:
         'from dataclasses import dataclass',
         'from typing import TYPE_CHECKING',
         '',
+        'from rosbags.interfaces import Nodetype',
+        '',
         'if TYPE_CHECKING:',
         '    from typing import Any, ClassVar',
         '',
@@ -89,7 +91,10 @@ def generate_python_code(typs: Typesdict) -> str:
         '',
         '    from rosbags.interfaces.typing import Typesdict',
         '',
-        '',
+        'A = Nodetype.BASE',
+        'B = Nodetype.NAME',
+        'C = Nodetype.ARRAY',
+        'D = Nodetype.SEQUENCE',
     ]
 
     for name, (consts, fields) in typs.items():
@@ -104,10 +109,11 @@ def generate_python_code(typs: Typesdict) -> str:
                     f'    {fname}: {get_typehint(desc)}'
                     f'{" = 0" if fname == "structure_needs_at_least_one_member" else ""}'
                 )
-                for fname, desc in fields or [('structure_needs_at_least_one_member', (1, 'uint8'))]
+                for fname, desc in fields
+                or [('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0)))]
             ],
             *[
-                f'    {fname}: ClassVar[{get_typehint((1, ftype))}] = {fvalue!r}'
+                f'    {fname}: ClassVar[{get_typehint((Nodetype.BASE, (ftype, 0)))}] = {fvalue!r}'
                 for fname, ftype, fvalue in consts
             ],
             f'    __msgtype__: ClassVar[str] = {name!r}',
@@ -118,10 +124,11 @@ def generate_python_code(typs: Typesdict) -> str:
             '',
         ]
 
-    def get_ftype(ftype: tuple[int, Any]) -> tuple[int, Any]:
-        if ftype[0] <= 2:
-            return int(ftype[0]), ftype[1]
-        return int(ftype[0]), ((int(ftype[1][0][0]), ftype[1][0][1]), ftype[1][1])
+    def get_ftype(ftype: FieldDesc) -> str:
+        typs = ['', 'Nodetype.BASE', 'Nodetype.NAME', 'Nodetype.ARRAY', 'Nodetype.SEQUENCE']
+        if ftype[0] == Nodetype.BASE or ftype[0] == Nodetype.NAME:
+            return f'({typs[ftype[0]]}, {ftype[1]!r})'
+        return f'({typs[ftype[0]]}, (({typs[ftype[1][0][0]]}, {ftype[1][0][1]!r}), {ftype[1][1]}))'
 
     lines += ['FIELDDEFS: Typesdict = {']
     for name, (consts, fields) in typs.items():
@@ -142,9 +149,9 @@ def generate_python_code(typs: Typesdict) -> str:
             ),
             '        [',
             *[
-                f'            ({fname!r}, {get_ftype(ftype)!r}),'
+                f'            ({fname!r}, {get_ftype(ftype)}),'
                 for fname, ftype in fields
-                or [('structure_needs_at_least_one_member', (1, 'uint8'))]
+                or [('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0)))]
             ],
             '        ],',
             '    ),',

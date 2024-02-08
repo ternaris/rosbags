@@ -13,12 +13,16 @@ from __future__ import annotations
 
 import sys
 from itertools import tee
-from typing import TYPE_CHECKING, Iterator, cast
+from typing import TYPE_CHECKING, cast
 
 from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
 
 if TYPE_CHECKING:
+    from typing import Iterator, TypeVar
+
     from .typing import CDRDeser, CDRSer, CDRSerSize, Field
+
+    T = TypeVar('T')
 
 
 def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
@@ -63,9 +67,9 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                 aligned = 1
                 is_stat = False
             else:
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
-                aligned = SIZEMAP[desc.args]
-                size += SIZEMAP[desc.args]
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                aligned = SIZEMAP[desc.args[0]]
+                size += SIZEMAP[desc.args[0]]
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -79,8 +83,8 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                     aligned = 1
                     is_stat = False
                 else:
-                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args]}')
-                    size += length * SIZEMAP[subdesc.args]
+                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args[0]]}')
+                    size += length * SIZEMAP[subdesc.args[0]]
 
             else:
                 assert subdesc.valtype == Valtype.MESSAGE
@@ -121,7 +125,7 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                     if aligned < anext_before:
                         lines.append(f'  if len(message.{fieldname}):')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args[0]]}')
                     aligned = anext_before
 
             else:
@@ -216,9 +220,9 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                 lines.append('  pos += length')
                 aligned = 1
             else:
-                lines.append(f'  pack_{desc.args}_{endianess}(rawdata, pos, val)')
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
-                aligned = SIZEMAP[desc.args]
+                lines.append(f'  pack_{desc.args[0]}_{endianess}(rawdata, pos, val)')
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                aligned = SIZEMAP[desc.args[0]]
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -239,7 +243,7 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                 else:
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     lines.append(f'  rawdata[pos:pos + {size}] = val.view(numpy.uint8)')
                     lines.append(f'  pos += {size}')
 
@@ -273,7 +277,7 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                     lines.append('    pos += length')
                     aligned = 1
                 else:
-                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args[0]]}')
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
                     if aligned < (anext_before := align(subdesc)):
@@ -301,7 +305,7 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
     return compile_lines(lines).serialize_cdr  # type: ignore[no-any-return]
 
 
-def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
+def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]:
     """Generate cdr deserialization function.
 
     Args:
@@ -355,10 +359,10 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
                 lines.append('  pos += 4 + length')
                 aligned = 1
             else:
-                lines.append(f'  value = unpack_{desc.args}_{endianess}(rawdata, pos)[0]')
+                lines.append(f'  value = unpack_{desc.args[0]}_{endianess}(rawdata, pos)[0]')
                 lines.append('  values.append(value)')
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
-                aligned = SIZEMAP[desc.args]
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                aligned = SIZEMAP[desc.args[0]]
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -376,10 +380,10 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
                     lines.append('  values.append(value)')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args)}, count={length}, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count={length}, offset=pos)',
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
@@ -421,13 +425,13 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser:
                     lines.append('  values.append(value)')
                     aligned = 1
                 else:
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
                     if aligned < (anext_before := align(subdesc)):
                         lines.append('  if size:')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args)}, count=size, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count=size, offset=pos)',
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')

@@ -85,6 +85,7 @@ run.source = ["src"]
 
 
 [tool.mypy]
+disallow_any_explicit = true
 explicit_package_bases = true
 mypy_path = "src"
 strict = true

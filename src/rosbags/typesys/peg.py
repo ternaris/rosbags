@@ -14,11 +14,22 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Mapping
-    from typing import Any, Pattern, TypeVar
+    from typing import Pattern, TypedDict
 
-    Tree = Any
-    T = TypeVar('T')
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    class Node(TypedDict):
+        """Tree node."""
+
+        node: str
+        data: Tree
+
+    Tree: TypeAlias = 'tuple[Tree, ...] | Node | str'
 
 
 class Rule:
@@ -52,17 +63,19 @@ class Rule:
         match = self.whitespace.match(text, pos)
         return match.span()[1] if match else pos
 
-    def make_node(self, data: T) -> T | dict[str, str | T]:
+    def make_node(self, data: Tree) -> Tree:
         """Make node for parse tree."""
         return {'node': self.name, 'data': data} if self.name else data
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         raise NotImplementedError  # pragma: no cover
 
 
 class RuleLiteral(Rule):
     """Rule to match string literal."""
+
+    value: str
 
     def __init__(
         self,
@@ -83,7 +96,7 @@ class RuleLiteral(Rule):
         super().__init__(value, rules, whitespace, name)
         self.value = value[1:-1].replace("\\'", "'")
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         value = self.value
         assert isinstance(value, str)
@@ -118,7 +131,7 @@ class RuleRegex(Rule):
         super().__init__(value, rules, whitespace, name)
         self.value = re.compile(value[2:-1], re.M | re.S)
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         match = self.value.match(text, pos)
         if not match:
@@ -132,7 +145,7 @@ class RuleToken(Rule):
 
     value: str
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         token = self.rules[self.value]
         npos, data = token.parse(text, pos)
@@ -146,7 +159,7 @@ class RuleOneof(Rule):
 
     value: list[Rule]
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         for value in self.value:
             npos, data = value.parse(text, pos)
@@ -160,7 +173,7 @@ class RuleSequence(Rule):
 
     value: list[Rule]
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         data = []
         npos = pos
@@ -177,9 +190,9 @@ class RuleZeroPlus(Rule):
 
     value: Rule
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
-        data: list[Any] = []
+        data: list[Tree] = []
         lpos = pos
         while True:
             npos, node = self.value.parse(text, lpos)
@@ -194,7 +207,7 @@ class RuleOnePlus(Rule):
 
     value: Rule
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         npos, node = self.value.parse(text, pos)
         if npos == -1:
@@ -214,7 +227,7 @@ class RuleZeroOne(Rule):
 
     value: Rule
 
-    def parse(self, text: str, pos: int) -> tuple[int, Any]:
+    def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         npos, node = self.value.parse(text, pos)
         if npos == -1:
@@ -243,7 +256,7 @@ class Visitor:
 
         tree['data'] = self.visit(tree['data'])
         func = getattr(self, f'visit_{tree["node"]}', lambda x: x)
-        return func(tree['data'])
+        return func(tree['data'])  # type: ignore[no-any-return]
 
 
 def split_token(tok: str) -> list[str]:

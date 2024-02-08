@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from rosbags.interfaces import Nodetype
+
 if TYPE_CHECKING:
     from typing import Any, ClassVar
 
@@ -19,7 +21,10 @@ if TYPE_CHECKING:
 
     from rosbags.interfaces.typing import Typesdict
 
-
+A = Nodetype.BASE
+B = Nodetype.NAME
+C = Nodetype.ARRAY
+D = Nodetype.SEQUENCE
 @dataclass
 class builtin_interfaces__msg__Duration:
     """Class for builtin_interfaces/msg/Duration."""
@@ -95,7 +100,7 @@ class geometry_msgs__msg__AccelWithCovariance:
     """Class for geometry_msgs/msg/AccelWithCovariance."""
 
     accel: geometry_msgs__msg__Accel
-    covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/AccelWithCovariance'
 
 
@@ -220,7 +225,7 @@ class geometry_msgs__msg__PoseWithCovariance:
     """Class for geometry_msgs/msg/PoseWithCovariance."""
 
     pose: geometry_msgs__msg__Pose
-    covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/PoseWithCovariance'
 
 
@@ -295,7 +300,7 @@ class geometry_msgs__msg__TwistWithCovariance:
     """Class for geometry_msgs/msg/TwistWithCovariance."""
 
     twist: geometry_msgs__msg__Twist
-    covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/TwistWithCovariance'
 
 
@@ -462,7 +467,7 @@ class nav_msgs__msg__OccupancyGrid:
 
     header: std_msgs__msg__Header
     info: nav_msgs__msg__MapMetaData
-    data: numpy.ndarray[Any, numpy.dtype[numpy.int8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.int8]]
     __msgtype__: ClassVar[str] = 'nav_msgs/msg/OccupancyGrid'
 
 
@@ -606,10 +611,10 @@ class rcl_interfaces__msg__ParameterValue:
     integer_value: int
     double_value: float
     string_value: str
-    byte_array_value: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
-    bool_array_value: numpy.ndarray[Any, numpy.dtype[numpy.bool_]]
-    integer_array_value: numpy.ndarray[Any, numpy.dtype[numpy.int64]]
-    double_array_value: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    byte_array_value: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
+    bool_array_value: numpy.ndarray[None, numpy.dtype[numpy.bool_]]
+    integer_array_value: numpy.ndarray[None, numpy.dtype[numpy.int64]]
+    double_array_value: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     string_array_value: list[str]
     __msgtype__: ClassVar[str] = 'rcl_interfaces/msg/ParameterValue'
 
@@ -627,7 +632,7 @@ class rcl_interfaces__msg__SetParametersResult:
 class rmw_dds_common__msg__Gid:
     """Class for rmw_dds_common/msg/Gid."""
 
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'rmw_dds_common/msg/Gid'
 
 
@@ -693,8 +698,8 @@ class sensor_msgs__msg__BatteryState:
     power_supply_health: int
     power_supply_technology: int
     present: bool
-    cell_voltage: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
-    cell_temperature: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
+    cell_voltage: numpy.ndarray[None, numpy.dtype[numpy.float32]]
+    cell_temperature: numpy.ndarray[None, numpy.dtype[numpy.float32]]
     location: str
     serial_number: str
     POWER_SUPPLY_STATUS_UNKNOWN: ClassVar[int] = 0
@@ -729,10 +734,10 @@ class sensor_msgs__msg__CameraInfo:
     height: int
     width: int
     distortion_model: str
-    d: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    k: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    r: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    p: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    d: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    k: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    r: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    p: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     binning_x: int
     binning_y: int
     roi: sensor_msgs__msg__RegionOfInterest
@@ -744,7 +749,7 @@ class sensor_msgs__msg__ChannelFloat32:
     """Class for sensor_msgs/msg/ChannelFloat32."""
 
     name: str
-    values: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
+    values: numpy.ndarray[None, numpy.dtype[numpy.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/ChannelFloat32'
 
 
@@ -754,7 +759,7 @@ class sensor_msgs__msg__CompressedImage:
 
     header: std_msgs__msg__Header
     format: str
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/CompressedImage'
 
 
@@ -788,7 +793,7 @@ class sensor_msgs__msg__Image:
     encoding: str
     is_bigendian: int
     step: int
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Image'
 
 
@@ -798,11 +803,11 @@ class sensor_msgs__msg__Imu:
 
     header: std_msgs__msg__Header
     orientation: geometry_msgs__msg__Quaternion
-    orientation_covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    orientation_covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     angular_velocity: geometry_msgs__msg__Vector3
-    angular_velocity_covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    angular_velocity_covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     linear_acceleration: geometry_msgs__msg__Vector3
-    linear_acceleration_covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    linear_acceleration_covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Imu'
 
 
@@ -812,9 +817,9 @@ class sensor_msgs__msg__JointState:
 
     header: std_msgs__msg__Header
     name: list[str]
-    position: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    velocity: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    effort: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    position: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    velocity: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    effort: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/JointState'
 
 
@@ -823,8 +828,8 @@ class sensor_msgs__msg__Joy:
     """Class for sensor_msgs/msg/Joy."""
 
     header: std_msgs__msg__Header
-    axes: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
-    buttons: numpy.ndarray[Any, numpy.dtype[numpy.int32]]
+    axes: numpy.ndarray[None, numpy.dtype[numpy.float32]]
+    buttons: numpy.ndarray[None, numpy.dtype[numpy.int32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Joy'
 
 
@@ -853,7 +858,7 @@ class sensor_msgs__msg__JoyFeedbackArray:
 class sensor_msgs__msg__LaserEcho:
     """Class for sensor_msgs/msg/LaserEcho."""
 
-    echoes: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
+    echoes: numpy.ndarray[None, numpy.dtype[numpy.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/LaserEcho'
 
 
@@ -869,8 +874,8 @@ class sensor_msgs__msg__LaserScan:
     scan_time: float
     range_min: float
     range_max: float
-    ranges: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
-    intensities: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
+    ranges: numpy.ndarray[None, numpy.dtype[numpy.float32]]
+    intensities: numpy.ndarray[None, numpy.dtype[numpy.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/LaserScan'
 
 
@@ -880,7 +885,7 @@ class sensor_msgs__msg__MagneticField:
 
     header: std_msgs__msg__Header
     magnetic_field: geometry_msgs__msg__Vector3
-    magnetic_field_covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    magnetic_field_covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/MagneticField'
 
 
@@ -922,7 +927,7 @@ class sensor_msgs__msg__NavSatFix:
     latitude: float
     longitude: float
     altitude: float
-    position_covariance: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    position_covariance: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     position_covariance_type: int
     COVARIANCE_TYPE_UNKNOWN: ClassVar[int] = 0
     COVARIANCE_TYPE_APPROXIMATED: ClassVar[int] = 1
@@ -969,7 +974,7 @@ class sensor_msgs__msg__PointCloud2:
     is_bigendian: bool
     point_step: int
     row_step: int
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     is_dense: bool
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/PointCloud2'
 
@@ -1063,7 +1068,7 @@ class shape_msgs__msg__Mesh:
 class shape_msgs__msg__MeshTriangle:
     """Class for shape_msgs/msg/MeshTriangle."""
 
-    vertex_indices: numpy.ndarray[Any, numpy.dtype[numpy.uint32]]
+    vertex_indices: numpy.ndarray[None, numpy.dtype[numpy.uint32]]
     __msgtype__: ClassVar[str] = 'shape_msgs/msg/MeshTriangle'
 
 
@@ -1071,7 +1076,7 @@ class shape_msgs__msg__MeshTriangle:
 class shape_msgs__msg__Plane:
     """Class for shape_msgs/msg/Plane."""
 
-    coef: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    coef: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'shape_msgs/msg/Plane'
 
 
@@ -1080,7 +1085,7 @@ class shape_msgs__msg__SolidPrimitive:
     """Class for shape_msgs/msg/SolidPrimitive."""
 
     type: int
-    dimensions: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    dimensions: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     BOX: ClassVar[int] = 1
     SPHERE: ClassVar[int] = 2
     CYLINDER: ClassVar[int] = 3
@@ -1153,7 +1158,7 @@ class std_msgs__msg__ByteMultiArray:
     """Class for std_msgs/msg/ByteMultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/ByteMultiArray'
 
 
@@ -1197,7 +1202,7 @@ class std_msgs__msg__Float32MultiArray:
     """Class for std_msgs/msg/Float32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.float32]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.float32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Float32MultiArray'
 
 
@@ -1214,7 +1219,7 @@ class std_msgs__msg__Float64MultiArray:
     """Class for std_msgs/msg/Float64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Float64MultiArray'
 
 
@@ -1240,7 +1245,7 @@ class std_msgs__msg__Int16MultiArray:
     """Class for std_msgs/msg/Int16MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.int16]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.int16]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int16MultiArray'
 
 
@@ -1257,7 +1262,7 @@ class std_msgs__msg__Int32MultiArray:
     """Class for std_msgs/msg/Int32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.int32]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.int32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int32MultiArray'
 
 
@@ -1274,7 +1279,7 @@ class std_msgs__msg__Int64MultiArray:
     """Class for std_msgs/msg/Int64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.int64]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.int64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int64MultiArray'
 
 
@@ -1291,7 +1296,7 @@ class std_msgs__msg__Int8MultiArray:
     """Class for std_msgs/msg/Int8MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.int8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.int8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int8MultiArray'
 
 
@@ -1335,7 +1340,7 @@ class std_msgs__msg__UInt16MultiArray:
     """Class for std_msgs/msg/UInt16MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint16]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint16]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt16MultiArray'
 
 
@@ -1352,7 +1357,7 @@ class std_msgs__msg__UInt32MultiArray:
     """Class for std_msgs/msg/UInt32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint32]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt32MultiArray'
 
 
@@ -1369,7 +1374,7 @@ class std_msgs__msg__UInt64MultiArray:
     """Class for std_msgs/msg/UInt64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint64]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt64MultiArray'
 
 
@@ -1386,7 +1391,7 @@ class std_msgs__msg__UInt8MultiArray:
     """Class for std_msgs/msg/UInt8MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    data: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt8MultiArray'
 
 
@@ -1443,10 +1448,10 @@ class trajectory_msgs__msg__JointTrajectory:
 class trajectory_msgs__msg__JointTrajectoryPoint:
     """Class for trajectory_msgs/msg/JointTrajectoryPoint."""
 
-    positions: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    velocities: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    accelerations: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
-    effort: numpy.ndarray[Any, numpy.dtype[numpy.float64]]
+    positions: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    velocities: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    accelerations: numpy.ndarray[None, numpy.dtype[numpy.float64]]
+    effort: numpy.ndarray[None, numpy.dtype[numpy.float64]]
     time_from_start: builtin_interfaces__msg__Duration
     __msgtype__: ClassVar[str] = 'trajectory_msgs/msg/JointTrajectoryPoint'
 
@@ -1476,7 +1481,7 @@ class trajectory_msgs__msg__MultiDOFJointTrajectoryPoint:
 class unique_identifier_msgs__msg__UUID:
     """Class for unique_identifier_msgs/msg/UUID."""
 
-    uuid: numpy.ndarray[Any, numpy.dtype[numpy.uint8]]
+    uuid: numpy.ndarray[None, numpy.dtype[numpy.uint8]]
     __msgtype__: ClassVar[str] = 'unique_identifier_msgs/msg/UUID'
 
 
@@ -1671,22 +1676,22 @@ FIELDDEFS: Typesdict = {
     'builtin_interfaces/msg/Duration': (
         [],
         [
-            ('sec', (1, 'int32')),
-            ('nanosec', (1, 'uint32')),
+            ('sec', (Nodetype.BASE, ('int32', 0))),
+            ('nanosec', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'builtin_interfaces/msg/Time': (
         [],
         [
-            ('sec', (1, 'int32')),
-            ('nanosec', (1, 'uint32')),
+            ('sec', (Nodetype.BASE, ('int32', 0))),
+            ('nanosec', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'diagnostic_msgs/msg/DiagnosticArray': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('status', (4, ((2, 'diagnostic_msgs/msg/DiagnosticStatus'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('status', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'diagnostic_msgs/msg/DiagnosticStatus'), 0))),
         ],
     ),
     'diagnostic_msgs/msg/DiagnosticStatus': (
@@ -1697,239 +1702,239 @@ FIELDDEFS: Typesdict = {
             ('STALE', 'octet', 3),
         ],
         [
-            ('level', (1, 'octet')),
-            ('name', (1, ('string', 0))),
-            ('message', (1, ('string', 0))),
-            ('hardware_id', (1, ('string', 0))),
-            ('values', (4, ((2, 'diagnostic_msgs/msg/KeyValue'), 0))),
+            ('level', (Nodetype.BASE, ('octet', 0))),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('message', (Nodetype.BASE, ('string', 0))),
+            ('hardware_id', (Nodetype.BASE, ('string', 0))),
+            ('values', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'diagnostic_msgs/msg/KeyValue'), 0))),
         ],
     ),
     'diagnostic_msgs/msg/KeyValue': (
         [],
         [
-            ('key', (1, ('string', 0))),
-            ('value', (1, ('string', 0))),
+            ('key', (Nodetype.BASE, ('string', 0))),
+            ('value', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'geometry_msgs/msg/Accel': (
         [],
         [
-            ('linear', (2, 'geometry_msgs/msg/Vector3')),
-            ('angular', (2, 'geometry_msgs/msg/Vector3')),
+            ('linear', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('angular', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
         ],
     ),
     'geometry_msgs/msg/AccelStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('accel', (2, 'geometry_msgs/msg/Accel')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('accel', (Nodetype.NAME, 'geometry_msgs/msg/Accel')),
         ],
     ),
     'geometry_msgs/msg/AccelWithCovariance': (
         [],
         [
-            ('accel', (2, 'geometry_msgs/msg/Accel')),
-            ('covariance', (3, ((1, 'float64'), 36))),
+            ('accel', (Nodetype.NAME, 'geometry_msgs/msg/Accel')),
+            ('covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 36))),
         ],
     ),
     'geometry_msgs/msg/AccelWithCovarianceStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('accel', (2, 'geometry_msgs/msg/AccelWithCovariance')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('accel', (Nodetype.NAME, 'geometry_msgs/msg/AccelWithCovariance')),
         ],
     ),
     'geometry_msgs/msg/Inertia': (
         [],
         [
-            ('m', (1, 'float64')),
-            ('com', (2, 'geometry_msgs/msg/Vector3')),
-            ('ixx', (1, 'float64')),
-            ('ixy', (1, 'float64')),
-            ('ixz', (1, 'float64')),
-            ('iyy', (1, 'float64')),
-            ('iyz', (1, 'float64')),
-            ('izz', (1, 'float64')),
+            ('m', (Nodetype.BASE, ('float64', 0))),
+            ('com', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('ixx', (Nodetype.BASE, ('float64', 0))),
+            ('ixy', (Nodetype.BASE, ('float64', 0))),
+            ('ixz', (Nodetype.BASE, ('float64', 0))),
+            ('iyy', (Nodetype.BASE, ('float64', 0))),
+            ('iyz', (Nodetype.BASE, ('float64', 0))),
+            ('izz', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'geometry_msgs/msg/InertiaStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('inertia', (2, 'geometry_msgs/msg/Inertia')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('inertia', (Nodetype.NAME, 'geometry_msgs/msg/Inertia')),
         ],
     ),
     'geometry_msgs/msg/Point': (
         [],
         [
-            ('x', (1, 'float64')),
-            ('y', (1, 'float64')),
-            ('z', (1, 'float64')),
+            ('x', (Nodetype.BASE, ('float64', 0))),
+            ('y', (Nodetype.BASE, ('float64', 0))),
+            ('z', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'geometry_msgs/msg/Point32': (
         [],
         [
-            ('x', (1, 'float32')),
-            ('y', (1, 'float32')),
-            ('z', (1, 'float32')),
+            ('x', (Nodetype.BASE, ('float32', 0))),
+            ('y', (Nodetype.BASE, ('float32', 0))),
+            ('z', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'geometry_msgs/msg/PointStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('point', (2, 'geometry_msgs/msg/Point')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('point', (Nodetype.NAME, 'geometry_msgs/msg/Point')),
         ],
     ),
     'geometry_msgs/msg/Polygon': (
         [],
         [
-            ('points', (4, ((2, 'geometry_msgs/msg/Point32'), 0))),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point32'), 0))),
         ],
     ),
     'geometry_msgs/msg/PolygonStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('polygon', (2, 'geometry_msgs/msg/Polygon')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('polygon', (Nodetype.NAME, 'geometry_msgs/msg/Polygon')),
         ],
     ),
     'geometry_msgs/msg/Pose': (
         [],
         [
-            ('position', (2, 'geometry_msgs/msg/Point')),
-            ('orientation', (2, 'geometry_msgs/msg/Quaternion')),
+            ('position', (Nodetype.NAME, 'geometry_msgs/msg/Point')),
+            ('orientation', (Nodetype.NAME, 'geometry_msgs/msg/Quaternion')),
         ],
     ),
     'geometry_msgs/msg/Pose2D': (
         [],
         [
-            ('x', (1, 'float64')),
-            ('y', (1, 'float64')),
-            ('theta', (1, 'float64')),
+            ('x', (Nodetype.BASE, ('float64', 0))),
+            ('y', (Nodetype.BASE, ('float64', 0))),
+            ('theta', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'geometry_msgs/msg/PoseArray': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('poses', (4, ((2, 'geometry_msgs/msg/Pose'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('poses', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Pose'), 0))),
         ],
     ),
     'geometry_msgs/msg/PoseStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
         ],
     ),
     'geometry_msgs/msg/PoseWithCovariance': (
         [],
         [
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
-            ('covariance', (3, ((1, 'float64'), 36))),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
+            ('covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 36))),
         ],
     ),
     'geometry_msgs/msg/PoseWithCovarianceStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('pose', (2, 'geometry_msgs/msg/PoseWithCovariance')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/PoseWithCovariance')),
         ],
     ),
     'geometry_msgs/msg/Quaternion': (
         [],
         [
-            ('x', (1, 'float64')),
-            ('y', (1, 'float64')),
-            ('z', (1, 'float64')),
-            ('w', (1, 'float64')),
+            ('x', (Nodetype.BASE, ('float64', 0))),
+            ('y', (Nodetype.BASE, ('float64', 0))),
+            ('z', (Nodetype.BASE, ('float64', 0))),
+            ('w', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'geometry_msgs/msg/QuaternionStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('quaternion', (2, 'geometry_msgs/msg/Quaternion')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('quaternion', (Nodetype.NAME, 'geometry_msgs/msg/Quaternion')),
         ],
     ),
     'geometry_msgs/msg/Transform': (
         [],
         [
-            ('translation', (2, 'geometry_msgs/msg/Vector3')),
-            ('rotation', (2, 'geometry_msgs/msg/Quaternion')),
+            ('translation', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('rotation', (Nodetype.NAME, 'geometry_msgs/msg/Quaternion')),
         ],
     ),
     'geometry_msgs/msg/TransformStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('child_frame_id', (1, ('string', 0))),
-            ('transform', (2, 'geometry_msgs/msg/Transform')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('child_frame_id', (Nodetype.BASE, ('string', 0))),
+            ('transform', (Nodetype.NAME, 'geometry_msgs/msg/Transform')),
         ],
     ),
     'geometry_msgs/msg/Twist': (
         [],
         [
-            ('linear', (2, 'geometry_msgs/msg/Vector3')),
-            ('angular', (2, 'geometry_msgs/msg/Vector3')),
+            ('linear', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('angular', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
         ],
     ),
     'geometry_msgs/msg/TwistStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('twist', (2, 'geometry_msgs/msg/Twist')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('twist', (Nodetype.NAME, 'geometry_msgs/msg/Twist')),
         ],
     ),
     'geometry_msgs/msg/TwistWithCovariance': (
         [],
         [
-            ('twist', (2, 'geometry_msgs/msg/Twist')),
-            ('covariance', (3, ((1, 'float64'), 36))),
+            ('twist', (Nodetype.NAME, 'geometry_msgs/msg/Twist')),
+            ('covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 36))),
         ],
     ),
     'geometry_msgs/msg/TwistWithCovarianceStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('twist', (2, 'geometry_msgs/msg/TwistWithCovariance')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('twist', (Nodetype.NAME, 'geometry_msgs/msg/TwistWithCovariance')),
         ],
     ),
     'geometry_msgs/msg/Vector3': (
         [],
         [
-            ('x', (1, 'float64')),
-            ('y', (1, 'float64')),
-            ('z', (1, 'float64')),
+            ('x', (Nodetype.BASE, ('float64', 0))),
+            ('y', (Nodetype.BASE, ('float64', 0))),
+            ('z', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'geometry_msgs/msg/Vector3Stamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('vector', (2, 'geometry_msgs/msg/Vector3')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('vector', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
         ],
     ),
     'geometry_msgs/msg/Wrench': (
         [],
         [
-            ('force', (2, 'geometry_msgs/msg/Vector3')),
-            ('torque', (2, 'geometry_msgs/msg/Vector3')),
+            ('force', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('torque', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
         ],
     ),
     'geometry_msgs/msg/WrenchStamped': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('wrench', (2, 'geometry_msgs/msg/Wrench')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('wrench', (Nodetype.NAME, 'geometry_msgs/msg/Wrench')),
         ],
     ),
     'libstatistics_collector/msg/DummyMessage': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
         ],
     ),
     'lifecycle_msgs/msg/State': (
@@ -1947,8 +1952,8 @@ FIELDDEFS: Typesdict = {
             ('TRANSITION_STATE_ERRORPROCESSING', 'uint8', 15),
         ],
         [
-            ('id', (1, 'uint8')),
-            ('label', (1, ('string', 0))),
+            ('id', (Nodetype.BASE, ('uint8', 0))),
+            ('label', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'lifecycle_msgs/msg/Transition': (
@@ -1985,91 +1990,91 @@ FIELDDEFS: Typesdict = {
             ('TRANSITION_CALLBACK_ERROR', 'uint8', 99),
         ],
         [
-            ('id', (1, 'uint8')),
-            ('label', (1, ('string', 0))),
+            ('id', (Nodetype.BASE, ('uint8', 0))),
+            ('label', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'lifecycle_msgs/msg/TransitionDescription': (
         [],
         [
-            ('transition', (2, 'lifecycle_msgs/msg/Transition')),
-            ('start_state', (2, 'lifecycle_msgs/msg/State')),
-            ('goal_state', (2, 'lifecycle_msgs/msg/State')),
+            ('transition', (Nodetype.NAME, 'lifecycle_msgs/msg/Transition')),
+            ('start_state', (Nodetype.NAME, 'lifecycle_msgs/msg/State')),
+            ('goal_state', (Nodetype.NAME, 'lifecycle_msgs/msg/State')),
         ],
     ),
     'lifecycle_msgs/msg/TransitionEvent': (
         [],
         [
-            ('timestamp', (1, 'uint64')),
-            ('transition', (2, 'lifecycle_msgs/msg/Transition')),
-            ('start_state', (2, 'lifecycle_msgs/msg/State')),
-            ('goal_state', (2, 'lifecycle_msgs/msg/State')),
+            ('timestamp', (Nodetype.BASE, ('uint64', 0))),
+            ('transition', (Nodetype.NAME, 'lifecycle_msgs/msg/Transition')),
+            ('start_state', (Nodetype.NAME, 'lifecycle_msgs/msg/State')),
+            ('goal_state', (Nodetype.NAME, 'lifecycle_msgs/msg/State')),
         ],
     ),
     'nav_msgs/msg/GridCells': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('cell_width', (1, 'float32')),
-            ('cell_height', (1, 'float32')),
-            ('cells', (4, ((2, 'geometry_msgs/msg/Point'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('cell_width', (Nodetype.BASE, ('float32', 0))),
+            ('cell_height', (Nodetype.BASE, ('float32', 0))),
+            ('cells', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point'), 0))),
         ],
     ),
     'nav_msgs/msg/MapMetaData': (
         [],
         [
-            ('map_load_time', (2, 'builtin_interfaces/msg/Time')),
-            ('resolution', (1, 'float32')),
-            ('width', (1, 'uint32')),
-            ('height', (1, 'uint32')),
-            ('origin', (2, 'geometry_msgs/msg/Pose')),
+            ('map_load_time', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('resolution', (Nodetype.BASE, ('float32', 0))),
+            ('width', (Nodetype.BASE, ('uint32', 0))),
+            ('height', (Nodetype.BASE, ('uint32', 0))),
+            ('origin', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
         ],
     ),
     'nav_msgs/msg/OccupancyGrid': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('info', (2, 'nav_msgs/msg/MapMetaData')),
-            ('data', (4, ((1, 'int8'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('info', (Nodetype.NAME, 'nav_msgs/msg/MapMetaData')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int8', 0)), 0))),
         ],
     ),
     'nav_msgs/msg/Odometry': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('child_frame_id', (1, ('string', 0))),
-            ('pose', (2, 'geometry_msgs/msg/PoseWithCovariance')),
-            ('twist', (2, 'geometry_msgs/msg/TwistWithCovariance')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('child_frame_id', (Nodetype.BASE, ('string', 0))),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/PoseWithCovariance')),
+            ('twist', (Nodetype.NAME, 'geometry_msgs/msg/TwistWithCovariance')),
         ],
     ),
     'nav_msgs/msg/Path': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('poses', (4, ((2, 'geometry_msgs/msg/PoseStamped'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('poses', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/PoseStamped'), 0))),
         ],
     ),
     'rcl_interfaces/msg/FloatingPointRange': (
         [],
         [
-            ('from_value', (1, 'float64')),
-            ('to_value', (1, 'float64')),
-            ('step', (1, 'float64')),
+            ('from_value', (Nodetype.BASE, ('float64', 0))),
+            ('to_value', (Nodetype.BASE, ('float64', 0))),
+            ('step', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'rcl_interfaces/msg/IntegerRange': (
         [],
         [
-            ('from_value', (1, 'int64')),
-            ('to_value', (1, 'int64')),
-            ('step', (1, 'uint64')),
+            ('from_value', (Nodetype.BASE, ('int64', 0))),
+            ('to_value', (Nodetype.BASE, ('int64', 0))),
+            ('step', (Nodetype.BASE, ('uint64', 0))),
         ],
     ),
     'rcl_interfaces/msg/ListParametersResult': (
         [],
         [
-            ('names', (4, ((1, ('string', 0)), 0))),
-            ('prefixes', (4, ((1, ('string', 0)), 0))),
+            ('names', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
+            ('prefixes', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
         ],
     ),
     'rcl_interfaces/msg/Log': (
@@ -2081,50 +2086,50 @@ FIELDDEFS: Typesdict = {
             ('FATAL', 'octet', 50),
         ],
         [
-            ('stamp', (2, 'builtin_interfaces/msg/Time')),
-            ('level', (1, 'uint8')),
-            ('name', (1, ('string', 0))),
-            ('msg', (1, ('string', 0))),
-            ('file', (1, ('string', 0))),
-            ('function', (1, ('string', 0))),
-            ('line', (1, 'uint32')),
+            ('stamp', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('level', (Nodetype.BASE, ('uint8', 0))),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('msg', (Nodetype.BASE, ('string', 0))),
+            ('file', (Nodetype.BASE, ('string', 0))),
+            ('function', (Nodetype.BASE, ('string', 0))),
+            ('line', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'rcl_interfaces/msg/Parameter': (
         [],
         [
-            ('name', (1, ('string', 0))),
-            ('value', (2, 'rcl_interfaces/msg/ParameterValue')),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('value', (Nodetype.NAME, 'rcl_interfaces/msg/ParameterValue')),
         ],
     ),
     'rcl_interfaces/msg/ParameterDescriptor': (
         [],
         [
-            ('name', (1, ('string', 0))),
-            ('type', (1, 'uint8')),
-            ('description', (1, ('string', 0))),
-            ('additional_constraints', (1, ('string', 0))),
-            ('read_only', (1, 'bool')),
-            ('floating_point_range', (4, ((2, 'rcl_interfaces/msg/FloatingPointRange'), 1))),
-            ('integer_range', (4, ((2, 'rcl_interfaces/msg/IntegerRange'), 1))),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('type', (Nodetype.BASE, ('uint8', 0))),
+            ('description', (Nodetype.BASE, ('string', 0))),
+            ('additional_constraints', (Nodetype.BASE, ('string', 0))),
+            ('read_only', (Nodetype.BASE, ('bool', 0))),
+            ('floating_point_range', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/FloatingPointRange'), 1))),
+            ('integer_range', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/IntegerRange'), 1))),
         ],
     ),
     'rcl_interfaces/msg/ParameterEvent': (
         [],
         [
-            ('stamp', (2, 'builtin_interfaces/msg/Time')),
-            ('node', (1, ('string', 0))),
-            ('new_parameters', (4, ((2, 'rcl_interfaces/msg/Parameter'), 0))),
-            ('changed_parameters', (4, ((2, 'rcl_interfaces/msg/Parameter'), 0))),
-            ('deleted_parameters', (4, ((2, 'rcl_interfaces/msg/Parameter'), 0))),
+            ('stamp', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('node', (Nodetype.BASE, ('string', 0))),
+            ('new_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/Parameter'), 0))),
+            ('changed_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/Parameter'), 0))),
+            ('deleted_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/Parameter'), 0))),
         ],
     ),
     'rcl_interfaces/msg/ParameterEventDescriptors': (
         [],
         [
-            ('new_parameters', (4, ((2, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
-            ('changed_parameters', (4, ((2, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
-            ('deleted_parameters', (4, ((2, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
+            ('new_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
+            ('changed_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
+            ('deleted_parameters', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rcl_interfaces/msg/ParameterDescriptor'), 0))),
         ],
     ),
     'rcl_interfaces/msg/ParameterType': (
@@ -2141,71 +2146,71 @@ FIELDDEFS: Typesdict = {
             ('PARAMETER_STRING_ARRAY', 'uint8', 9),
         ],
         [
-            ('structure_needs_at_least_one_member', (1, 'uint8')),
+            ('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'rcl_interfaces/msg/ParameterValue': (
         [],
         [
-            ('type', (1, 'uint8')),
-            ('bool_value', (1, 'bool')),
-            ('integer_value', (1, 'int64')),
-            ('double_value', (1, 'float64')),
-            ('string_value', (1, ('string', 0))),
-            ('byte_array_value', (4, ((1, 'octet'), 0))),
-            ('bool_array_value', (4, ((1, 'bool'), 0))),
-            ('integer_array_value', (4, ((1, 'int64'), 0))),
-            ('double_array_value', (4, ((1, 'float64'), 0))),
-            ('string_array_value', (4, ((1, ('string', 0)), 0))),
+            ('type', (Nodetype.BASE, ('uint8', 0))),
+            ('bool_value', (Nodetype.BASE, ('bool', 0))),
+            ('integer_value', (Nodetype.BASE, ('int64', 0))),
+            ('double_value', (Nodetype.BASE, ('float64', 0))),
+            ('string_value', (Nodetype.BASE, ('string', 0))),
+            ('byte_array_value', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('octet', 0)), 0))),
+            ('bool_array_value', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('bool', 0)), 0))),
+            ('integer_array_value', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int64', 0)), 0))),
+            ('double_array_value', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('string_array_value', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
         ],
     ),
     'rcl_interfaces/msg/SetParametersResult': (
         [],
         [
-            ('successful', (1, 'bool')),
-            ('reason', (1, ('string', 0))),
+            ('successful', (Nodetype.BASE, ('bool', 0))),
+            ('reason', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'rmw_dds_common/msg/Gid': (
         [],
         [
-            ('data', (3, ((1, 'uint8'), 24))),
+            ('data', (Nodetype.ARRAY, ((Nodetype.BASE, ('uint8', 0)), 24))),
         ],
     ),
     'rmw_dds_common/msg/NodeEntitiesInfo': (
         [],
         [
-            ('node_namespace', (1, ('string', 256))),
-            ('node_name', (1, ('string', 256))),
-            ('reader_gid_seq', (4, ((2, 'rmw_dds_common/msg/Gid'), 0))),
-            ('writer_gid_seq', (4, ((2, 'rmw_dds_common/msg/Gid'), 0))),
+            ('node_namespace', (Nodetype.BASE, ('string', 256))),
+            ('node_name', (Nodetype.BASE, ('string', 256))),
+            ('reader_gid_seq', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rmw_dds_common/msg/Gid'), 0))),
+            ('writer_gid_seq', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rmw_dds_common/msg/Gid'), 0))),
         ],
     ),
     'rmw_dds_common/msg/ParticipantEntitiesInfo': (
         [],
         [
-            ('gid', (2, 'rmw_dds_common/msg/Gid')),
-            ('node_entities_info_seq', (4, ((2, 'rmw_dds_common/msg/NodeEntitiesInfo'), 0))),
+            ('gid', (Nodetype.NAME, 'rmw_dds_common/msg/Gid')),
+            ('node_entities_info_seq', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'rmw_dds_common/msg/NodeEntitiesInfo'), 0))),
         ],
     ),
     'rosbag2_interfaces/msg/ReadSplitEvent': (
         [],
         [
-            ('closed_file', (1, ('string', 0))),
-            ('opened_file', (1, ('string', 0))),
+            ('closed_file', (Nodetype.BASE, ('string', 0))),
+            ('opened_file', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'rosbag2_interfaces/msg/WriteSplitEvent': (
         [],
         [
-            ('closed_file', (1, ('string', 0))),
-            ('opened_file', (1, ('string', 0))),
+            ('closed_file', (Nodetype.BASE, ('string', 0))),
+            ('opened_file', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'rosgraph_msgs/msg/Clock': (
         [],
         [
-            ('clock', (2, 'builtin_interfaces/msg/Time')),
+            ('clock', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
         ],
     ),
     'sensor_msgs/msg/BatteryState': (
@@ -2233,111 +2238,111 @@ FIELDDEFS: Typesdict = {
             ('POWER_SUPPLY_TECHNOLOGY_LIMN', 'uint8', 6),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('voltage', (1, 'float32')),
-            ('temperature', (1, 'float32')),
-            ('current', (1, 'float32')),
-            ('charge', (1, 'float32')),
-            ('capacity', (1, 'float32')),
-            ('design_capacity', (1, 'float32')),
-            ('percentage', (1, 'float32')),
-            ('power_supply_status', (1, 'uint8')),
-            ('power_supply_health', (1, 'uint8')),
-            ('power_supply_technology', (1, 'uint8')),
-            ('present', (1, 'bool')),
-            ('cell_voltage', (4, ((1, 'float32'), 0))),
-            ('cell_temperature', (4, ((1, 'float32'), 0))),
-            ('location', (1, ('string', 0))),
-            ('serial_number', (1, ('string', 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('voltage', (Nodetype.BASE, ('float32', 0))),
+            ('temperature', (Nodetype.BASE, ('float32', 0))),
+            ('current', (Nodetype.BASE, ('float32', 0))),
+            ('charge', (Nodetype.BASE, ('float32', 0))),
+            ('capacity', (Nodetype.BASE, ('float32', 0))),
+            ('design_capacity', (Nodetype.BASE, ('float32', 0))),
+            ('percentage', (Nodetype.BASE, ('float32', 0))),
+            ('power_supply_status', (Nodetype.BASE, ('uint8', 0))),
+            ('power_supply_health', (Nodetype.BASE, ('uint8', 0))),
+            ('power_supply_technology', (Nodetype.BASE, ('uint8', 0))),
+            ('present', (Nodetype.BASE, ('bool', 0))),
+            ('cell_voltage', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
+            ('cell_temperature', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
+            ('location', (Nodetype.BASE, ('string', 0))),
+            ('serial_number', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'sensor_msgs/msg/CameraInfo': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('height', (1, 'uint32')),
-            ('width', (1, 'uint32')),
-            ('distortion_model', (1, ('string', 0))),
-            ('d', (4, ((1, 'float64'), 0))),
-            ('k', (3, ((1, 'float64'), 9))),
-            ('r', (3, ((1, 'float64'), 9))),
-            ('p', (3, ((1, 'float64'), 12))),
-            ('binning_x', (1, 'uint32')),
-            ('binning_y', (1, 'uint32')),
-            ('roi', (2, 'sensor_msgs/msg/RegionOfInterest')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('height', (Nodetype.BASE, ('uint32', 0))),
+            ('width', (Nodetype.BASE, ('uint32', 0))),
+            ('distortion_model', (Nodetype.BASE, ('string', 0))),
+            ('d', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('k', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
+            ('r', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
+            ('p', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 12))),
+            ('binning_x', (Nodetype.BASE, ('uint32', 0))),
+            ('binning_y', (Nodetype.BASE, ('uint32', 0))),
+            ('roi', (Nodetype.NAME, 'sensor_msgs/msg/RegionOfInterest')),
         ],
     ),
     'sensor_msgs/msg/ChannelFloat32': (
         [],
         [
-            ('name', (1, ('string', 0))),
-            ('values', (4, ((1, 'float32'), 0))),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('values', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/CompressedImage': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('format', (1, ('string', 0))),
-            ('data', (4, ((1, 'uint8'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('format', (Nodetype.BASE, ('string', 0))),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint8', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/FluidPressure': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('fluid_pressure', (1, 'float64')),
-            ('variance', (1, 'float64')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('fluid_pressure', (Nodetype.BASE, ('float64', 0))),
+            ('variance', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'sensor_msgs/msg/Illuminance': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('illuminance', (1, 'float64')),
-            ('variance', (1, 'float64')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('illuminance', (Nodetype.BASE, ('float64', 0))),
+            ('variance', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'sensor_msgs/msg/Image': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('height', (1, 'uint32')),
-            ('width', (1, 'uint32')),
-            ('encoding', (1, ('string', 0))),
-            ('is_bigendian', (1, 'uint8')),
-            ('step', (1, 'uint32')),
-            ('data', (4, ((1, 'uint8'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('height', (Nodetype.BASE, ('uint32', 0))),
+            ('width', (Nodetype.BASE, ('uint32', 0))),
+            ('encoding', (Nodetype.BASE, ('string', 0))),
+            ('is_bigendian', (Nodetype.BASE, ('uint8', 0))),
+            ('step', (Nodetype.BASE, ('uint32', 0))),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint8', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/Imu': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('orientation', (2, 'geometry_msgs/msg/Quaternion')),
-            ('orientation_covariance', (3, ((1, 'float64'), 9))),
-            ('angular_velocity', (2, 'geometry_msgs/msg/Vector3')),
-            ('angular_velocity_covariance', (3, ((1, 'float64'), 9))),
-            ('linear_acceleration', (2, 'geometry_msgs/msg/Vector3')),
-            ('linear_acceleration_covariance', (3, ((1, 'float64'), 9))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('orientation', (Nodetype.NAME, 'geometry_msgs/msg/Quaternion')),
+            ('orientation_covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
+            ('angular_velocity', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('angular_velocity_covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
+            ('linear_acceleration', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('linear_acceleration_covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
         ],
     ),
     'sensor_msgs/msg/JointState': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('name', (4, ((1, ('string', 0)), 0))),
-            ('position', (4, ((1, 'float64'), 0))),
-            ('velocity', (4, ((1, 'float64'), 0))),
-            ('effort', (4, ((1, 'float64'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('name', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
+            ('position', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('velocity', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('effort', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/Joy': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('axes', (4, ((1, 'float32'), 0))),
-            ('buttons', (4, ((1, 'int32'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('axes', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
+            ('buttons', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int32', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/JoyFeedback': (
@@ -2347,69 +2352,69 @@ FIELDDEFS: Typesdict = {
             ('TYPE_BUZZER', 'uint8', 2),
         ],
         [
-            ('type', (1, 'uint8')),
-            ('id', (1, 'uint8')),
-            ('intensity', (1, 'float32')),
+            ('type', (Nodetype.BASE, ('uint8', 0))),
+            ('id', (Nodetype.BASE, ('uint8', 0))),
+            ('intensity', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'sensor_msgs/msg/JoyFeedbackArray': (
         [],
         [
-            ('array', (4, ((2, 'sensor_msgs/msg/JoyFeedback'), 0))),
+            ('array', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'sensor_msgs/msg/JoyFeedback'), 0))),
         ],
     ),
     'sensor_msgs/msg/LaserEcho': (
         [],
         [
-            ('echoes', (4, ((1, 'float32'), 0))),
+            ('echoes', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/LaserScan': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('angle_min', (1, 'float32')),
-            ('angle_max', (1, 'float32')),
-            ('angle_increment', (1, 'float32')),
-            ('time_increment', (1, 'float32')),
-            ('scan_time', (1, 'float32')),
-            ('range_min', (1, 'float32')),
-            ('range_max', (1, 'float32')),
-            ('ranges', (4, ((1, 'float32'), 0))),
-            ('intensities', (4, ((1, 'float32'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('angle_min', (Nodetype.BASE, ('float32', 0))),
+            ('angle_max', (Nodetype.BASE, ('float32', 0))),
+            ('angle_increment', (Nodetype.BASE, ('float32', 0))),
+            ('time_increment', (Nodetype.BASE, ('float32', 0))),
+            ('scan_time', (Nodetype.BASE, ('float32', 0))),
+            ('range_min', (Nodetype.BASE, ('float32', 0))),
+            ('range_max', (Nodetype.BASE, ('float32', 0))),
+            ('ranges', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
+            ('intensities', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
         ],
     ),
     'sensor_msgs/msg/MagneticField': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('magnetic_field', (2, 'geometry_msgs/msg/Vector3')),
-            ('magnetic_field_covariance', (3, ((1, 'float64'), 9))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('magnetic_field', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('magnetic_field_covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
         ],
     ),
     'sensor_msgs/msg/MultiDOFJointState': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('joint_names', (4, ((1, ('string', 0)), 0))),
-            ('transforms', (4, ((2, 'geometry_msgs/msg/Transform'), 0))),
-            ('twist', (4, ((2, 'geometry_msgs/msg/Twist'), 0))),
-            ('wrench', (4, ((2, 'geometry_msgs/msg/Wrench'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('joint_names', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
+            ('transforms', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Transform'), 0))),
+            ('twist', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Twist'), 0))),
+            ('wrench', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Wrench'), 0))),
         ],
     ),
     'sensor_msgs/msg/MultiEchoLaserScan': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('angle_min', (1, 'float32')),
-            ('angle_max', (1, 'float32')),
-            ('angle_increment', (1, 'float32')),
-            ('time_increment', (1, 'float32')),
-            ('scan_time', (1, 'float32')),
-            ('range_min', (1, 'float32')),
-            ('range_max', (1, 'float32')),
-            ('ranges', (4, ((2, 'sensor_msgs/msg/LaserEcho'), 0))),
-            ('intensities', (4, ((2, 'sensor_msgs/msg/LaserEcho'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('angle_min', (Nodetype.BASE, ('float32', 0))),
+            ('angle_max', (Nodetype.BASE, ('float32', 0))),
+            ('angle_increment', (Nodetype.BASE, ('float32', 0))),
+            ('time_increment', (Nodetype.BASE, ('float32', 0))),
+            ('scan_time', (Nodetype.BASE, ('float32', 0))),
+            ('range_min', (Nodetype.BASE, ('float32', 0))),
+            ('range_max', (Nodetype.BASE, ('float32', 0))),
+            ('ranges', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'sensor_msgs/msg/LaserEcho'), 0))),
+            ('intensities', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'sensor_msgs/msg/LaserEcho'), 0))),
         ],
     ),
     'sensor_msgs/msg/NavSatFix': (
@@ -2420,13 +2425,13 @@ FIELDDEFS: Typesdict = {
             ('COVARIANCE_TYPE_KNOWN', 'uint8', 3),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('status', (2, 'sensor_msgs/msg/NavSatStatus')),
-            ('latitude', (1, 'float64')),
-            ('longitude', (1, 'float64')),
-            ('altitude', (1, 'float64')),
-            ('position_covariance', (3, ((1, 'float64'), 9))),
-            ('position_covariance_type', (1, 'uint8')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('status', (Nodetype.NAME, 'sensor_msgs/msg/NavSatStatus')),
+            ('latitude', (Nodetype.BASE, ('float64', 0))),
+            ('longitude', (Nodetype.BASE, ('float64', 0))),
+            ('altitude', (Nodetype.BASE, ('float64', 0))),
+            ('position_covariance', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 9))),
+            ('position_covariance_type', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'sensor_msgs/msg/NavSatStatus': (
@@ -2441,30 +2446,30 @@ FIELDDEFS: Typesdict = {
             ('SERVICE_GALILEO', 'uint16', 8),
         ],
         [
-            ('status', (1, 'int8')),
-            ('service', (1, 'uint16')),
+            ('status', (Nodetype.BASE, ('int8', 0))),
+            ('service', (Nodetype.BASE, ('uint16', 0))),
         ],
     ),
     'sensor_msgs/msg/PointCloud': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('points', (4, ((2, 'geometry_msgs/msg/Point32'), 0))),
-            ('channels', (4, ((2, 'sensor_msgs/msg/ChannelFloat32'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point32'), 0))),
+            ('channels', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'sensor_msgs/msg/ChannelFloat32'), 0))),
         ],
     ),
     'sensor_msgs/msg/PointCloud2': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('height', (1, 'uint32')),
-            ('width', (1, 'uint32')),
-            ('fields', (4, ((2, 'sensor_msgs/msg/PointField'), 0))),
-            ('is_bigendian', (1, 'bool')),
-            ('point_step', (1, 'uint32')),
-            ('row_step', (1, 'uint32')),
-            ('data', (4, ((1, 'uint8'), 0))),
-            ('is_dense', (1, 'bool')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('height', (Nodetype.BASE, ('uint32', 0))),
+            ('width', (Nodetype.BASE, ('uint32', 0))),
+            ('fields', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'sensor_msgs/msg/PointField'), 0))),
+            ('is_bigendian', (Nodetype.BASE, ('bool', 0))),
+            ('point_step', (Nodetype.BASE, ('uint32', 0))),
+            ('row_step', (Nodetype.BASE, ('uint32', 0))),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint8', 0)), 0))),
+            ('is_dense', (Nodetype.BASE, ('bool', 0))),
         ],
     ),
     'sensor_msgs/msg/PointField': (
@@ -2479,10 +2484,10 @@ FIELDDEFS: Typesdict = {
             ('FLOAT64', 'uint8', 8),
         ],
         [
-            ('name', (1, ('string', 0))),
-            ('offset', (1, 'uint32')),
-            ('datatype', (1, 'uint8')),
-            ('count', (1, 'uint32')),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('offset', (Nodetype.BASE, ('uint32', 0))),
+            ('datatype', (Nodetype.BASE, ('uint8', 0))),
+            ('count', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'sensor_msgs/msg/Range': (
@@ -2491,65 +2496,65 @@ FIELDDEFS: Typesdict = {
             ('INFRARED', 'uint8', 1),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('radiation_type', (1, 'uint8')),
-            ('field_of_view', (1, 'float32')),
-            ('min_range', (1, 'float32')),
-            ('max_range', (1, 'float32')),
-            ('range', (1, 'float32')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('radiation_type', (Nodetype.BASE, ('uint8', 0))),
+            ('field_of_view', (Nodetype.BASE, ('float32', 0))),
+            ('min_range', (Nodetype.BASE, ('float32', 0))),
+            ('max_range', (Nodetype.BASE, ('float32', 0))),
+            ('range', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'sensor_msgs/msg/RegionOfInterest': (
         [],
         [
-            ('x_offset', (1, 'uint32')),
-            ('y_offset', (1, 'uint32')),
-            ('height', (1, 'uint32')),
-            ('width', (1, 'uint32')),
-            ('do_rectify', (1, 'bool')),
+            ('x_offset', (Nodetype.BASE, ('uint32', 0))),
+            ('y_offset', (Nodetype.BASE, ('uint32', 0))),
+            ('height', (Nodetype.BASE, ('uint32', 0))),
+            ('width', (Nodetype.BASE, ('uint32', 0))),
+            ('do_rectify', (Nodetype.BASE, ('bool', 0))),
         ],
     ),
     'sensor_msgs/msg/RelativeHumidity': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('relative_humidity', (1, 'float64')),
-            ('variance', (1, 'float64')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('relative_humidity', (Nodetype.BASE, ('float64', 0))),
+            ('variance', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'sensor_msgs/msg/Temperature': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('temperature', (1, 'float64')),
-            ('variance', (1, 'float64')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('temperature', (Nodetype.BASE, ('float64', 0))),
+            ('variance', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'sensor_msgs/msg/TimeReference': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('time_ref', (2, 'builtin_interfaces/msg/Time')),
-            ('source', (1, ('string', 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('time_ref', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('source', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'shape_msgs/msg/Mesh': (
         [],
         [
-            ('triangles', (4, ((2, 'shape_msgs/msg/MeshTriangle'), 0))),
-            ('vertices', (4, ((2, 'geometry_msgs/msg/Point'), 0))),
+            ('triangles', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'shape_msgs/msg/MeshTriangle'), 0))),
+            ('vertices', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point'), 0))),
         ],
     ),
     'shape_msgs/msg/MeshTriangle': (
         [],
         [
-            ('vertex_indices', (3, ((1, 'uint32'), 3))),
+            ('vertex_indices', (Nodetype.ARRAY, ((Nodetype.BASE, ('uint32', 0)), 3))),
         ],
     ),
     'shape_msgs/msg/Plane': (
         [],
         [
-            ('coef', (3, ((1, 'float64'), 4))),
+            ('coef', (Nodetype.ARRAY, ((Nodetype.BASE, ('float64', 0)), 4))),
         ],
     ),
     'shape_msgs/msg/SolidPrimitive': (
@@ -2568,26 +2573,26 @@ FIELDDEFS: Typesdict = {
             ('CONE_RADIUS', 'uint8', 1),
         ],
         [
-            ('type', (1, 'uint8')),
-            ('dimensions', (4, ((1, 'float64'), 3))),
+            ('type', (Nodetype.BASE, ('uint8', 0))),
+            ('dimensions', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 3))),
         ],
     ),
     'statistics_msgs/msg/MetricsMessage': (
         [],
         [
-            ('measurement_source_name', (1, ('string', 0))),
-            ('metrics_source', (1, ('string', 0))),
-            ('unit', (1, ('string', 0))),
-            ('window_start', (2, 'builtin_interfaces/msg/Time')),
-            ('window_stop', (2, 'builtin_interfaces/msg/Time')),
-            ('statistics', (4, ((2, 'statistics_msgs/msg/StatisticDataPoint'), 0))),
+            ('measurement_source_name', (Nodetype.BASE, ('string', 0))),
+            ('metrics_source', (Nodetype.BASE, ('string', 0))),
+            ('unit', (Nodetype.BASE, ('string', 0))),
+            ('window_start', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('window_stop', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('statistics', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'statistics_msgs/msg/StatisticDataPoint'), 0))),
         ],
     ),
     'statistics_msgs/msg/StatisticDataPoint': (
         [],
         [
-            ('data_type', (1, 'uint8')),
-            ('data', (1, 'float64')),
+            ('data_type', (Nodetype.BASE, ('uint8', 0))),
+            ('data', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'statistics_msgs/msg/StatisticDataType': (
@@ -2600,218 +2605,218 @@ FIELDDEFS: Typesdict = {
             ('STATISTICS_DATA_TYPE_SAMPLE_COUNT', 'uint8', 5),
         ],
         [
-            ('structure_needs_at_least_one_member', (1, 'uint8')),
+            ('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'std_msgs/msg/Bool': (
         [],
         [
-            ('data', (1, 'bool')),
+            ('data', (Nodetype.BASE, ('bool', 0))),
         ],
     ),
     'std_msgs/msg/Byte': (
         [],
         [
-            ('data', (1, 'octet')),
+            ('data', (Nodetype.BASE, ('octet', 0))),
         ],
     ),
     'std_msgs/msg/ByteMultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'octet'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('octet', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Char': (
         [],
         [
-            ('data', (1, 'uint8')),
+            ('data', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'std_msgs/msg/ColorRGBA': (
         [],
         [
-            ('r', (1, 'float32')),
-            ('g', (1, 'float32')),
-            ('b', (1, 'float32')),
-            ('a', (1, 'float32')),
+            ('r', (Nodetype.BASE, ('float32', 0))),
+            ('g', (Nodetype.BASE, ('float32', 0))),
+            ('b', (Nodetype.BASE, ('float32', 0))),
+            ('a', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'std_msgs/msg/Empty': (
         [],
         [
-            ('structure_needs_at_least_one_member', (1, 'uint8')),
+            ('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'std_msgs/msg/Float32': (
         [],
         [
-            ('data', (1, 'float32')),
+            ('data', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'std_msgs/msg/Float32MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'float32'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float32', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Float64': (
         [],
         [
-            ('data', (1, 'float64')),
+            ('data', (Nodetype.BASE, ('float64', 0))),
         ],
     ),
     'std_msgs/msg/Float64MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'float64'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Header': (
         [],
         [
-            ('stamp', (2, 'builtin_interfaces/msg/Time')),
-            ('frame_id', (1, ('string', 0))),
+            ('stamp', (Nodetype.NAME, 'builtin_interfaces/msg/Time')),
+            ('frame_id', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'std_msgs/msg/Int16': (
         [],
         [
-            ('data', (1, 'int16')),
+            ('data', (Nodetype.BASE, ('int16', 0))),
         ],
     ),
     'std_msgs/msg/Int16MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'int16'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int16', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Int32': (
         [],
         [
-            ('data', (1, 'int32')),
+            ('data', (Nodetype.BASE, ('int32', 0))),
         ],
     ),
     'std_msgs/msg/Int32MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'int32'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int32', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Int64': (
         [],
         [
-            ('data', (1, 'int64')),
+            ('data', (Nodetype.BASE, ('int64', 0))),
         ],
     ),
     'std_msgs/msg/Int64MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'int64'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int64', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Int8': (
         [],
         [
-            ('data', (1, 'int8')),
+            ('data', (Nodetype.BASE, ('int8', 0))),
         ],
     ),
     'std_msgs/msg/Int8MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'int8'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('int8', 0)), 0))),
         ],
     ),
     'std_msgs/msg/MultiArrayDimension': (
         [],
         [
-            ('label', (1, ('string', 0))),
-            ('size', (1, 'uint32')),
-            ('stride', (1, 'uint32')),
+            ('label', (Nodetype.BASE, ('string', 0))),
+            ('size', (Nodetype.BASE, ('uint32', 0))),
+            ('stride', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'std_msgs/msg/MultiArrayLayout': (
         [],
         [
-            ('dim', (4, ((2, 'std_msgs/msg/MultiArrayDimension'), 0))),
-            ('data_offset', (1, 'uint32')),
+            ('dim', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'std_msgs/msg/MultiArrayDimension'), 0))),
+            ('data_offset', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'std_msgs/msg/String': (
         [],
         [
-            ('data', (1, ('string', 0))),
+            ('data', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'std_msgs/msg/UInt16': (
         [],
         [
-            ('data', (1, 'uint16')),
+            ('data', (Nodetype.BASE, ('uint16', 0))),
         ],
     ),
     'std_msgs/msg/UInt16MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'uint16'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint16', 0)), 0))),
         ],
     ),
     'std_msgs/msg/UInt32': (
         [],
         [
-            ('data', (1, 'uint32')),
+            ('data', (Nodetype.BASE, ('uint32', 0))),
         ],
     ),
     'std_msgs/msg/UInt32MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'uint32'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint32', 0)), 0))),
         ],
     ),
     'std_msgs/msg/UInt64': (
         [],
         [
-            ('data', (1, 'uint64')),
+            ('data', (Nodetype.BASE, ('uint64', 0))),
         ],
     ),
     'std_msgs/msg/UInt64MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'uint64'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint64', 0)), 0))),
         ],
     ),
     'std_msgs/msg/UInt8': (
         [],
         [
-            ('data', (1, 'uint8')),
+            ('data', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
     'std_msgs/msg/UInt8MultiArray': (
         [],
         [
-            ('layout', (2, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (4, ((1, 'uint8'), 0))),
+            ('layout', (Nodetype.NAME, 'std_msgs/msg/MultiArrayLayout')),
+            ('data', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint8', 0)), 0))),
         ],
     ),
     'stereo_msgs/msg/DisparityImage': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('image', (2, 'sensor_msgs/msg/Image')),
-            ('f', (1, 'float32')),
-            ('t', (1, 'float32')),
-            ('valid_window', (2, 'sensor_msgs/msg/RegionOfInterest')),
-            ('min_disparity', (1, 'float32')),
-            ('max_disparity', (1, 'float32')),
-            ('delta_d', (1, 'float32')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('image', (Nodetype.NAME, 'sensor_msgs/msg/Image')),
+            ('f', (Nodetype.BASE, ('float32', 0))),
+            ('t', (Nodetype.BASE, ('float32', 0))),
+            ('valid_window', (Nodetype.NAME, 'sensor_msgs/msg/RegionOfInterest')),
+            ('min_disparity', (Nodetype.BASE, ('float32', 0))),
+            ('max_disparity', (Nodetype.BASE, ('float32', 0))),
+            ('delta_d', (Nodetype.BASE, ('float32', 0))),
         ],
     ),
     'tf2_msgs/msg/TF2Error': (
@@ -2825,55 +2830,55 @@ FIELDDEFS: Typesdict = {
             ('TRANSFORM_ERROR', 'uint8', 6),
         ],
         [
-            ('error', (1, 'uint8')),
-            ('error_string', (1, ('string', 0))),
+            ('error', (Nodetype.BASE, ('uint8', 0))),
+            ('error_string', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'tf2_msgs/msg/TFMessage': (
         [],
         [
-            ('transforms', (4, ((2, 'geometry_msgs/msg/TransformStamped'), 0))),
+            ('transforms', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/TransformStamped'), 0))),
         ],
     ),
     'trajectory_msgs/msg/JointTrajectory': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('joint_names', (4, ((1, ('string', 0)), 0))),
-            ('points', (4, ((2, 'trajectory_msgs/msg/JointTrajectoryPoint'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('joint_names', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'trajectory_msgs/msg/JointTrajectoryPoint'), 0))),
         ],
     ),
     'trajectory_msgs/msg/JointTrajectoryPoint': (
         [],
         [
-            ('positions', (4, ((1, 'float64'), 0))),
-            ('velocities', (4, ((1, 'float64'), 0))),
-            ('accelerations', (4, ((1, 'float64'), 0))),
-            ('effort', (4, ((1, 'float64'), 0))),
-            ('time_from_start', (2, 'builtin_interfaces/msg/Duration')),
+            ('positions', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('velocities', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('accelerations', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('effort', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('float64', 0)), 0))),
+            ('time_from_start', (Nodetype.NAME, 'builtin_interfaces/msg/Duration')),
         ],
     ),
     'trajectory_msgs/msg/MultiDOFJointTrajectory': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('joint_names', (4, ((1, ('string', 0)), 0))),
-            ('points', (4, ((2, 'trajectory_msgs/msg/MultiDOFJointTrajectoryPoint'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('joint_names', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'trajectory_msgs/msg/MultiDOFJointTrajectoryPoint'), 0))),
         ],
     ),
     'trajectory_msgs/msg/MultiDOFJointTrajectoryPoint': (
         [],
         [
-            ('transforms', (4, ((2, 'geometry_msgs/msg/Transform'), 0))),
-            ('velocities', (4, ((2, 'geometry_msgs/msg/Twist'), 0))),
-            ('accelerations', (4, ((2, 'geometry_msgs/msg/Twist'), 0))),
-            ('time_from_start', (2, 'builtin_interfaces/msg/Duration')),
+            ('transforms', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Transform'), 0))),
+            ('velocities', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Twist'), 0))),
+            ('accelerations', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Twist'), 0))),
+            ('time_from_start', (Nodetype.NAME, 'builtin_interfaces/msg/Duration')),
         ],
     ),
     'unique_identifier_msgs/msg/UUID': (
         [],
         [
-            ('uuid', (3, ((1, 'uint8'), 16))),
+            ('uuid', (Nodetype.ARRAY, ((Nodetype.BASE, ('uint8', 0)), 16))),
         ],
     ),
     'visualization_msgs/msg/ImageMarker': (
@@ -2887,31 +2892,31 @@ FIELDDEFS: Typesdict = {
             ('REMOVE', 'int32', 1),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('ns', (1, ('string', 0))),
-            ('id', (1, 'int32')),
-            ('type', (1, 'int32')),
-            ('action', (1, 'int32')),
-            ('position', (2, 'geometry_msgs/msg/Point')),
-            ('scale', (1, 'float32')),
-            ('outline_color', (2, 'std_msgs/msg/ColorRGBA')),
-            ('filled', (1, 'uint8')),
-            ('fill_color', (2, 'std_msgs/msg/ColorRGBA')),
-            ('lifetime', (2, 'builtin_interfaces/msg/Duration')),
-            ('points', (4, ((2, 'geometry_msgs/msg/Point'), 0))),
-            ('outline_colors', (4, ((2, 'std_msgs/msg/ColorRGBA'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('ns', (Nodetype.BASE, ('string', 0))),
+            ('id', (Nodetype.BASE, ('int32', 0))),
+            ('type', (Nodetype.BASE, ('int32', 0))),
+            ('action', (Nodetype.BASE, ('int32', 0))),
+            ('position', (Nodetype.NAME, 'geometry_msgs/msg/Point')),
+            ('scale', (Nodetype.BASE, ('float32', 0))),
+            ('outline_color', (Nodetype.NAME, 'std_msgs/msg/ColorRGBA')),
+            ('filled', (Nodetype.BASE, ('uint8', 0))),
+            ('fill_color', (Nodetype.NAME, 'std_msgs/msg/ColorRGBA')),
+            ('lifetime', (Nodetype.NAME, 'builtin_interfaces/msg/Duration')),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point'), 0))),
+            ('outline_colors', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'std_msgs/msg/ColorRGBA'), 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarker': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
-            ('name', (1, ('string', 0))),
-            ('description', (1, ('string', 0))),
-            ('scale', (1, 'float32')),
-            ('menu_entries', (4, ((2, 'visualization_msgs/msg/MenuEntry'), 0))),
-            ('controls', (4, ((2, 'visualization_msgs/msg/InteractiveMarkerControl'), 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('description', (Nodetype.BASE, ('string', 0))),
+            ('scale', (Nodetype.BASE, ('float32', 0))),
+            ('menu_entries', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/MenuEntry'), 0))),
+            ('controls', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/InteractiveMarkerControl'), 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarkerControl': (
@@ -2931,14 +2936,14 @@ FIELDDEFS: Typesdict = {
             ('MOVE_ROTATE_3D', 'uint8', 9),
         ],
         [
-            ('name', (1, ('string', 0))),
-            ('orientation', (2, 'geometry_msgs/msg/Quaternion')),
-            ('orientation_mode', (1, 'uint8')),
-            ('interaction_mode', (1, 'uint8')),
-            ('always_visible', (1, 'bool')),
-            ('markers', (4, ((2, 'visualization_msgs/msg/Marker'), 0))),
-            ('independent_marker_orientation', (1, 'bool')),
-            ('description', (1, ('string', 0))),
+            ('name', (Nodetype.BASE, ('string', 0))),
+            ('orientation', (Nodetype.NAME, 'geometry_msgs/msg/Quaternion')),
+            ('orientation_mode', (Nodetype.BASE, ('uint8', 0))),
+            ('interaction_mode', (Nodetype.BASE, ('uint8', 0))),
+            ('always_visible', (Nodetype.BASE, ('bool', 0))),
+            ('markers', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/Marker'), 0))),
+            ('independent_marker_orientation', (Nodetype.BASE, ('bool', 0))),
+            ('description', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarkerFeedback': (
@@ -2951,31 +2956,31 @@ FIELDDEFS: Typesdict = {
             ('MOUSE_UP', 'uint8', 5),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('client_id', (1, ('string', 0))),
-            ('marker_name', (1, ('string', 0))),
-            ('control_name', (1, ('string', 0))),
-            ('event_type', (1, 'uint8')),
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
-            ('menu_entry_id', (1, 'uint32')),
-            ('mouse_point', (2, 'geometry_msgs/msg/Point')),
-            ('mouse_point_valid', (1, 'bool')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('client_id', (Nodetype.BASE, ('string', 0))),
+            ('marker_name', (Nodetype.BASE, ('string', 0))),
+            ('control_name', (Nodetype.BASE, ('string', 0))),
+            ('event_type', (Nodetype.BASE, ('uint8', 0))),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
+            ('menu_entry_id', (Nodetype.BASE, ('uint32', 0))),
+            ('mouse_point', (Nodetype.NAME, 'geometry_msgs/msg/Point')),
+            ('mouse_point_valid', (Nodetype.BASE, ('bool', 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarkerInit': (
         [],
         [
-            ('server_id', (1, ('string', 0))),
-            ('seq_num', (1, 'uint64')),
-            ('markers', (4, ((2, 'visualization_msgs/msg/InteractiveMarker'), 0))),
+            ('server_id', (Nodetype.BASE, ('string', 0))),
+            ('seq_num', (Nodetype.BASE, ('uint64', 0))),
+            ('markers', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/InteractiveMarker'), 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarkerPose': (
         [],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
-            ('name', (1, ('string', 0))),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
+            ('name', (Nodetype.BASE, ('string', 0))),
         ],
     ),
     'visualization_msgs/msg/InteractiveMarkerUpdate': (
@@ -2984,12 +2989,12 @@ FIELDDEFS: Typesdict = {
             ('UPDATE', 'uint8', 1),
         ],
         [
-            ('server_id', (1, ('string', 0))),
-            ('seq_num', (1, 'uint64')),
-            ('type', (1, 'uint8')),
-            ('markers', (4, ((2, 'visualization_msgs/msg/InteractiveMarker'), 0))),
-            ('poses', (4, ((2, 'visualization_msgs/msg/InteractiveMarkerPose'), 0))),
-            ('erases', (4, ((1, ('string', 0)), 0))),
+            ('server_id', (Nodetype.BASE, ('string', 0))),
+            ('seq_num', (Nodetype.BASE, ('uint64', 0))),
+            ('type', (Nodetype.BASE, ('uint8', 0))),
+            ('markers', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/InteractiveMarker'), 0))),
+            ('poses', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/InteractiveMarkerPose'), 0))),
+            ('erases', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('string', 0)), 0))),
         ],
     ),
     'visualization_msgs/msg/Marker': (
@@ -3012,27 +3017,27 @@ FIELDDEFS: Typesdict = {
             ('DELETEALL', 'int32', 3),
         ],
         [
-            ('header', (2, 'std_msgs/msg/Header')),
-            ('ns', (1, ('string', 0))),
-            ('id', (1, 'int32')),
-            ('type', (1, 'int32')),
-            ('action', (1, 'int32')),
-            ('pose', (2, 'geometry_msgs/msg/Pose')),
-            ('scale', (2, 'geometry_msgs/msg/Vector3')),
-            ('color', (2, 'std_msgs/msg/ColorRGBA')),
-            ('lifetime', (2, 'builtin_interfaces/msg/Duration')),
-            ('frame_locked', (1, 'bool')),
-            ('points', (4, ((2, 'geometry_msgs/msg/Point'), 0))),
-            ('colors', (4, ((2, 'std_msgs/msg/ColorRGBA'), 0))),
-            ('text', (1, ('string', 0))),
-            ('mesh_resource', (1, ('string', 0))),
-            ('mesh_use_embedded_materials', (1, 'bool')),
+            ('header', (Nodetype.NAME, 'std_msgs/msg/Header')),
+            ('ns', (Nodetype.BASE, ('string', 0))),
+            ('id', (Nodetype.BASE, ('int32', 0))),
+            ('type', (Nodetype.BASE, ('int32', 0))),
+            ('action', (Nodetype.BASE, ('int32', 0))),
+            ('pose', (Nodetype.NAME, 'geometry_msgs/msg/Pose')),
+            ('scale', (Nodetype.NAME, 'geometry_msgs/msg/Vector3')),
+            ('color', (Nodetype.NAME, 'std_msgs/msg/ColorRGBA')),
+            ('lifetime', (Nodetype.NAME, 'builtin_interfaces/msg/Duration')),
+            ('frame_locked', (Nodetype.BASE, ('bool', 0))),
+            ('points', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'geometry_msgs/msg/Point'), 0))),
+            ('colors', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'std_msgs/msg/ColorRGBA'), 0))),
+            ('text', (Nodetype.BASE, ('string', 0))),
+            ('mesh_resource', (Nodetype.BASE, ('string', 0))),
+            ('mesh_use_embedded_materials', (Nodetype.BASE, ('bool', 0))),
         ],
     ),
     'visualization_msgs/msg/MarkerArray': (
         [],
         [
-            ('markers', (4, ((2, 'visualization_msgs/msg/Marker'), 0))),
+            ('markers', (Nodetype.SEQUENCE, ((Nodetype.NAME, 'visualization_msgs/msg/Marker'), 0))),
         ],
     ),
     'visualization_msgs/msg/MenuEntry': (
@@ -3042,11 +3047,11 @@ FIELDDEFS: Typesdict = {
             ('ROSLAUNCH', 'uint8', 2),
         ],
         [
-            ('id', (1, 'uint32')),
-            ('parent_id', (1, 'uint32')),
-            ('title', (1, ('string', 0))),
-            ('command', (1, ('string', 0))),
-            ('command_type', (1, 'uint8')),
+            ('id', (Nodetype.BASE, ('uint32', 0))),
+            ('parent_id', (Nodetype.BASE, ('uint32', 0))),
+            ('title', (Nodetype.BASE, ('string', 0))),
+            ('command', (Nodetype.BASE, ('string', 0))),
+            ('command_type', (Nodetype.BASE, ('uint8', 0))),
         ],
     ),
 }

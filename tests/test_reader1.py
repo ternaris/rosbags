@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from struct import pack
+from struct import pack, unpack
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -16,10 +16,10 @@ from rosbags.rosbag1.reader import IndexData
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Sequence
+    from typing import Sequence
 
 
-def ser(data: dict[str, Any] | bytes) -> bytes:
+def ser(data: dict[str, bytes] | bytes) -> bytes:
     """Serialize record header."""
     if isinstance(data, dict):
         fields = []
@@ -60,16 +60,20 @@ def create_message(
     cid: int = 1,
     time: int = 0,
     msg: int = 0,
-) -> tuple[dict[str, bytes | int], bytes]:
+) -> tuple[dict[str, bytes], bytes]:
     """Create message record."""
     return {
         'op': b'\x02',
-        'conn': cid,
-        'time': time,
+        'conn': pack('<L', cid),
+        'time': pack('<LL', time, 0),
     }, f'MSGCONTENT{msg}'.encode()
 
 
-def write_bag(bag: Path, header: dict[str, bytes], chunks: Sequence[Any] = ()) -> None:
+def write_bag(
+    bag: Path,
+    header: dict[str, bytes],
+    chunks: Sequence[Sequence[tuple[dict[str, bytes], dict[str, bytes] | bytes]]] = (),
+) -> None:
     """Write bag file."""
     magic = b'#ROSBAG V2.0\n'
 
@@ -86,7 +90,8 @@ def write_bag(bag: Path, header: dict[str, bytes], chunks: Sequence[Any] = ()) -
             start_time = 2**32 - 1
             end_time = 0
             counts: dict[int, int] = defaultdict(int)
-            index = {}
+            index_count: dict[int, int] = {}
+            index_msgs: dict[int, bytes] = {}
             offset = 0
 
             for head, data in chunk:
@@ -96,19 +101,18 @@ def write_bag(bag: Path, header: dict[str, bytes], chunks: Sequence[Any] = ()) -
                     chunk_bytes += add
                     connections += add
                 elif head.get('op') == b'\x02':
-                    time = head['time']
-                    head['time'] = pack('<LL', head['time'], 0)
-                    conn = head['conn']
-                    head['conn'] = pack('<L', head['conn'])
+                    (time,) = unpack('<Lxxxx', head['time'])
+                    (conn,) = unpack('<L', head['conn'])
 
                     start_time = min([start_time, time])
                     end_time = max([end_time, time])
 
                     counts[conn] += 1
-                    if conn not in index:
-                        index[conn] = {'count': 0, 'msgs': b''}
-                    index[conn]['count'] += 1  # type:ignore[operator]
-                    index[conn]['msgs'] += pack('<LLL', time, 0, offset)  # type: ignore[operator]
+                    if conn not in index_count:
+                        index_count[conn] = 0
+                        index_msgs[conn] = b''
+                    index_count[conn] += 1
+                    index_msgs[conn] += pack('<LLL', time, 0, offset)
 
                     add = ser(head) + ser(data)
                     chunk_bytes += add
@@ -124,15 +128,15 @@ def write_bag(bag: Path, header: dict[str, bytes], chunks: Sequence[Any] = ()) -
                     'size': pack('<L', len(chunk_bytes)),
                 },
             ) + ser(chunk_bytes)
-            for conn, data in index.items():
+            for cid, count in index_count.items():
                 chunk_bytes += ser(
                     {
                         'op': b'\x04',
                         'ver': pack('<L', 1),
-                        'conn': pack('<L', conn),
-                        'count': pack('<L', data['count']),
+                        'conn': pack('<L', cid),
+                        'count': pack('<L', count),
                     },
-                ) + ser(data['msgs'])
+                ) + ser(index_msgs[cid])
 
             chunks_bytes += chunk_bytes
             chunkinfos += ser(

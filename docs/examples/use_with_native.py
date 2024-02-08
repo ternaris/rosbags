@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING
+from typing import TypeVar
 
 import numpy as np
 
-if TYPE_CHECKING:
-    from typing import Any
+T = TypeVar('T')
 
-NATIVE_CLASSES: dict[str, Any] = {}
+NATIVE_CLASSES: dict[str, type] = {}
 
 
-def to_native(msg: Any) -> Any:  # noqa: ANN401
+def to_native(msg: object) -> object:
     """Convert rosbags message to native message.
 
     Args:
@@ -23,13 +22,13 @@ def to_native(msg: Any) -> Any:  # noqa: ANN401
         Native message.
 
     """
-    msgtype: str = msg.__msgtype__
+    msgtype: str = msg.__msgtype__  # type: ignore[attr-defined]
     if msgtype not in NATIVE_CLASSES:
         pkg, name = msgtype.rsplit('/', 1)
         NATIVE_CLASSES[msgtype] = getattr(importlib.import_module(pkg.replace('/', '.')), name)
 
     fields = {}
-    for name, field in msg.__dataclass_fields__.items():
+    for name, field in msg.__dataclass_fields__.items():  # type: ignore[attr-defined]
         if 'ClassVar' in field.type:
             continue
         value = getattr(msg, name)

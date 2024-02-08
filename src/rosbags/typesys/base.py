@@ -6,47 +6,42 @@ from __future__ import annotations
 
 import json
 import keyword
-from enum import IntEnum, auto
 from hashlib import sha256
 from itertools import starmap
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from typing import Any
+from rosbags.interfaces import Nodetype
 
-    from rosbags.interfaces.typing import Fielddesc, Typesdict, Typestore
+if TYPE_CHECKING:
+    from typing import TypedDict
+
+    from rosbags.interfaces.typing import FieldDesc, Typesdict, Typestore
 
     from .peg import Visitor
+
+    class FieldType(TypedDict):
+        """Field type."""
+
+        type_id: int
+        capacity: int
+        string_capacity: int
+        nested_type_name: str
+
+    class Field(TypedDict):
+        """Field."""
+
+        name: str
+        type: FieldType
+
+    class Struct(TypedDict):
+        """Struct."""
+
+        type_name: str
+        fields: list[Field]
 
 
 class TypesysError(Exception):
     """Parser error."""
-
-
-class Nodetype(IntEnum):
-    """Parse tree node types.
-
-    The first four match the Valtypes of final message definitions.
-    """
-
-    BASE = auto()
-    NAME = auto()
-    ARRAY = auto()
-    SEQUENCE = auto()
-
-    LITERAL_STRING = auto()
-    LITERAL_NUMBER = auto()
-    LITERAL_BOOLEAN = auto()
-    LITERAL_CHAR = auto()
-
-    MODULE = auto()
-    CONST = auto()
-    STRUCT = auto()
-    SDECLARATOR = auto()
-    ADECLARATOR = auto()
-    ANNOTATION = auto()
-    EXPRESSION_BINARY = auto()
-    EXPRESSION_UNARY = auto()
 
 
 def normalize_fieldname(name: str) -> str:
@@ -85,7 +80,7 @@ def parse_message_definition(visitor: Visitor, text: str) -> Typesdict:
         pos = rule.skip_ws(text, 0)
         npos, trees = rule.parse(text, pos)
         assert npos == len(text), f'Could not parse: {text!r}'
-        return visitor.visit(trees)  # type: ignore[no-any-return]
+        return visitor.visit(trees)  # type: ignore[return-value]
     except Exception as err:  # noqa: BLE001
         msg = f'Could not parse: {text!r}'
         raise TypesysError(msg) from err
@@ -128,16 +123,16 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
 
     """
 
-    def get_field(name: str, desc: Fielddesc) -> dict[str, Any]:
+    def get_field(name: str, desc: FieldDesc) -> Field:
         increment = 0
         capacity = 0
         string_capacity = 0
         subtype = ''
-        if desc[0] == 3:
+        if desc[0] == Nodetype.ARRAY:
             increment = 48
             capacity = desc[1][1]
             typ, rest = desc[1][0]
-        elif desc[0] == 4:
+        elif desc[0] == Nodetype.SEQUENCE:
             count = desc[1][1]
             if count:
                 increment = 96
@@ -148,20 +143,18 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
         else:
             typ, rest = desc
 
-        if typ == 2:
+        if typ == Nodetype.NAME:
             tid = increment + 1
             assert isinstance(rest, str)
             subtype = rest
             get_struct(subtype)
-        elif isinstance(rest, tuple):
-            assert isinstance(rest[0], str)
-            if rest[1]:
-                string_capacity = rest[1]
-                tid = increment + TIDMAP['bounded_string']
-            else:
-                tid = increment + TIDMAP['string']
+        elif rest[0] == 'string' and rest[1]:
+            assert isinstance(rest[1], int)
+            string_capacity = rest[1]
+            tid = increment + TIDMAP['bounded_string']
         else:
-            tid = increment + TIDMAP[rest]
+            assert isinstance(rest[0], str)
+            tid = increment + TIDMAP[rest[0]]
 
         return {
             'name': name,
@@ -173,9 +166,9 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
             },
         }
 
-    struct_cache = {}
+    struct_cache: dict[str, Struct] = {}
 
-    def get_struct(typ: str) -> dict[str, Any]:
+    def get_struct(typ: str) -> Struct:
         if typ not in struct_cache:
             struct_cache[typ] = {
                 'type_name': typ,
@@ -183,7 +176,7 @@ def hash_rihs01(typ: str, typestore: Typestore) -> str:
                     starmap(
                         get_field,
                         typestore.FIELDDEFS[typ][1]
-                        or [('structure_needs_at_least_one_member', (1, 'uint8'))],
+                        or [('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0)))],
                     )
                 ),
             }

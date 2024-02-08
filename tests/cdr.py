@@ -15,14 +15,18 @@ from rosbags.serde.utils import SIZEMAP, Valtype
 from rosbags.typesys import types
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Union
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
 
     from numpy.typing import NDArray
 
+    from rosbags.interfaces.typing import Basename
     from rosbags.serde.typing import Descriptor, Msgdef
 
-    Array = Union[List[Msgdef], List[str], NDArray[np.float64]]
-    BasetypeMap = Dict[str, Struct]
+    Array: TypeAlias = 'list[Msgdef[object]] | list[str] | NDArray[np.float64]'
+    BasetypeMap: TypeAlias = 'dict[Basename, Struct]'
 
 BASETYPEMAP_LE: BasetypeMap = {
     'bool': Struct('?'),
@@ -54,7 +58,7 @@ BASETYPEMAP_BE: BasetypeMap = {
 
 
 def deserialize_number(
-    rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: str
+    rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: Basename
 ) -> tuple[bool | float | int, int]:
     """Deserialize a single boolean, float, or int.
 
@@ -118,12 +122,12 @@ def deserialize_array(
                 strs.append(val)
             return strs, pos
 
-        size = SIZEMAP[desc.args]
+        size = SIZEMAP[desc.args[0]]
         pos = (pos + size - 1) & -size
-        ndarr = np.frombuffer(rawdata, dtype=desc.args, count=num, offset=pos)
+        ndarr = np.frombuffer(rawdata, dtype=desc.args[0], count=num, offset=pos)
         if (bmap is BASETYPEMAP_LE) != (sys.byteorder == 'little'):
             ndarr = ndarr.byteswap()  # no inplace on readonly array
-        return ndarr, pos + num * SIZEMAP[desc.args]
+        return ndarr, pos + num * SIZEMAP[desc.args[0]]
 
     if desc.valtype == Valtype.MESSAGE:
         msgs = []
@@ -137,8 +141,11 @@ def deserialize_array(
 
 
 def deserialize_message(
-    rawdata: bytes, bmap: BasetypeMap, pos: int, msgdef: Msgdef
-) -> tuple[Msgdef, int]:
+    rawdata: bytes,
+    bmap: BasetypeMap,
+    pos: int,
+    msgdef: Msgdef[object],
+) -> tuple[Msgdef[object], int]:
     """Deserialize a message.
 
     Args:
@@ -151,7 +158,7 @@ def deserialize_message(
         Deserialized message and new read position.
 
     """
-    values: list[Any] = []
+    values: list[object] = []
 
     for _, desc in msgdef.fields:
         if desc.valtype == Valtype.MESSAGE:
@@ -163,7 +170,7 @@ def deserialize_message(
                 val, pos = deserialize_string(rawdata, bmap, pos)
                 values.append(val)
             else:
-                num, pos = deserialize_number(rawdata, bmap, pos, desc.args)
+                num, pos = deserialize_number(rawdata, bmap, pos, desc.args[0])
                 values.append(num)
 
         elif desc.valtype == Valtype.ARRAY:
@@ -179,7 +186,7 @@ def deserialize_message(
     return msgdef.cls(*values), pos
 
 
-def deserialize(rawdata: bytes, typename: str) -> Msgdef:
+def deserialize(rawdata: bytes, typename: str) -> Msgdef[object]:
     """Deserialize raw data into a message object.
 
     Args:
@@ -207,7 +214,7 @@ def serialize_number(
     rawdata: memoryview,
     bmap: BasetypeMap,
     pos: int,
-    basetype: str,
+    basetype: Basename,
     val: float,
 ) -> int:
     """Serialize a single boolean, float, or int.
@@ -280,7 +287,7 @@ def serialize_array(
                 pos = serialize_string(rawdata, bmap, pos, cast('str', item))
             return pos
 
-        size = SIZEMAP[desc.args]
+        size = SIZEMAP[desc.args[0]]
         pos = (pos + size - 1) & -size
         size *= len(val)
         val = cast('NDArray[np.float64]', val)
@@ -303,7 +310,7 @@ def serialize_message(
     bmap: BasetypeMap,
     pos: int,
     message: object,
-    msgdef: Msgdef,
+    msgdef: Msgdef[object],
 ) -> int:
     """Serialize a message.
 
@@ -327,7 +334,7 @@ def serialize_message(
             if desc.args[0] == 'string':
                 pos = serialize_string(rawdata, bmap, pos, val)
             else:
-                pos = serialize_number(rawdata, bmap, pos, desc.args, val)
+                pos = serialize_number(rawdata, bmap, pos, desc.args[0], val)
 
         elif desc.valtype == Valtype.ARRAY:
             pos = serialize_array(rawdata, bmap, pos, desc.args[0], val)
@@ -362,7 +369,7 @@ def get_array_size(desc: Descriptor, val: Array, size: int) -> int:
                 size += 4 + len(item) + 1
             return size
 
-        isize = SIZEMAP[desc.args]
+        isize = SIZEMAP[desc.args[0]]
         size = (size + isize - 1) & -isize
         return size + isize * len(val)
 
@@ -375,7 +382,7 @@ def get_array_size(desc: Descriptor, val: Array, size: int) -> int:
     raise SerdeError(msg)  # pragma: no cover
 
 
-def get_size(message: object, msgdef: Msgdef, size: int = 0) -> int:
+def get_size(message: object, msgdef: Msgdef[object], size: int = 0) -> int:
     """Calculate size of serialzied message.
 
     Args:
@@ -400,7 +407,7 @@ def get_size(message: object, msgdef: Msgdef, size: int = 0) -> int:
                 size = (size + 4 - 1) & -4
                 size += 4 + len(val.encode()) + 1
             else:
-                isize = SIZEMAP[desc.args]
+                isize = SIZEMAP[desc.args[0]]
                 size = (size + isize - 1) & -isize
                 size += isize
 

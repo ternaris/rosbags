@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from enum import IntEnum, auto
 from typing import NamedTuple
 
 
@@ -41,3 +42,15 @@ class TopicInfo(NamedTuple):
     msgdef: str | None
     msgcount: int
     connections: list[Connection]
+
+
+class Nodetype(IntEnum):
+    """Parse tree node types.
+
+    The first four match the Valtypes of final message definitions.
+    """
+
+    BASE = auto()
+    NAME = auto()
+    ARRAY = auto()
+    SEQUENCE = auto()

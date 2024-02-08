@@ -12,20 +12,46 @@ Grammar, parse tree visitor and conversion functions for message definitions in
 from __future__ import annotations
 
 import re
+from enum import IntEnum, auto
 from typing import TYPE_CHECKING, cast
 
-from .base import Nodetype, normalize_fieldname, parse_message_definition
+from rosbags.interfaces import Nodetype
+
+from .base import normalize_fieldname, parse_message_definition
 from .peg import Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    from typing import Any, Generator, Tuple, Union
+    import sys
+    from typing import Generator, Literal
 
-    from rosbags.interfaces.typing import Fielddefs, Fielddesc, Typesdict
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
 
-    StringNode = Tuple[Nodetype, str]
-    ConstValue = Union[str, bool, int, float]
-    LiteralMatch = Tuple[str, str]
-    LiteralNode = Tuple[Nodetype, ConstValue]
+    from rosbags.interfaces.typing import (
+        BaseDesc,
+        Basename,
+        Basetype,
+        ConstValue,
+        Fielddefs,
+        FieldDesc,
+        NameDesc,
+        Typesdict,
+    )
+
+    L: TypeAlias = 'tuple[Literal["LITERAL"], str]'
+
+    LitNode: TypeAlias = 'tuple[Literal[Node.LITERAL], ConstValue]'
+
+    Adec: TypeAlias = 'tuple[Literal[Node.ADECLARATOR], NameDesc, LitNode]'
+    Anno: TypeAlias = 'tuple[Literal[Node.ANNOTATION], str, list[tuple[NameDesc, LitNode]]]'
+    Const: TypeAlias = 'tuple[Literal[Node.CONST], tuple[Basetype, str, ConstValue]]'
+    Expr: TypeAlias = 'LitNode | NameDesc | ExprUnary | ExprBinary'
+    ExprBinary: TypeAlias = 'tuple[Literal[Node.EXPRESSION_BINARY], str, int, int]'
+    ExprUnary: TypeAlias = 'tuple[Literal[Node.EXPRESSION_UNARY], str, int]'
+    Module: TypeAlias = 'tuple[Literal[Node.MODULE], list[Const], list[Struct]]'
+    Struct: TypeAlias = 'tuple[Literal[Node.STRUCT], str, Fielddefs]'
 
 GRAMMAR_IDL = r"""
 specification
@@ -117,8 +143,7 @@ declarators
   = declarator (',' declarator)*
 
 declarator
-  = array_declarator
-  / simple_declarator
+  = simple_declarator
 
 simple_declarator
   = identifier
@@ -173,7 +198,7 @@ string_type
 
 scoped_name
   = identifier '::' scoped_name
-  / '::' scoped_name
+  / ':' scoped_name
   / identifier
 
 identifier
@@ -247,6 +272,19 @@ string_literal
 """
 
 
+class Node(IntEnum):
+    """Parse tree node types."""
+
+    LITERAL = auto()
+    MODULE = auto()
+    CONST = auto()
+    STRUCT = auto()
+    ADECLARATOR = auto()
+    ANNOTATION = auto()
+    EXPRESSION_BINARY = auto()
+    EXPRESSION_UNARY = auto()
+
+
 class VisitorIDL(Visitor):
     """IDL file visitor."""
 
@@ -258,59 +296,56 @@ class VisitorIDL(Visitor):
     def __init__(self) -> None:
         """Initialize."""
         super().__init__()
-        self.typedefs: dict[str, Fielddesc] = {}
+        self.typedefs: dict[str | Basetype, FieldDesc] = {}
 
     def visit_specification(
         self,
-        children: tuple[
-            tuple[
-                tuple[
-                    Nodetype,
-                    list[tuple[Nodetype, tuple[str, str, ConstValue]]],
-                    list[tuple[Nodetype, str, Fielddefs]],
-                ],
-                LiteralMatch,
-            ]
-            | None,
-        ],
+        children: tuple[tuple[tuple[Node, list[Const], list[Struct]], L] | None],
     ) -> Typesdict:
         """Process start symbol, return only children of modules."""
         structs: dict[str, Fielddefs] = {}
-        consts: dict[str, list[tuple[str, str, ConstValue]]] = {}
+        consts: dict[str, list[tuple[str, Basename, ConstValue]]] = {}
         for item in children:
-            if item is None or item[0][0] != Nodetype.MODULE:
+            if item is None or item[0][0] != Node.MODULE:
                 continue
             for csubitem in item[0][1]:
-                assert csubitem[0] == Nodetype.CONST
+                assert csubitem[0] == Node.CONST
                 if '_Constants/' in csubitem[1][1]:
                     structname, varname = csubitem[1][1].split('_Constants/')
                     if structname not in consts:
                         consts[structname] = []
                     consts[structname].append(
-                        (normalize_fieldname(varname), csubitem[1][0], csubitem[1][2]),
+                        (
+                            normalize_fieldname(varname),
+                            cast('Basename', csubitem[1][0][0]),
+                            csubitem[1][2],
+                        ),
                     )
 
             for ssubitem in item[0][2]:
-                assert ssubitem[0] == Nodetype.STRUCT
+                assert ssubitem[0] == Node.STRUCT
                 structs[ssubitem[1]] = ssubitem[2]
                 if ssubitem[1] not in consts:
                     consts[ssubitem[1]] = []
         return {k: (consts[k], v) for k, v in structs.items()}
 
-    def visit_macro(self, _: LiteralMatch | tuple[LiteralMatch, str]) -> None:
+    def visit_macro(self, _: L | tuple[L, str]) -> None:
         """Process macro, suppress output."""
 
-    def visit_include(self, _: tuple[LiteralMatch, tuple[LiteralMatch, str, LiteralMatch]]) -> None:
+    def visit_include(self, _: tuple[L, tuple[L, str, L]]) -> None:
         """Process include, suppress output."""
 
     def visit_module_dcl(
         self,
-        children: tuple[tuple[()], LiteralMatch, StringNode, LiteralMatch, Any, LiteralMatch],
-    ) -> tuple[
-        Nodetype,
-        list[tuple[Nodetype, tuple[str, str, ConstValue]]],
-        list[tuple[Nodetype, str, Fielddefs]],
-    ]:
+        children: tuple[
+            tuple[Anno, ...],
+            L,
+            NameDesc,
+            L,
+            tuple[tuple[Const | Struct | Module | None, L], ...],
+            L,
+        ],
+    ) -> Module:
         """Process module declaration."""
         assert len(children) == 6
         assert children[2][0] == Nodetype.NAME
@@ -320,146 +355,143 @@ class VisitorIDL(Visitor):
         consts = []
         structs = []
         for item in definitions:
-            if item is None or item[0] is None:
+            if item is None:
                 continue
             assert item[1] == ('LITERAL', ';')
+            if item[0] is None:
+                continue
             subitem = item[0]
-            if subitem[0] == Nodetype.CONST:
+            if subitem[0] == Node.CONST:
                 consts.append(subitem)
-            elif subitem[0] == Nodetype.STRUCT:
+            elif subitem[0] == Node.STRUCT:
                 structs.append(subitem)
             else:
-                assert subitem[0] == Nodetype.MODULE
+                assert subitem[0] == Node.MODULE
                 consts += subitem[1]
                 structs += subitem[2]
 
         consts = [(ityp, (typ, f'{name}/{subname}', val)) for ityp, (typ, subname, val) in consts]
-        structs = [(typ, f'{name}/{subname}', *rest) for typ, subname, *rest in structs]
+        structs = [(typ, f'{name}/{subname}', rest) for typ, subname, rest in structs]
 
-        return (Nodetype.MODULE, consts, structs)
+        return Node.MODULE, consts, structs
 
-    def visit_const_dcl(
-        self,
-        children: tuple[LiteralMatch, StringNode, StringNode, LiteralMatch, LiteralNode],
-    ) -> tuple[Nodetype, tuple[str, str, ConstValue]]:
+    def visit_const_dcl(self, children: tuple[L, BaseDesc, NameDesc, L, LitNode]) -> Const:
         """Process const declaration."""
-        return (Nodetype.CONST, (children[1][1], children[2][1], children[4][1]))
+        return Node.CONST, (children[1][1], children[2][1], children[4][1])
 
-    def visit_type_dcl(
-        self,
-        children: tuple[Nodetype, str, Fielddefs] | None,
-    ) -> tuple[Nodetype, str, Fielddefs] | None:
+    def visit_type_dcl(self, children: Struct | None) -> Struct | None:
         """Process type, pass structs, suppress otherwise."""
-        return children if children and children[0] == Nodetype.STRUCT else None
+        if not children:
+            return None
+        assert children[0] == Node.STRUCT
+        return children
 
     def visit_typedef_dcl(
         self,
-        children: tuple[LiteralMatch, tuple[StringNode, tuple[Any, ...]]],
+        children: tuple[L, tuple[NameDesc | BaseDesc, tuple[NameDesc | Adec, ...]]],
     ) -> None:
         """Process type declarator, register type mapping in instance typedef dictionary."""
         assert len(children) == 2
         dclchildren = children[1]
         assert len(dclchildren) == 2
-        base = self.typedefs.get(dclchildren[0][1], cast('Fielddesc', dclchildren[0]))
-        flat = [dclchildren[1][0], *[x[1:][0] for x in dclchildren[1][1]]]
-        for declarator in flat:
-            if declarator[0] == Nodetype.ADECLARATOR:
+        base = self.typedefs.get(dclchildren[0][1], dclchildren[0])
+        for declarator in dclchildren[1]:
+            if declarator[0] == Node.ADECLARATOR:
+                alias = declarator[1][1]
                 typ, name = base
                 assert isinstance(typ, Nodetype)
                 assert isinstance(name, (str, tuple))
                 count = declarator[2][1]
                 assert isinstance(count, int)
-                value = cast('Fielddesc', (Nodetype.ARRAY, ((typ, name), count)))
+                value = cast('FieldDesc', (Nodetype.ARRAY, ((typ, name), count)))
             else:
+                alias = declarator[1]
                 value = base
-            self.typedefs[declarator[1][1]] = value
+            self.typedefs[alias] = value
 
     def visit_sequence_type(
         self,
-        children: tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch]
-        | tuple[LiteralMatch, LiteralMatch, StringNode, LiteralMatch, LiteralNode, LiteralMatch],
-    ) -> tuple[Nodetype, tuple[StringNode, int]]:
+        children: tuple[L, L, BaseDesc, L] | tuple[L, L, BaseDesc, L, LitNode, L],
+    ) -> tuple[Nodetype, tuple[BaseDesc, int]]:
         """Process sequence type specification."""
-        assert len(children) in {4, 6}
         if len(children) == 6:
-            idx = len(children) - 2
-            assert children[idx][0] == Nodetype.LITERAL_NUMBER
-            count = children[idx][1]
+            typ, count = children[4]
+            assert typ == Node.LITERAL
             assert isinstance(count, int)
-            return (Nodetype.SEQUENCE, (children[2], count))
-        return (Nodetype.SEQUENCE, (children[2], 0))
+            return Nodetype.SEQUENCE, (children[2], count)
+        return Nodetype.SEQUENCE, (children[2], 0)
 
     def create_struct_field(
         self,
         parts: tuple[
-            tuple[()],
-            Fielddesc,
-            tuple[
-                tuple[Nodetype, StringNode],
-                tuple[
-                    tuple[str, tuple[Nodetype, StringNode]],
-                    ...,
-                ],
-            ],
-            LiteralMatch,
+            FieldDesc,
+            tuple[NameDesc, ...],
         ],
-    ) -> Generator[tuple[str, Fielddesc], None, None]:
+    ) -> Generator[tuple[str, FieldDesc], None, None]:
         """Create struct field and expand typedefs."""
-        typename, params = parts[1:3]
-        flat = [params[0], *[x[1:][0] for x in params[1]]]
+        typename, params = parts
 
-        def resolve_name(name: Fielddesc) -> Fielddesc:
-            while name[0] == int(Nodetype.NAME) and name[1] in self.typedefs:
-                assert isinstance(name[1], str)
-                name = self.typedefs[name[1]]
-            return name
+        while typename[0] == Nodetype.NAME and typename[1] in self.typedefs:
+            typename = self.typedefs[typename[1]]
 
-        yield from ((normalize_fieldname(x[1][1]), resolve_name(typename)) for x in flat if x)
+        yield from ((normalize_fieldname(x[1]), typename) for x in params if x)
 
     def visit_struct_dcl(
         self,
-        children: tuple[tuple[()], LiteralMatch, StringNode, LiteralMatch, Any, LiteralMatch],
-    ) -> tuple[Nodetype, str, Any]:
+        children: tuple[
+            tuple[Anno, ...],
+            L,
+            NameDesc,
+            L,
+            list[tuple[tuple[Anno, ...], FieldDesc, tuple[NameDesc, ...], L]],
+            L,
+        ],
+    ) -> Struct:
         """Process struct declaration."""
-        assert len(children) == 6
-        assert children[2][0] == Nodetype.NAME
+        fields = [y for x in children[4] for y in self.create_struct_field(x[1:3])]
+        return Node.STRUCT, children[2][1], fields
 
-        fields = [y for x in children[4] for y in self.create_struct_field(x)]
-        return (Nodetype.STRUCT, children[2][1], fields)
+    def visit_declarators(
+        self,
+        children: tuple[NameDesc, tuple[tuple[L, NameDesc], ...]],
+    ) -> tuple[NameDesc, ...]:
+        """Process declarators."""
+        return children[0], *(x[1] for x in children[1])
 
-    def visit_simple_declarator(self, children: StringNode) -> tuple[Nodetype, StringNode]:
-        """Process simple declarator."""
-        assert len(children) == 2
-        return (Nodetype.SDECLARATOR, children)
+    def visit_any_declarators(
+        self,
+        children: tuple[
+            NameDesc | Adec,
+            tuple[tuple[L, NameDesc | Adec], ...],
+        ],
+    ) -> tuple[NameDesc | Adec, ...]:
+        """Process any declarators."""
+        return children[0], *(x[1] for x in children[1])
 
     def visit_array_declarator(
         self,
-        children: tuple[StringNode, tuple[tuple[LiteralMatch, LiteralNode, LiteralMatch]]],
-    ) -> tuple[Nodetype, StringNode, LiteralNode]:
+        children: tuple[NameDesc, tuple[tuple[L, LitNode, L]]],
+    ) -> Adec:
         """Process array declarator."""
-        assert len(children) == 2
-        return (Nodetype.ADECLARATOR, children[0], children[1][0][1])
+        return Node.ADECLARATOR, children[0], children[1][0][1]
 
     def visit_annotation(
         self,
         children: tuple[
-            LiteralMatch,
-            StringNode,
+            L,
+            NameDesc,
             tuple[
                 tuple[
-                    LiteralMatch,
+                    L,
                     tuple[
-                        tuple[StringNode, LiteralMatch, LiteralNode],
-                        tuple[
-                            tuple[LiteralMatch, tuple[StringNode, LiteralMatch, LiteralNode]],
-                            ...,
-                        ],
+                        tuple[NameDesc, L, LitNode],
+                        tuple[tuple[L, tuple[NameDesc, L, LitNode]], ...],
                     ],
-                    LiteralMatch,
+                    L,
                 ],
             ],
         ],
-    ) -> tuple[Nodetype, str, list[tuple[StringNode, LiteralNode]]]:
+    ) -> Anno:
         """Process annotation."""
         assert len(children) == 3
         assert children[1][0] == Nodetype.NAME
@@ -467,9 +499,9 @@ class VisitorIDL(Visitor):
         flat = [params[0], *[x[1:][0] for x in params[1]]]
         assert all(len(x) == 3 for x in flat)
         retparams = [(x[0], x[2]) for x in flat]
-        return (Nodetype.ANNOTATION, children[1][1], retparams)
+        return Node.ANNOTATION, children[1][1], retparams
 
-    def visit_base_type_spec(self, children: str) -> StringNode:
+    def visit_base_type_spec(self, children: str) -> BaseDesc:
         """Process base type specifier."""
         oname = children
         name = {
@@ -478,100 +510,80 @@ class VisitorIDL(Visitor):
             'double': 'float64',
             'float': 'float32',
         }.get(oname, oname)
-        return (Nodetype.BASE, name)
+        return Nodetype.BASE, (cast('Basename', name), 0)
 
-    def visit_string_type(
-        self,
-        children: str | tuple[LiteralMatch, LiteralMatch, LiteralNode, LiteralMatch],
-    ) -> StringNode | tuple[Nodetype, tuple[str, int]]:
+    def visit_string_type(self, children: str | tuple[L, L, LitNode, L]) -> BaseDesc:
         """Prrocess string type specifier."""
         if isinstance(children, str):
-            return (Nodetype.BASE, ('string', 0))
+            return Nodetype.BASE, ('string', 0)
 
         assert len(children) == 4
         assert isinstance(children[0], tuple)
         assert isinstance(children[2][1], int)
-        return (Nodetype.BASE, ('string', children[2][1]))
+        return Nodetype.BASE, ('string', children[2][1])
 
-    def visit_scoped_name(
-        self,
-        children: StringNode | tuple[StringNode, LiteralMatch, StringNode],
-    ) -> StringNode:
+    def visit_scoped_name(self, children: NameDesc | tuple[NameDesc, L, NameDesc]) -> NameDesc:
         """Process scoped name."""
         if len(children) == 2:
-            assert isinstance(children[1], str)
-            return (Nodetype.NAME, children[1])
+            return children
         assert len(children) == 3
-        assert isinstance(children[0], tuple)
-        assert children[1][1] == '::'
-        return (Nodetype.NAME, f'{children[0][1]}/{children[2][1]}')
+        return Nodetype.NAME, f'{children[0][1]}/{children[2][1]}'
 
-    def visit_identifier(self, children: str) -> StringNode:
+    def visit_identifier(self, children: str) -> NameDesc:
         """Process identifier."""
-        return (Nodetype.NAME, children)
+        return Nodetype.NAME, children
 
     def visit_expression(
         self,
-        children: LiteralNode
-        | tuple[LiteralMatch, LiteralNode]
-        | tuple[LiteralNode, LiteralMatch, LiteralNode],
-    ) -> LiteralNode | tuple[Nodetype, str, int] | tuple[Nodetype, str, int, int]:
+        children: LitNode | NameDesc | tuple[L, LitNode] | tuple[LitNode, L, LitNode],
+    ) -> Expr:
         """Process expression, literals are assumed to be integers only."""
         if children[0] in {
-            Nodetype.LITERAL_STRING,
-            Nodetype.LITERAL_NUMBER,
-            Nodetype.LITERAL_BOOLEAN,
-            Nodetype.LITERAL_CHAR,
+            Node.LITERAL,
             Nodetype.NAME,
         }:
             assert isinstance(children[1], (str, bool, int, float))
-            return (children[0], children[1])
+            return children
 
         assert isinstance(children[0], tuple)
         if len(children) == 3:
             assert isinstance(children[0][1], int)
             assert isinstance(children[1][1], str)
             assert isinstance(children[2][1], int)
-            return (Nodetype.EXPRESSION_BINARY, children[1][1], children[0][1], children[2][1])
+            return Node.EXPRESSION_BINARY, children[1][1], children[0][1], children[2][1]
         assert len(children) == 2
         assert isinstance(children[0][1], str)
         assert isinstance(children[1], tuple)
         assert isinstance(children[1][1], int)
-        return (Nodetype.EXPRESSION_UNARY, children[0][1], children[1][1])
+        return Node.EXPRESSION_UNARY, children[0][1], children[1][1]
 
-    def visit_boolean_literal(self, children: str) -> LiteralNode:
+    def visit_boolean_literal(self, children: str) -> LitNode:
         """Process boolean literal."""
-        return (Nodetype.LITERAL_BOOLEAN, children[1] == 'TRUE')
+        return Node.LITERAL, children[1] == 'TRUE'
 
-    def visit_float_literal(self, children: str) -> LiteralNode:
+    def visit_float_literal(self, children: str) -> LitNode:
         """Process float literal."""
-        return (Nodetype.LITERAL_NUMBER, float(children))
+        return Node.LITERAL, float(children)
 
-    def visit_decimal_literal(self, children: str) -> LiteralNode:
+    def visit_decimal_literal(self, children: str) -> LitNode:
         """Process decimal integer literal."""
-        return (Nodetype.LITERAL_NUMBER, int(children))
+        return Node.LITERAL, int(children)
 
-    def visit_octal_literal(self, children: str) -> LiteralNode:
+    def visit_octal_literal(self, children: str) -> LitNode:
         """Process octal integer literal."""
-        return (Nodetype.LITERAL_NUMBER, int(children, 8))
+        return Node.LITERAL, int(children, 8)
 
-    def visit_hexadecimal_literal(self, children: str) -> LiteralNode:
+    def visit_hexadecimal_literal(self, children: str) -> LitNode:
         """Process hexadecimal integer literal."""
-        return (Nodetype.LITERAL_NUMBER, int(children, 16))
+        return Node.LITERAL, int(children, 16)
 
-    def visit_character_literal(
-        self,
-        children: tuple[LiteralMatch, str, LiteralMatch],
-    ) -> StringNode:
+    def visit_character_literal(self, children: tuple[L, str, L]) -> LitNode:
         """Process char literal."""
-        return (Nodetype.LITERAL_CHAR, children[1])
+        return Node.LITERAL, children[1]
 
-    def visit_string_literals(
-        self,
-        children: tuple[tuple[LiteralMatch, str, LiteralMatch], ...],
-    ) -> StringNode:
+    def visit_string_literals(self, children: tuple[tuple[L, str, L], ...]) -> LitNode:
         """Process string literal."""
-        return (Nodetype.LITERAL_STRING, ''.join(x[1] for x in children))
+        return Node.LITERAL, ''.join(x[1] for x in children)
 
 
 def get_types_from_idl(text: str) -> Typesdict:

@@ -13,12 +13,16 @@ from __future__ import annotations
 
 import sys
 from itertools import tee
-from typing import TYPE_CHECKING, Iterator, cast
+from typing import TYPE_CHECKING, cast
 
 from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
 
 if TYPE_CHECKING:
+    from typing import Iterator, TypeVar
+
     from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize, Field
+
+    T = TypeVar('T')
 
 
 def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> Bitcvt | BitcvtSize:
@@ -76,7 +80,7 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                 lines.append('  opos += length')
                 aligned = 1
             else:
-                size = SIZEMAP[desc.args]
+                size = SIZEMAP[desc.args[0]]
                 if copy:
                     lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                 lines.append(f'  ipos += {size}')
@@ -103,12 +107,12 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                         lines.append('  opos += length')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     if copy:
                         lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                     lines.append(f'  ipos += {size}')
                     lines.append(f'  opos += {size}')
-                    aligned = SIZEMAP[subdesc.args]
+                    aligned = SIZEMAP[subdesc.args[0]]
 
             if subdesc.valtype == Valtype.MESSAGE:
                 anext_before = align(subdesc)
@@ -150,7 +154,7 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                     if aligned < (anext_before := align(subdesc)):
                         lines.append('  if size:')
                         lines.append(f'    opos = (opos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
                     if copy:
                         lines.append('  output[opos:opos + length] = input[ipos:ipos + length]')
                     lines.append('  ipos += length')
@@ -231,7 +235,7 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                 lines.append('  opos += length')
                 aligned = 1
             else:
-                size = SIZEMAP[desc.args]
+                size = SIZEMAP[desc.args[0]]
                 if copy:
                     lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                 lines.append(f'  ipos += {size}')
@@ -256,12 +260,12 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                         lines.append('  opos += length')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     if copy:
                         lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                     lines.append(f'  ipos += {size}')
                     lines.append(f'  opos += {size}')
-                    aligned = SIZEMAP[subdesc.args]
+                    aligned = SIZEMAP[subdesc.args[0]]
 
             if subdesc.valtype == Valtype.MESSAGE:
                 anext_before = align(subdesc)
@@ -301,7 +305,7 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                     if aligned < (anext_before := align(subdesc)):
                         lines.append('  if size:')
                         lines.append(f'    ipos = (ipos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
                     if copy:
                         lines.append('  output[opos:opos + length] = input[ipos:ipos + length]')
                     lines.append('  ipos += length')
@@ -370,8 +374,8 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
                 lines.append(f'  pos += 4 + len(message.{fieldname}.encode())')
                 is_stat = False
             else:
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
-                size += SIZEMAP[desc.args]
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                size += SIZEMAP[desc.args[0]]
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -382,8 +386,8 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
                     lines.extend(f'  pos += 4 + len(val[{idx}].encode())' for idx in range(length))
                     is_stat = False
                 else:
-                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args]}')
-                    size += length * SIZEMAP[subdesc.args]
+                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args[0]]}')
+                    size += length * SIZEMAP[subdesc.args[0]]
 
             else:
                 assert subdesc.valtype == Valtype.MESSAGE
@@ -409,7 +413,7 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
                     lines.append(f'  for val in message.{fieldname}:')
                     lines.append('    pos += 4 + len(val.encode())')
                 else:
-                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args[0]]}')
 
             else:
                 assert subdesc.valtype == Valtype.MESSAGE
@@ -485,8 +489,8 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 lines.append('  rawdata[pos:pos + length] = bval')
                 lines.append('  pos += length')
             else:
-                lines.append(f'  pack_{desc.args}_le(rawdata, pos, val)')
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
+                lines.append(f'  pack_{desc.args[0]}_le(rawdata, pos, val)')
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -505,7 +509,7 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 else:
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     lines.append(f'  rawdata[pos:pos + {size}] = val.view(numpy.uint8)')
                     lines.append(f'  pos += {size}')
 
@@ -532,7 +536,7 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                     lines.append('    rawdata[pos:pos + length] = bval')
                     lines.append('    pos += length')
                 else:
-                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args[0]]}')
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
                     lines.append('  rawdata[pos:pos + size] = val.view(numpy.uint8)')
@@ -548,7 +552,7 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
     return compile_lines(lines).serialize_ros1  # type: ignore[no-any-return]
 
 
-def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
+def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]:
     """Generate ros1 deserialization function.
 
     Args:
@@ -603,9 +607,9 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
                 lines.append('  values.append(string)')
                 lines.append('  pos += 4 + length')
             else:
-                lines.append(f'  value = unpack_{desc.args}_le(rawdata, pos)[0]')
+                lines.append(f'  value = unpack_{desc.args[0]}_le(rawdata, pos)[0]')
                 lines.append('  values.append(value)')
-                lines.append(f'  pos += {SIZEMAP[desc.args]}')
+                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
 
         elif desc.valtype == Valtype.ARRAY:
             subdesc, length = desc.args
@@ -620,10 +624,10 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
                         lines.append('  pos += 4 + length')
                     lines.append('  values.append(value)')
                 else:
-                    size = length * SIZEMAP[subdesc.args]
+                    size = length * SIZEMAP[subdesc.args[0]]
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args)}, count={length}, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count={length}, offset=pos)',
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
@@ -657,10 +661,10 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser:
                     lines.append('    pos += 4 + length')
                     lines.append('  values.append(value)')
                 else:
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args)}, count=size, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count=size, offset=pos)',
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')

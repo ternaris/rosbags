@@ -13,12 +13,10 @@ from rosbags.typesys import types
 from .messages import get_msgdef
 
 if TYPE_CHECKING:
-    from typing import Any
-
     from rosbags.interfaces.typing import Typestore
 
 
-def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore = types) -> Any:  # noqa: ANN401
+def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore = types) -> object:
     """Deserialize raw data into a message object.
 
     Args:
@@ -70,7 +68,7 @@ def serialize_cdr(
     return rawdata.toreadonly()
 
 
-def deserialize_ros1(rawdata: bytes, typename: str, typestore: Typestore = types) -> Any:  # noqa: ANN401
+def deserialize_ros1(rawdata: bytes, typename: str, typestore: Typestore = types) -> object:
     """Deserialize raw data into a message object.
 
     Args:

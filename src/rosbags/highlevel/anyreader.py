@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     import sys
     from pathlib import Path
     from types import TracebackType
-    from typing import Any, Generator, Iterable, Literal, Sequence
+    from typing import Generator, Iterable, Literal, Sequence
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -147,7 +147,7 @@ class AnyReader:
             self.typestore.FIELDDEFS[key] = types.FIELDDEFS[key]
             attr = key.replace('/', '__')
             setattr(self.typestore, attr, getattr(types, attr))
-        typs: dict[str, Any] = {}
+        typs: Typesdict = {}
         if self.is2:
             reader = self.readers[0]
             assert isinstance(reader, Reader2)
@@ -254,10 +254,10 @@ class AnyReader:
 
     def messages(
         self,
-        connections: Iterable[Any] = (),
+        connections: Iterable[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
-    ) -> Generator[tuple[Any, int, bytes], None, None]:
+    ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bags.
 
         Args:

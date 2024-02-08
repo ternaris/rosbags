@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from rosbags.interfaces import Nodetype
+
 from .cdr import generate_deserialize_cdr, generate_getsize_cdr, generate_serialize_cdr
 from .ros1 import (
     generate_cdr_to_ros1,
@@ -14,20 +16,21 @@ from .ros1 import (
     generate_ros1_to_cdr,
     generate_serialize_ros1,
 )
-from .typing import Descriptor, Field, Msgdef
+from .typing import Descriptor, DescriptorBase, DescriptorSeq, DescriptorType, Field, Msgdef
 from .utils import Valtype
 
 if TYPE_CHECKING:
-    from rosbags.interfaces.typing import Fielddesc, Typestore
+    from rosbags.interfaces.typing import FieldDesc, Typestore
 
-MSGDEFCACHE: dict[Typestore, dict[str, Msgdef]] = {}
+
+MSGDEFCACHE: dict[Typestore, dict[str, Msgdef[object]]] = {}
 
 
 class SerdeError(Exception):
     """Serialization and Deserialization Error."""
 
 
-def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
+def get_msgdef(typename: str, typestore: Typestore) -> Msgdef[object]:
     """Retrieve message definition for typename.
 
     Message definitions are cached globally and generated as needed.
@@ -47,19 +50,15 @@ def get_msgdef(typename: str, typestore: Typestore) -> Msgdef:
     if typename not in cache:
         entries = typestore.FIELDDEFS[typename][1]
 
-        def fixup(entry: Fielddesc) -> Descriptor:
-            if entry[0] == int(Valtype.BASE):
-                assert isinstance(entry[1], (str, tuple))
-                return Descriptor(Valtype.BASE, entry[1])
-            if entry[0] == int(Valtype.MESSAGE):
-                assert isinstance(entry[1], str)
-                return Descriptor(Valtype.MESSAGE, get_msgdef(entry[1], typestore))
-            if entry[0] == int(Valtype.ARRAY):
-                assert not isinstance(entry[1][0], str)
-                return Descriptor(Valtype.ARRAY, (fixup(entry[1][0]), entry[1][1]))
-            if entry[0] == int(Valtype.SEQUENCE):
-                assert not isinstance(entry[1][0], str)
-                return Descriptor(Valtype.SEQUENCE, (fixup(entry[1][0]), entry[1][1]))
+        def fixup(entry: FieldDesc) -> Descriptor:
+            if entry[0] == Nodetype.BASE:
+                return DescriptorBase(Valtype.BASE, entry[1])
+            if entry[0] == Nodetype.NAME:
+                return DescriptorType(Valtype.MESSAGE, get_msgdef(entry[1], typestore))
+            if entry[0] == Nodetype.ARRAY:
+                return DescriptorSeq(Valtype.ARRAY, (fixup(entry[1][0]), entry[1][1]))
+            if entry[0] == Nodetype.SEQUENCE:
+                return DescriptorSeq(Valtype.SEQUENCE, (fixup(entry[1][0]), entry[1][1]))
             msg = f'Unknown field type {entry[0]!r} encountered.'  # pragma: no cover
             raise SerdeError(msg)  # pragma: no cover
 

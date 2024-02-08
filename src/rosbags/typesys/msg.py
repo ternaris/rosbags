@@ -13,25 +13,45 @@ Rosbag1 connection information.
 from __future__ import annotations
 
 import re
+from enum import IntEnum, auto
 from hashlib import md5
 from pathlib import PurePosixPath as Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+from rosbags.interfaces import Nodetype
 
 from . import types
-from .base import Nodetype, TypesysError, normalize_fieldname, parse_message_definition
+from .base import TypesysError, normalize_fieldname, parse_message_definition
 from .peg import Rule, Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    from typing import ClassVar, Tuple, TypeVar, Union
+    import sys
+    from typing import ClassVar, Literal, TypeVar
 
-    from rosbags.interfaces.typing import Constdefs, Fielddefs, Fielddesc, Typesdict, Typestore
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    from rosbags.interfaces.typing import (
+        BaseDesc,
+        Basename,
+        Constdefs,
+        ConstValue,
+        Fielddefs,
+        FieldDesc,
+        NameDesc,
+        Typesdict,
+        Typestore,
+    )
 
     T = TypeVar('T')
 
-    StringNode = Tuple[Nodetype, Union[str, Tuple[str, int]]]
-    ConstValue = Union[str, bool, int, float]
-    Msgdesc = Tuple[Tuple[StringNode, Tuple[str, str, int], str], ...]
-    LiteralMatch = Tuple[str, str]
+    L: TypeAlias = 'tuple[Literal["LITERAL"], str]'
+
+    Const: TypeAlias = 'tuple[Literal[Node.CONST], tuple[str, Basename, ConstValue]]'
+    Field: TypeAlias = 'tuple[Literal[Node.FIELD], tuple[str, FieldDesc]]'
+    Msgdesc: TypeAlias = 'tuple[Const | Field, ...]'
 
 GRAMMAR_MSG = r"""
 specification
@@ -148,7 +168,7 @@ def normalize_msgtype(name: str) -> str:
     return str(path)
 
 
-def normalize_fieldtype(typename: str, field: Fielddesc, names: list[str]) -> Fielddesc:
+def normalize_fieldtype(typename: str, field: FieldDesc, names: list[str]) -> FieldDesc:
     """Normalize field typename.
 
     Args:
@@ -160,30 +180,31 @@ def normalize_fieldtype(typename: str, field: Fielddesc, names: list[str]) -> Fi
         Normalized fieldtype.
 
     """
+    if field[0] == Nodetype.BASE:
+        return field
+
     dct = {Path(name).name: name for name in names}
     ftype, args = field
-    name = args if ftype == int(Nodetype.NAME) else args[0][1]
+    ifield = field if ftype == Nodetype.NAME else args[0]
 
-    assert isinstance(name, (str, tuple))
-    if name in VisitorMSG.BASETYPES or name[0] in VisitorMSG.BASETYPES:
-        ifield = (Nodetype.BASE, name)
-    else:
-        assert isinstance(name, str)
-        if name in dct:
-            name = dct[name]
-        elif name == 'Header':
-            name = 'std_msgs/msg/Header'
-        elif '/' not in name:
-            name = str(Path(typename).parent / name)
-        elif '/msg/' not in name:
-            name = str((path := Path(name)).parent / 'msg' / path.name)
-        ifield = (Nodetype.NAME, name)
+    if ifield[0] == Nodetype.BASE:
+        return field
 
-    if ftype == int(Nodetype.NAME):
-        return ifield  # type: ignore[return-value]
+    assert isinstance(ifield, tuple)
+    assert ifield[0] == Nodetype.NAME
 
-    assert not isinstance(args, str)
-    return (ftype, (ifield, args[1]))  # type: ignore[return-value]
+    name = ifield[1]
+    if name in dct:
+        name = dct[name]
+    elif name == 'Header':
+        name = 'std_msgs/msg/Header'
+    elif '/' not in name:
+        name = str(Path(typename).parent / name)
+    elif '/msg/' not in name:
+        name = str((path := Path(name)).parent / 'msg' / path.name)
+    ifield = Nodetype.NAME, name
+
+    return ifield if ftype == Nodetype.NAME else (ftype, (ifield, args[1]))  # type: ignore[return-value]
 
 
 def denormalize_msgtype(typename: str) -> str:
@@ -198,6 +219,13 @@ def denormalize_msgtype(typename: str) -> str:
     """
     assert '/msg/' in typename
     return str((path := Path(typename)).parent.parent / path.name)
+
+
+class Node(IntEnum):
+    """Parse tree node types."""
+
+    CONST = auto()
+    FIELD = auto()
 
 
 class VisitorMSG(Visitor):
@@ -221,21 +249,6 @@ class VisitorMSG(Visitor):
         'string',
     }
 
-    def visit_const_dcl(
-        self,
-        children: tuple[StringNode, StringNode, LiteralMatch, ConstValue],
-    ) -> tuple[StringNode, tuple[str, str, ConstValue]]:
-        """Process const declaration, suppress output."""
-        value: str | bool | int | float
-        if (typ := children[0][1]) == 'string':
-            assert isinstance(children[3], str)
-            value = children[3].strip()
-        else:
-            value = children[3]
-        assert isinstance(typ, str)
-        assert isinstance(children[1][1], str)
-        return (Nodetype.CONST, ''), (typ, children[1][1], value)
-
     def visit_specification(
         self,
         children: tuple[tuple[str, Msgdesc], tuple[tuple[str, tuple[str, Msgdesc]], ...]],
@@ -246,42 +259,50 @@ class VisitorMSG(Visitor):
         names = list(typedict.keys())
         res: Typesdict = {}
         for name, items in typedict.items():
-            consts: Constdefs = [
-                (normalize_fieldname(x[1][1]), x[1][0], x[1][2])
-                for x in items
-                if x[0] == (Nodetype.CONST, '')
-            ]
-            fields: Fielddefs = [
-                (
-                    normalize_fieldname(field[1][1]),
-                    normalize_fieldtype(
-                        name,
-                        field[0],  # type: ignore[arg-type]
-                        names,
-                    ),
-                )
-                for field in items
-                if field[0] != (Nodetype.CONST, '')
-            ]
+            consts: Constdefs = []
+            fields: Fielddefs = []
+
+            for item in items:
+                if item[0] == Node.CONST:
+                    consts.append(item[1])
+                else:
+                    assert item[0] == Node.FIELD
+                    fields.append((item[1][0], normalize_fieldtype(name, item[1][1], names)))
+
             res[name] = consts, fields
         return res
 
-    def visit_msgdef(
-        self,
-        children: tuple[str, StringNode, tuple[T | None]],
-    ) -> tuple[str, tuple[T, ...]]:
+    def visit_msgdef(self, children: tuple[str, NameDesc, Msgdesc]) -> tuple[str, Msgdesc]:
         """Process single message definition."""
-        assert len(children) == 3
-        assert isinstance(children[1][1], str)
-        return normalize_msgtype(children[1][1]), tuple(x for x in children[2] if x is not None)
+        return normalize_msgtype(children[1][1]), children[2]
 
     def visit_msgsep(self, _: str) -> None:
         """Process message separator, suppress output."""
 
+    def visit_const_dcl(self, children: tuple[BaseDesc | L, NameDesc, L, ConstValue]) -> Const:
+        """Process const declaration."""
+        typ: Basename
+        value = children[3]
+        if children[0][0] == 'LITERAL':
+            assert isinstance(value, str)
+            value = value.strip()
+            typ = 'string'
+        else:
+            assert not isinstance(children[3], str)
+            typ = children[0][1][0]
+        return Node.CONST, (normalize_fieldname(children[1][1]), typ, value)
+
+    def visit_field_dcl(
+        self,
+        children: tuple[FieldDesc, NameDesc, tuple[ConstValue, ...]],
+    ) -> Field:
+        """Process field declaration."""
+        return Node.FIELD, (normalize_fieldname(children[1][1]), children[0])
+
     def visit_array_type_spec(
         self,
-        children: tuple[StringNode, tuple[LiteralMatch, tuple[int, ...], LiteralMatch]],
-    ) -> tuple[Nodetype, tuple[StringNode, int]]:
+        children: tuple[BaseDesc | NameDesc, tuple[L, tuple[int, ...], L]],
+    ) -> FieldDesc:
         """Process array type specifier."""
         if length := children[1][1]:
             return Nodetype.ARRAY, (children[0], length[0])
@@ -289,48 +310,39 @@ class VisitorMSG(Visitor):
 
     def visit_bounded_array_type_spec(
         self,
-        children: tuple[StringNode, tuple[StringNode, int, StringNode]],
-    ) -> tuple[Nodetype, tuple[StringNode, int]]:
+        children: tuple[BaseDesc | NameDesc, tuple[L, int, L]],
+    ) -> FieldDesc:
         """Process bounded array type specifier."""
         return Nodetype.SEQUENCE, (children[0], children[1][1])
 
-    def visit_simple_type_spec(
-        self,
-        children: StringNode | tuple[LiteralMatch, LiteralMatch, int],
-    ) -> StringNode:
+    def visit_simple_type_spec(self, children: NameDesc | tuple[L, L, int]) -> BaseDesc | NameDesc:
         """Process simple type specifier."""
-        if len(children) > 2:
-            assert (Rule.LIT, '<=') in children
-            assert isinstance(children[0], tuple)
+        if len(children) == 3:
+            assert children[1] == (Rule.LIT, '<=')
             assert isinstance(children[2], int)
-            return Nodetype.NAME, (children[0][1], children[2])
+            return Nodetype.BASE, ('string', children[2])
         typespec = children[1]
         assert isinstance(typespec, str)
-        dct: dict[str, str | tuple[str, int]] = {
+        dct: dict[str, str] = {
             'time': 'builtin_interfaces/msg/Time',
             'duration': 'builtin_interfaces/msg/Duration',
             'byte': 'octet',
             'char': 'uint8',
-            'string': ('string', 0),
         }
-        return Nodetype.NAME, dct.get(typespec, typespec)
+        typespec = dct.get(typespec, typespec)
+        if typespec in VisitorMSG.BASETYPES:
+            return Nodetype.BASE, (cast('Basename', typespec), 0)
+        return Nodetype.NAME, typespec
 
-    def visit_scoped_name(
-        self,
-        children: StringNode | tuple[StringNode, LiteralMatch, StringNode],
-    ) -> StringNode:
+    def visit_scoped_name(self, children: NameDesc | tuple[NameDesc, L, NameDesc]) -> NameDesc:
         """Process scoped name."""
         if len(children) == 2:
             return children
-        assert len(children) == 3
-        return (
-            Nodetype.NAME,
-            '/'.join(x[1] for x in children if x[0] != Rule.LIT),  # type: ignore[misc]
-        )
+        return Nodetype.NAME, f'{children[0][1]}/{children[2][1]}'
 
-    def visit_identifier(self, children: str) -> StringNode:
+    def visit_identifier(self, children: str) -> NameDesc:
         """Process identifier."""
-        return (Nodetype.NAME, children)
+        return Nodetype.NAME, children
 
     def visit_boolean_literal(self, children: str) -> bool:
         """Process boolean literal."""
@@ -415,14 +427,14 @@ def gendefhash(
         if name == 'structure_needs_at_least_one_member':
             continue
         stripped_name = name.rstrip('_')
-        if desc[0] == int(Nodetype.BASE):
-            args = desc[1]
-            if args == 'octet':
-                args = 'byte'
-            elif args[0] == 'string':
-                args = f'string<={args[1]}' if args[1] else 'string'
-            deftext.append(f'{args} {stripped_name}')
-            hashtext.append(f'{args} {stripped_name}')
+        if desc[0] == Nodetype.BASE:
+            argname, arglimit = desc[1]
+            if argname == 'octet':
+                argname = 'byte'  # type: ignore[assignment]
+            elif argname == 'string':
+                argname = f'string<={arglimit}' if arglimit else 'string'  # type: ignore[assignment]
+            deftext.append(f'{argname} {stripped_name}')
+            hashtext.append(f'{argname} {stripped_name}')
         elif desc[0] == int(Nodetype.NAME):
             args = desc[1]
             assert isinstance(args, str)
@@ -437,18 +449,18 @@ def gendefhash(
                 deftext.append(f'{denormalize_msgtype(subname)} {stripped_name}')
                 hashtext.append(f'{subdefs[subname][1]} {stripped_name}')
         else:
-            assert desc[0] == 3 or desc[0] == 4
+            assert desc[0] in {Nodetype.ARRAY, Nodetype.SEQUENCE}
             assert isinstance(desc[1], tuple)
             subdesc, num = desc[1]
             isubtype, isubname = subdesc
             count = '' if num == 0 else str(num) if desc[0] == int(Nodetype.ARRAY) else f'<={num}'
             if isubtype == int(Nodetype.BASE):
-                if isubname == 'octet':
-                    isubname = 'byte'
+                if isubname[0] == 'octet':
+                    isubname = ('byte', 0)  # type: ignore[assignment]
                 elif isubname[0] == 'string':
-                    isubname = f'string<={isubname[1]}' if isubname[1] else 'string'
-                deftext.append(f'{isubname}[{count}] {stripped_name}')
-                hashtext.append(f'{isubname}[{count}] {stripped_name}')
+                    isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)  # type: ignore[assignment]
+                deftext.append(f'{isubname[0]}[{count}] {stripped_name}')
+                hashtext.append(f'{isubname[0]}[{count}] {stripped_name}')
             elif isubname in typemap:
                 assert isinstance(isubname, str)
                 deftext.append(f'{typemap[isubname]}[{count}] {stripped_name}')

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from types import ModuleType
 
+    from rosbags.interfaces.typing import Basename
+
     from .typing import Descriptor
 
 
@@ -23,7 +25,7 @@ class Valtype(IntEnum):
     SEQUENCE = 4
 
 
-SIZEMAP: dict[str, int] = {
+SIZEMAP: dict[Basename, int] = {
     'bool': 1,
     'char': 1,
     'octet': 1,
@@ -54,7 +56,7 @@ def align(entry: Descriptor) -> int:
     if entry.valtype == Valtype.BASE:
         if entry.args[0] == 'string':
             return 4
-        return SIZEMAP[entry.args]
+        return SIZEMAP[entry.args[0]]
     if entry.valtype == Valtype.MESSAGE:
         return align(entry.args.fields[0].descriptor)
     if entry.valtype == Valtype.ARRAY:
@@ -76,7 +78,7 @@ def align_after(entry: Descriptor) -> int:
     if entry.valtype == Valtype.BASE:
         if entry.args[0] == 'string':
             return 1
-        return SIZEMAP[entry.args]
+        return SIZEMAP[entry.args[0]]
     if entry.valtype == Valtype.MESSAGE:
         return align_after(entry.args.fields[-1].descriptor)
     if entry.valtype == Valtype.ARRAY:

@@ -4,6 +4,7 @@
 
 import pytest
 
+from rosbags.interfaces import Nodetype
 from rosbags.typesys import (
     TypesysError,
     generate_msgdef,
@@ -12,7 +13,7 @@ from rosbags.typesys import (
     register_types,
     types,
 )
-from rosbags.typesys.base import Nodetype, hash_rihs01
+from rosbags.typesys.base import hash_rihs01
 
 MSG = """
 # comment
@@ -210,9 +211,9 @@ def test_parse_bounds_msg() -> None:
         'test_msgs/msg/Foo': (
             [],
             [
-                ('unbounded_integer_array', (4, ((1, 'int32'), 0))),
-                ('five_integers_array', (3, ((1, 'int32'), 5))),
-                ('up_to_five_integers_array', (4, ((1, 'int32'), 5))),
+                ('unbounded_integer_array', (4, ((1, ('int32', 0)), 0))),
+                ('five_integers_array', (3, ((1, ('int32', 0)), 5))),
+                ('up_to_five_integers_array', (4, ((1, ('int32', 0)), 5))),
                 ('string_of_unbounded_size', (1, ('string', 0))),
                 ('up_to_ten_characters_string', (1, ('string', 10))),
                 ('up_to_five_unbounded_strings', (4, ((1, ('string', 0)), 5))),
@@ -233,14 +234,14 @@ def test_parse_defaults_msg() -> None:
         'test_msgs/msg/Foo': (
             [],
             [
-                ('b', (1, 'bool')),
-                ('i', (1, 'uint8')),
-                ('o', (1, 'uint8')),
-                ('h', (1, 'uint8')),
-                ('y', (1, 'float32')),
+                ('b', (1, ('bool', 0))),
+                ('i', (1, ('uint8', 0))),
+                ('o', (1, ('uint8', 0))),
+                ('h', (1, ('uint8', 0))),
+                ('y', (1, ('float32', 0))),
                 ('name1', (1, ('string', 0))),
                 ('name2', (1, ('string', 0))),
-                ('samples', (4, ((1, 'int32'), 0))),
+                ('samples', (4, ((1, ('int32', 0)), 0))),
             ],
         ),
     }
@@ -280,8 +281,8 @@ def test_parse_multi_msg() -> None:
     assert 'test_msgs/msg/Other' in ret
     fields = ret['test_msgs/msg/Foo'][1]
     assert fields[0][1][1] == 'std_msgs/msg/Header'
-    assert fields[1][1][1] == 'octet'
-    assert fields[2][1][1] == 'uint8'
+    assert fields[1][1][1] == ('octet', 0)
+    assert fields[2][1][1] == ('uint8', 0)
     consts = ret['test_msgs/msg/Other'][0]
     assert consts == [('static', 'uint32', 42)]
 
@@ -342,7 +343,7 @@ def test_parse_idl() -> None:
     assert consts == []
     assert len(fields) == 1
     assert fields[0][0] == 'i'
-    assert fields[0][1][1] == 'int'
+    assert fields[0][1][1] == ('int', 0)
 
     ret = get_types_from_idl(IDL_STRINGARRAY)
     consts, fields = ret['test_msgs/msg/Strings']
@@ -364,14 +365,14 @@ def test_register_types() -> None:
     """Test type registeration."""
     assert 'foo' not in types.FIELDDEFS
     register_types({})
-    register_types({'foo': [[], [('b', (1, 'bool'))]]})  # type: ignore[dict-item]
+    register_types({'foo': [[], [('b', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
     assert 'foo' in types.FIELDDEFS
 
     register_types({'std_msgs/msg/Header': [[], []]})  # type: ignore[dict-item]
     assert len(types.FIELDDEFS['std_msgs/msg/Header'][1]) == 2
 
     with pytest.raises(TypesysError, match='different definition'):
-        register_types({'foo': [[], [('x', (1, 'bool'))]]})  # type: ignore[dict-item]
+        register_types({'foo': [[], [('x', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
 
 
 def test_generate_msgdef() -> None:

@@ -14,7 +14,7 @@ from .errors import ReaderError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Generator, Iterable
+    from typing import ClassVar, Generator, Iterable
 
     from rosbags.interfaces import Connection
 
@@ -78,7 +78,7 @@ class ReaderSqlite3:
                 types = get_types_from_msg(typ['msgdef'], typ['name'])
 
                 class Store:
-                    FIELDDEFS = types
+                    FIELDDEFS: ClassVar = types
 
                 assert typ['digest'] == hash_rihs01(
                     typ['name'],
@@ -133,7 +133,7 @@ class ReaderSqlite3:
             'SELECT topics.id,messages.timestamp,messages.data',
             'FROM messages JOIN topics ON messages.topic_id=topics.id',
         ]
-        args: list[Any] = []
+        args: list[Iterable[str] | int] = []
         clause = 'WHERE'
 
         if connections:
@@ -159,8 +159,7 @@ class ReaderSqlite3:
             cur = conn.cursor()
             cur.execute('SELECT name,id FROM topics')
             connmap: dict[int, Connection] = {
-                row[1]: next((x for x in self.connections if x.topic == row[0]), None)  # type: ignore[arg-type]
-                for row in cur
+                row[1]: next(x for x in self.connections if x.topic == row[0]) for row in cur
             }
 
             cur.execute(querystr, args)
