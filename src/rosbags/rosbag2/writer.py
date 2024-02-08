@@ -115,7 +115,7 @@ class Writer:
         self.custom_data: dict[str, str] = {}
         self.added_types: list[str] = []
 
-    def set_compression(self, mode: CompressionMode, fmt: CompressionFormat) -> None:
+    def set_compression(self, mode: Writer.CompressionMode, fmt: Writer.CompressionFormat) -> None:
         """Enable compression on bag.
 
         This function has to be called before opening.

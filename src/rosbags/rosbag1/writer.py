@@ -170,7 +170,7 @@ class Writer:
         self.chunks: list[WriteChunk] = [WriteChunk(BytesIO(), -1, 2**64, 0, defaultdict(list))]
         self.chunk_threshold = 1 * (1 << 20)
 
-    def set_compression(self, fmt: CompressionFormat) -> None:
+    def set_compression(self, fmt: Writer.CompressionFormat) -> None:
         """Enable compression on rosbag1.
 
         This function has to be called before opening.
