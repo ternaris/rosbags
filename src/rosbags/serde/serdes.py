@@ -15,7 +15,7 @@ from .messages import get_msgdef
 if TYPE_CHECKING:
     from typing import Any
 
-    from rosbags.typesys.register import Typestore
+    from rosbags.interfaces.typing import Typestore
 
 
 def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore = types) -> Any:  # noqa: ANN401

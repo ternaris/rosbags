@@ -24,8 +24,7 @@ from .peg import Rule, Visitor, parse_grammar
 if TYPE_CHECKING:
     from typing import ClassVar, Tuple, TypeVar, Union
 
-    from .base import Constdefs, Fielddefs, Fielddesc, Typesdict
-    from .register import Typestore
+    from rosbags.interfaces.typing import Constdefs, Fielddefs, Fielddesc, Typesdict, Typestore
 
     T = TypeVar('T')
 

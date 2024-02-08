@@ -18,8 +18,7 @@ from .typing import Descriptor, Field, Msgdef
 from .utils import Valtype
 
 if TYPE_CHECKING:
-    from rosbags.typesys.base import Fielddesc
-    from rosbags.typesys.register import Typestore
+    from rosbags.interfaces.typing import Fielddesc, Typestore
 
 MSGDEFCACHE: dict[Typestore, dict[str, Msgdef]] = {}
 

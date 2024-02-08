@@ -14,7 +14,7 @@ from .msg import get_types_from_msg
 from .register import generate_python_code, register_types
 
 if TYPE_CHECKING:
-    from .base import Typesdict
+    from rosbags.interfaces.typing import Typesdict
 
 
 def generate_docs(typs: Typesdict) -> str:

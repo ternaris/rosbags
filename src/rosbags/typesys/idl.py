@@ -20,7 +20,7 @@ from .peg import Visitor, parse_grammar
 if TYPE_CHECKING:
     from typing import Any, Generator, Tuple, Union
 
-    from .base import Fielddefs, Fielddesc, Typesdict
+    from rosbags.interfaces.typing import Fielddefs, Fielddesc, Typesdict
 
     StringNode = Tuple[Nodetype, str]
     ConstValue = Union[str, bool, int, float]

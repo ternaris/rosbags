@@ -13,14 +13,9 @@ from . import types
 from .base import TypesysError
 
 if TYPE_CHECKING:
-    from typing import Any, Protocol
+    from typing import Any
 
-    from .base import Fielddesc, Typesdict
-
-    class Typestore(Protocol):
-        """Type storage."""
-
-        FIELDDEFS: Typesdict
+    from rosbags.interfaces.typing import Fielddesc, Typesdict, Typestore
 
 
 INTLIKE = re.compile('^u?(bool|int|float)')
@@ -92,7 +87,7 @@ def generate_python_code(typs: Typesdict) -> str:
         '',
         '    import numpy',
         '',
-        '    from .base import Typesdict',
+        '    from rosbags.interfaces.typing import Typesdict',
         '',
         '',
     ]

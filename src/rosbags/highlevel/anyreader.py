@@ -42,8 +42,7 @@ if TYPE_CHECKING:
         from typing_extensions import TypeGuard
 
     from rosbags.interfaces import Connection
-    from rosbags.typesys.base import Typesdict
-    from rosbags.typesys.register import Typestore
+    from rosbags.interfaces.typing import Typesdict, Typestore
 
 
 class AnyReaderError(Exception):

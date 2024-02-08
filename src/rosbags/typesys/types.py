@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     import numpy
 
-    from .base import Typesdict
+    from rosbags.interfaces.typing import Typesdict
 
 
 @dataclass

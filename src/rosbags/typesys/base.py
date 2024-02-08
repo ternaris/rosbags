@@ -12,22 +12,11 @@ from itertools import starmap
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Literal, Tuple, Union
+    from typing import Any
+
+    from rosbags.interfaces.typing import Fielddesc, Typesdict, Typestore
 
     from .peg import Visitor
-    from .register import Typestore
-
-    Basetype = Union[str, Tuple[Literal['string'], int]]
-    Constdefs = List[Tuple[str, str, Any]]
-    Fielddesc = Union[
-        Tuple[Literal[1], Basetype],
-        Tuple[Literal[2], str],
-        Tuple[
-            Literal[3, 4], Tuple[Union[Tuple[Literal[1], Basetype], Tuple[Literal[2], str]], int]
-        ],
-    ]
-    Fielddefs = List[Tuple[str, Fielddesc]]
-    Typesdict = Dict[str, Tuple[Constdefs, Fielddefs]]
 
 
 class TypesysError(Exception):

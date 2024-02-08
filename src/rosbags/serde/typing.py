@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from typing import Any, Callable, Tuple
 
-    from rosbags.typesys.register import Typestore
+    from rosbags.interfaces.typing import Typestore
 
     Bitcvt = Callable[[bytes, int, bytes, int, Typestore], Tuple[int, int]]
     BitcvtSize = Callable[[bytes, int, None, int, Typestore], Tuple[int, int]]
