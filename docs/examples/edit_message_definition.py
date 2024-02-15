@@ -11,18 +11,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from rosbags.highlevel.anyreader import AnyReader, SimpleTypeStore
+from rosbags.highlevel.anyreader import AnyReader
 from rosbags.rosbag1 import Writer
-from rosbags.serde.serdes import serialize_ros1
-from rosbags.typesys import get_types_from_msg
-from rosbags.typesys.msg import gendefhash
-from rosbags.typesys.register import register_types
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from rosbags.interfaces import ConnectionExtRosbag1
-    from rosbags.typesys.types import sensor_msgs__msg__CameraInfo
+    from rosbags.typesys.stores.ros2_foxy import sensor_msgs__msg__CameraInfo
 
 # Noetic camera info message definition, taken from:
 # http://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CameraInfo.html
@@ -50,12 +47,12 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
         topic: Name of topic to remove.
 
     """
-    typestore = SimpleTypeStore({})
-    register_types(
-        get_types_from_msg(CAMERAINFO_DEFINITION, 'sensor_msgs/msg/CameraInfo'),
-        typestore,
+    typename = 'sensor_msgs/msg/CameraInfo'
+    typestore = get_typestore(Stores.EMPTY)
+    typestore.register(
+        get_types_from_msg(CAMERAINFO_DEFINITION, typename),
     )
-    CameraInfo = typestore.sensor_msgs__msg__CameraInfo  # type: ignore[attr-defined] # noqa: N806
+    CameraInfo = typestore.types[typename]  # noqa: N806
 
     with AnyReader([src]) as reader, Writer(dst) as writer:
         conn_map = {}
@@ -65,17 +62,16 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
 
             # Use updated message definition and md5sum for CameraInfo.
             if conn.msgtype == 'sensor_msgs/msg/CameraInfo':
-                msgdef, md5sum = gendefhash(conn.msgtype, {}, typestore)
+                from_typestore = typestore
             else:
-                msgdef, md5sum = conn.msgdef, conn.digest
+                from_typestore = reader.typestore
 
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
-                msgdef,
-                md5sum,
-                ext.callerid,
-                ext.latching,
+                typestore=from_typestore,
+                callerid=ext.callerid,
+                latching=ext.latching,
             )
 
         for conn, timestamp, data in reader.messages():
@@ -97,6 +93,8 @@ def downgrade_camerainfo_to_rosbag1(src: Path, dst: Path) -> None:
                     binning_y=msg.binning_y,
                     roi=msg.roi,
                 )
-                outdata = serialize_ros1(converted_msg, wconn.msgtype, typestore)
+                outdata: memoryview | bytes = typestore.serialize_ros1(converted_msg, wconn.msgtype)
+            else:
+                outdata = data
 
             writer.write(wconn, timestamp, outdata)

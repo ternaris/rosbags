@@ -12,9 +12,9 @@
 
    topics/highlevel
    topics/typesys
-   topics/serde
-   topics/rosbag2
    topics/rosbag1
+   topics/rosbag2
+   topics/serde
    topics/convert
 
 .. toctree::

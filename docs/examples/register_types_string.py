@@ -1,7 +1,7 @@
 """Example: Register type from definition string."""
 
 from rosbags.serde import serialize_cdr
-from rosbags.typesys import get_types_from_msg, register_types
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 # Your custom message definition
 STRIDX_MSG = """
@@ -9,14 +9,10 @@ string string
 uint32 index
 """
 
-register_types(get_types_from_msg(STRIDX_MSG, 'custom_msgs/msg/StrIdx'))
+typestore = get_typestore(Stores.ROS2_FOXY)
+typestore.register(get_types_from_msg(STRIDX_MSG, 'custom_msgs/msg/StrIdx'))
 
-# Type import works only after the register_types call,
-# the classname is derived from the msgtype name above
-
-from rosbags.typesys.types import (  # type: ignore[attr-defined]  # noqa: E402
-    custom_msgs__msg__StrIdx as StrIdx,
-)
+StrIdx = typestore.types['custom_msgs/msg/StrIdx']
 
 message = StrIdx(string='foo', index=42)
 

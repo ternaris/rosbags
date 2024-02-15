@@ -44,7 +44,7 @@ def to_native(msg: object) -> object:
 
 
 if __name__ == '__main__':
-    from rosbags.typesys.types import (
+    from rosbags.typesys.stores.ros2_foxy import (
         builtin_interfaces__msg__Time,
         sensor_msgs__msg__Image,
         std_msgs__msg__Header,

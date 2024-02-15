@@ -6,14 +6,12 @@ import pytest
 
 from rosbags.interfaces import Nodetype
 from rosbags.typesys import (
+    Stores,
     TypesysError,
-    generate_msgdef,
     get_types_from_idl,
     get_types_from_msg,
-    register_types,
-    types,
+    get_typestore,
 )
-from rosbags.typesys.base import hash_rihs01
 
 MSG = """
 # comment
@@ -312,8 +310,9 @@ def test_parse_relative_siblings_msg() -> None:
 
 def test_parse_msg_does_not_collide_keyword() -> None:
     """Test message field names colliding with python keywords are renamed."""
+    store = get_typestore(Stores.LATEST)
     ret = get_types_from_msg(KEYWORD_MSG, 'keyword_msgs/msg/Foo')
-    register_types(ret)
+    store.register(ret)
     assert ret['keyword_msgs/msg/Foo'][0][0][0] == 'return_'
     assert ret['keyword_msgs/msg/Foo'][1][0][0] == 'yield_'
 
@@ -355,104 +354,109 @@ def test_parse_idl() -> None:
 
 def test_parse_idl_does_not_collide_keyword() -> None:
     """Test message field names colliding with python keywords are renamed."""
+    store = get_typestore(Stores.LATEST)
     ret = get_types_from_idl(IDL_KEYWORD)
-    register_types(ret)
+    store.register(ret)
     assert ret['test_msgs/msg/Foo'][0][0][0] == 'return_'
     assert ret['test_msgs/msg/Foo'][1][0][0] == 'yield_'
 
 
 def test_register_types() -> None:
     """Test type registeration."""
-    assert 'foo' not in types.FIELDDEFS
-    register_types({})
-    register_types({'foo': [[], [('b', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
-    assert 'foo' in types.FIELDDEFS
+    store = get_typestore(Stores.LATEST)
+    assert 'foo' not in store.FIELDDEFS
+    store.register({})
+    store.register({'foo': [[], [('b', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
+    assert 'foo' in store.FIELDDEFS
 
-    register_types({'std_msgs/msg/Header': [[], []]})  # type: ignore[dict-item]
-    assert len(types.FIELDDEFS['std_msgs/msg/Header'][1]) == 2
+    with pytest.raises(TypesysError, match='already present'):
+        store.register({'std_msgs/msg/Header': [[], []]})  # type: ignore[dict-item]
 
     with pytest.raises(TypesysError, match='different definition'):
-        register_types({'foo': [[], [('x', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
+        store.register({'foo': [[], [('x', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
 
 
 def test_generate_msgdef() -> None:
     """Test message definition generator."""
-    res = generate_msgdef('std_msgs/msg/Empty')
+    store = get_typestore(Stores.ROS1_NOETIC)
+    res = store.generate_msgdef('std_msgs/msg/Empty')
     assert res == ('', 'd41d8cd98f00b204e9800998ecf8427e')
 
-    res = generate_msgdef('std_msgs/msg/Header')
+    res = store.generate_msgdef('std_msgs/msg/Header')
     assert res == ('uint32 seq\ntime stamp\nstring frame_id\n', '2176decaecbce78abc3b96ef049fabed')
 
-    res = generate_msgdef('geometry_msgs/msg/PointStamped')
+    res = store.generate_msgdef('geometry_msgs/msg/PointStamped')
     assert res[0].split(f'{"=" * 80}\n') == [
         'std_msgs/Header header\ngeometry_msgs/Point point\n',
         'MSG: std_msgs/Header\nuint32 seq\ntime stamp\nstring frame_id\n',
         'MSG: geometry_msgs/Point\nfloat64 x\nfloat64 y\nfloat64 z\n',
     ]
 
-    res = generate_msgdef('geometry_msgs/msg/Twist')
+    res = store.generate_msgdef('geometry_msgs/msg/Twist')
     assert res[0].split(f'{"=" * 80}\n') == [
         'geometry_msgs/Vector3 linear\ngeometry_msgs/Vector3 angular\n',
         'MSG: geometry_msgs/Vector3\nfloat64 x\nfloat64 y\nfloat64 z\n',
     ]
 
-    res = generate_msgdef('shape_msgs/msg/Mesh')
+    res = store.generate_msgdef('shape_msgs/msg/Mesh')
     assert res[0].split(f'{"=" * 80}\n') == [
         'shape_msgs/MeshTriangle[] triangles\ngeometry_msgs/Point[] vertices\n',
         'MSG: shape_msgs/MeshTriangle\nuint32[3] vertex_indices\n',
         'MSG: geometry_msgs/Point\nfloat64 x\nfloat64 y\nfloat64 z\n',
     ]
 
-    res = generate_msgdef('shape_msgs/msg/Plane')
+    res = store.generate_msgdef('shape_msgs/msg/Plane')
     assert res[0] == 'float64[4] coef\n'
 
-    res = generate_msgdef('sensor_msgs/msg/MultiEchoLaserScan')
+    res = store.generate_msgdef('sensor_msgs/msg/MultiEchoLaserScan')
     assert len(res[0].split('=' * 80)) == 3
 
-    register_types(get_types_from_msg('time[3] times\nuint8 foo=42', 'foo_msgs/Timelist'))
-    res = generate_msgdef('foo_msgs/msg/Timelist')
+    store.register(get_types_from_msg('time[3] times\nuint8 foo=42', 'foo_msgs/Timelist'))
+    res = store.generate_msgdef('foo_msgs/msg/Timelist')
     assert res[0] == 'uint8 foo=42\ntime[3] times\n'
 
     with pytest.raises(TypesysError, match='is unknown'):
-        generate_msgdef('foo_msgs/msg/Badname')
+        store.generate_msgdef('foo_msgs/msg/Badname')
 
 
 def test_ros1md5() -> None:
     """Test ROS1 MD5 hashing."""
-    _, digest = generate_msgdef('std_msgs/msg/Byte')
+    store = get_typestore(Stores.LATEST)
+    _, digest = store.generate_msgdef('std_msgs/msg/Byte')
     assert digest == 'ad736a2e8818154c487bb80fe42ce43b'
 
-    _, digest = generate_msgdef('std_msgs/msg/ByteMultiArray')
+    _, digest = store.generate_msgdef('std_msgs/msg/ByteMultiArray')
     assert digest == '70ea476cbcfd65ac2f68f3cda1e891fe'
 
-    register_types(get_types_from_msg(MSG_BOUNDS, 'test_msgs/msg/Bounds'))
-    _, digest = generate_msgdef('test_msgs/msg/Bounds')
+    store.register(get_types_from_msg(MSG_BOUNDS, 'test_msgs/msg/Bounds'))
+    _, digest = store.generate_msgdef('test_msgs/msg/Bounds')
     assert digest == 'b5a877586c5b2c620b0ee3fa5a0933a0'
 
-    register_types(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
-    _, digest = generate_msgdef('test_msgs/msg/Hash')
+    store.register(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
+    _, digest = store.generate_msgdef('test_msgs/msg/Hash')
     assert digest == 'da79f46add822e47e8d80ce6923b222b'
 
 
 def test_rihs01() -> None:
     """Test RIHS01 hashing."""
+    store = get_typestore(Stores.LATEST)
     assert (
-        hash_rihs01('std_msgs/msg/Byte', types)
+        store.hash_rihs01('std_msgs/msg/Byte')
         == 'RIHS01_41e1a3345f73fe93ede006da826a6ee274af23dd4653976ff249b0f44e3e798f'
     )
 
     assert (
-        hash_rihs01('std_msgs/msg/ByteMultiArray', types)
+        store.hash_rihs01('std_msgs/msg/ByteMultiArray')
         == 'RIHS01_972fec7f50ab3c1d06783c228e79e8a9a509021708c511c059926261ada901d4'
     )
 
     assert (
-        hash_rihs01('geometry_msgs/msg/Accel', types)
+        store.hash_rihs01('geometry_msgs/msg/Accel')
         == 'RIHS01_dc448243ded9b1fcbcca24aba0c22f013dae06c354ba2d849571c0a2a3f57ca0'
     )
 
-    register_types(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
+    store.register(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
     assert (
-        hash_rihs01('test_msgs/msg/Hash', types)
+        store.hash_rihs01('test_msgs/msg/Hash')
         == 'RIHS01_136fe82ed111f28ccca4ffb8e93b24942d858ef1f2a808cec546e313be75cf28'
     )

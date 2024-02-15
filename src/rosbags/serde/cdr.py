@@ -12,24 +12,32 @@ middlewares.
 from __future__ import annotations
 
 import sys
-from itertools import tee
 from typing import TYPE_CHECKING, cast
 
-from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
+from rosbags.interfaces import Nodetype
+
+from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
+
+if sys.version_info >= (3, 10):  # pragma: no cover
+    from itertools import pairwise
+else:  # pragma: no cover
+    from .utils import pairwise
 
 if TYPE_CHECKING:
-    from typing import Iterator, TypeVar
+    from typing import TypeVar
 
-    from .typing import CDRDeser, CDRSer, CDRSerSize, Field
+    from rosbags.interfaces.typing import CDRDeser, CDRSer, CDRSerSize, Fielddefs, FieldDesc
+    from rosbags.typesys.store import Typestore
 
     T = TypeVar('T')
 
 
-def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
+def generate_getsize_cdr(fields: Fielddefs, typestore: Typestore) -> tuple[CDRSerSize, int]:
     """Generate cdr size calculation function.
 
     Args:
         fields: Fields of message.
+        typestore: Typestore.
 
     Returns:
         Size calculation function and static size.
@@ -39,43 +47,40 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
     is_stat = True
 
     aligned = 8
-    iterators = tee([*fields, None])
-    icurr = cast('Iterator[Field]', iterators[0])
-    inext = iterators[1]
-    next(inext)
     lines = [
         'import sys',
-        'from rosbags.serde.messages import get_msgdef',
         'def getsize_cdr(pos, message, typestore):',
     ]
-    for fcurr, fnext in zip(icurr, inext):
-        fieldname, desc = fcurr
+    for fcurr, fnext in pairwise([*fields, None]):
+        fieldname, desc = cast('tuple[str, FieldDesc]', fcurr)
 
-        if desc.valtype == Valtype.MESSAGE:
-            if desc.args.size_cdr:
-                lines.append(f'  pos += {desc.args.size_cdr}')
-                size += desc.args.size_cdr
+        if desc[0] == Nodetype.NAME:
+            msgdef = typestore.get_msgdef(desc[1])
+
+            if msgdef.size_cdr:
+                lines.append(f'  pos += {msgdef.size_cdr}')
+                size += msgdef.size_cdr
             else:
-                lines.append(f'  func = get_msgdef("{desc.args.name}", typestore).getsize_cdr')
+                lines.append(f'  func = typestore.get_msgdef("{desc[1]}").getsize_cdr')
                 lines.append(f'  pos = func(pos, message.{fieldname}, typestore)')
                 is_stat = False
-            aligned = align_after(desc)
+            aligned = align_after(desc, typestore)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append(f'  pos += 4 + len(message.{fieldname}.encode()) + 1')
                 aligned = 1
                 is_stat = False
             else:
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
-                aligned = SIZEMAP[desc.args[0]]
-                size += SIZEMAP[desc.args[0]]
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
+                aligned = SIZEMAP[desc[1][0]]
+                size += SIZEMAP[desc[1][0]]
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append(f'  val = message.{fieldname}')
                     for idx in range(length):
                         lines.append('  pos = (pos + 4 - 1) & -4')
@@ -83,24 +88,25 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                     aligned = 1
                     is_stat = False
                 else:
-                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args[0]]}')
-                    size += length * SIZEMAP[subdesc.args[0]]
+                    lines.append(f'  pos += {length * SIZEMAP[subdesc[1][0]]}')
+                    size += length * SIZEMAP[subdesc[1][0]]
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
+                assert subdesc[0] == Nodetype.NAME
+                msgdef = typestore.get_msgdef(subdesc[1])
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
 
-                if subdesc.args.size_cdr:
+                if msgdef.size_cdr:
                     for _ in range(length):
                         if anext_before > anext_after:
                             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
                             size = (size + anext_before - 1) & -anext_before
-                        lines.append(f'  pos += {subdesc.args.size_cdr}')
-                        size += subdesc.args.size_cdr
+                        lines.append(f'  pos += {msgdef.size_cdr}')
+                        size += msgdef.size_cdr
                 else:
                     lines.append(
-                        f'  func = get_msgdef("{subdesc.args.name}", typestore).getsize_cdr',
+                        f'  func = typestore.get_msgdef("{subdesc[1]}").getsize_cdr',
                     )
                     lines.append(f'  val = message.{fieldname}')
                     for idx in range(length):
@@ -108,43 +114,45 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
                         lines.append(f'  pos = func(pos, val[{idx}], typestore)')
                     is_stat = False
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  pos += 4')
             aligned = 4
-            subdesc = desc.args[0]
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            subdesc = desc[1][0]
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append(f'  for val in message.{fieldname}:')
                     lines.append('    pos = (pos + 4 - 1) & -4')
                     lines.append('    pos += 4 + len(val.encode()) + 1')
                     aligned = 1
                 else:
-                    anext_before = align(subdesc)
+                    anext_before = align(subdesc, typestore)
                     if aligned < anext_before:
                         lines.append(f'  if len(message.{fieldname}):')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc[1][0]]}')
                     aligned = anext_before
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
+                assert subdesc[0] == Nodetype.NAME
+                msgdef = typestore.get_msgdef(subdesc[1])
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
+
                 lines.append(f'  val = message.{fieldname}')
-                if subdesc.args.size_cdr:
+                if msgdef.size_cdr:
                     if aligned < anext_before <= anext_after:
                         lines.append('  if len(val):')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append('  for _ in val:')
                     if anext_before > anext_after:
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'    pos += {subdesc.args.size_cdr}')
+                    lines.append(f'    pos += {msgdef.size_cdr}')
 
                 else:
                     lines.append(
-                        f'  func = get_msgdef("{subdesc.args.name}", typestore).getsize_cdr',
+                        f'  func = typestore.get_msgdef("{subdesc[1]}").getsize_cdr',
                     )
                     if aligned < anext_before <= anext_after:
                         lines.append('  if len(val):')
@@ -153,12 +161,12 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
                     if anext_before > anext_after:
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append('    pos = func(pos, item, typestore)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
             aligned = min([aligned, 4])
             is_stat = False
 
-        if fnext and aligned < (anext_before := align(fnext.descriptor)):
+        if fnext and aligned < (anext_before := align(fnext[1], typestore)):
             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
             is_stat = False
@@ -166,11 +174,12 @@ def generate_getsize_cdr(fields: list[Field]) -> tuple[CDRSerSize, int]:
     return compile_lines(lines).getsize_cdr, is_stat * size
 
 
-def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
+def generate_serialize_cdr(fields: Fielddefs, typestore: Typestore, endianess: str) -> CDRSer:
     """Generate cdr serialization function.
 
     Args:
         fields: Fields of message.
+        typestore: Typestore.
         endianess: Endianess of rawdata.
 
     Returns:
@@ -178,14 +187,10 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
 
     """
     aligned = 8
-    iterators = tee([*fields, None])
-    icurr = cast('Iterator[Field]', iterators[0])
-    inext = iterators[1]
-    next(inext)
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         f'from rosbags.serde.primitives import pack_bool_{endianess}',
         f'from rosbags.serde.primitives import pack_octet_{endianess}',
         f'from rosbags.serde.primitives import pack_int8_{endianess}',
@@ -200,18 +205,17 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
         f'from rosbags.serde.primitives import pack_float64_{endianess}',
         'def serialize_cdr(rawdata, pos, message, typestore):',
     ]
-    for fcurr, fnext in zip(icurr, inext):
-        fieldname, desc = fcurr
+    for fcurr, fnext in pairwise([*fields, None]):
+        fieldname, desc = cast('tuple[str, FieldDesc]', fcurr)
 
         lines.append(f'  val = message.{fieldname}')
-        if desc.valtype == Valtype.MESSAGE:
-            name = desc.args.name
-            lines.append(f'  func = get_msgdef("{name}", typestore).serialize_cdr_{endianess}')
+        if desc[0] == Nodetype.NAME:
+            lines.append(f'  func = typestore.get_msgdef("{desc[1]}").serialize_cdr_{endianess}')
             lines.append('  pos = func(rawdata, pos, val, typestore)')
-            aligned = align_after(desc)
+            aligned = align_after(desc, typestore)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append('  bval = memoryview(val.encode())')
                 lines.append('  length = len(bval) + 1')
                 lines.append(f'  pack_int32_{endianess}(rawdata, pos, length)')
@@ -220,17 +224,17 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                 lines.append('  pos += length')
                 aligned = 1
             else:
-                lines.append(f'  pack_{desc.args[0]}_{endianess}(rawdata, pos, val)')
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
-                aligned = SIZEMAP[desc.args[0]]
+                lines.append(f'  pack_{desc[1][0]}_{endianess}(rawdata, pos, val)')
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
+                aligned = SIZEMAP[desc[1][0]]
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
             lines.append(f'  if len(val) != {length}:')
             lines.append("    raise SerdeError('Unexpected array length')")
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     for idx in range(length):
                         lines.append(f'  bval = memoryview(val[{idx}].encode())')
                         lines.append('  length = len(bval) + 1')
@@ -243,30 +247,31 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                 else:
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(f'  rawdata[pos:pos + {size}] = val.view(numpy.uint8)')
                     lines.append(f'  pos += {size}')
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
-                name = subdesc.args.name
-                lines.append(f'  func = get_msgdef("{name}", typestore).serialize_cdr_{endianess}')
+                assert subdesc[0] == Nodetype.NAME
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
+                lines.append(
+                    f'  func = typestore.get_msgdef("{subdesc[1]}").serialize_cdr_{endianess}',
+                )
                 for idx in range(length):
                     if anext_before > anext_after:
                         lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append(f'  pos = func(rawdata, pos, val[{idx}], typestore)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append(f'  pack_int32_{endianess}(rawdata, pos, len(val))')
             lines.append('  pos += 4')
             aligned = 4
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  for item in val:')
                     lines.append('    bval = memoryview(item.encode())')
                     lines.append('    length = len(bval) + 1')
@@ -277,39 +282,43 @@ def generate_serialize_cdr(fields: list[Field], endianess: str) -> CDRSer:
                     lines.append('    pos += length')
                     aligned = 1
                 else:
-                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc[1][0]]}')
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
-                    if aligned < (anext_before := align(subdesc)):
+                    if aligned < (anext_before := align(subdesc, typestore)):
                         lines.append('  if size:')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append('  rawdata[pos:pos + size] = val.view(numpy.uint8)')
                     lines.append('  pos += size')
                     aligned = anext_before
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                anext_before = align(subdesc)
-                name = subdesc.args.name
-                lines.append(f'  func = get_msgdef("{name}", typestore).serialize_cdr_{endianess}')
+            if subdesc[0] == Nodetype.NAME:
+                anext_before = align(subdesc, typestore)
+                lines.append(
+                    f'  func = typestore.get_msgdef("{subdesc[1]}").serialize_cdr_{endianess}',
+                )
                 lines.append('  for item in val:')
                 lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                 lines.append('    pos = func(rawdata, pos, item, typestore)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
             aligned = min([4, aligned])
 
-        if fnext and aligned < (anext_before := align(fnext.descriptor)):
+        if fnext and aligned < (anext_before := align(fnext[1], typestore)):
             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
     lines.append('  return pos')
     return compile_lines(lines).serialize_cdr  # type: ignore[no-any-return]
 
 
-def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]:
+def generate_deserialize_cdr(
+    fields: Fielddefs, typestore: Typestore, endianess: str
+) -> CDRDeser[T]:
     """Generate cdr deserialization function.
 
     Args:
         fields: Fields of message.
+        typestore: Typestore.
         endianess: Endianess of rawdata.
 
     Returns:
@@ -317,14 +326,10 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
 
     """
     aligned = 8
-    iterators = tee([*fields, None])
-    icurr = cast('Iterator[Field]', iterators[0])
-    inext = iterators[1]
-    next(inext)
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         f'from rosbags.serde.primitives import unpack_bool_{endianess}',
         f'from rosbags.serde.primitives import unpack_octet_{endianess}',
         f'from rosbags.serde.primitives import unpack_int8_{endianess}',
@@ -342,32 +347,32 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
 
     funcname = f'deserialize_cdr_{endianess}'
     lines.append('  values = []')
-    for fcurr, fnext in zip(icurr, inext):
-        desc = fcurr[1]
+    for fcurr, fnext in pairwise([*fields, None]):
+        _, desc = cast('tuple[str, FieldDesc]', fcurr)
 
-        if desc.valtype == Valtype.MESSAGE:
-            lines.append(f'  msgdef = get_msgdef("{desc.args.name}", typestore)')
+        if desc[0] == Nodetype.NAME:
+            lines.append(f'  msgdef = typestore.get_msgdef("{desc[1]}")')
             lines.append(f'  obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore)')
             lines.append('  values.append(obj)')
-            aligned = align_after(desc)
+            aligned = align_after(desc, typestore)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append(f'  length = unpack_int32_{endianess}(rawdata, pos)[0]')
                 lines.append('  string = bytes(rawdata[pos + 4:pos + 4 + length - 1]).decode()')
                 lines.append('  values.append(string)')
                 lines.append('  pos += 4 + length')
                 aligned = 1
             else:
-                lines.append(f'  value = unpack_{desc.args[0]}_{endianess}(rawdata, pos)[0]')
+                lines.append(f'  value = unpack_{desc[1][0]}_{endianess}(rawdata, pos)[0]')
                 lines.append('  values.append(value)')
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
-                aligned = SIZEMAP[desc.args[0]]
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
+                aligned = SIZEMAP[desc[1][0]]
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     for idx in range(length):
                         if idx:
@@ -380,20 +385,20 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
                     lines.append('  values.append(value)')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count={length}, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)',
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
                     lines.append('  values.append(val)')
                     lines.append(f'  pos += {size}')
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
-                lines.append(f'  msgdef = get_msgdef("{subdesc.args.name}", typestore)')
+                assert subdesc[0] == Nodetype.NAME
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
+                lines.append(f'  msgdef = typestore.get_msgdef("{subdesc[1]}")')
                 lines.append('  value = []')
                 for _ in range(length):
                     if anext_before > anext_after:
@@ -403,17 +408,17 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
                     )
                     lines.append('  value.append(obj)')
                 lines.append('  values.append(value)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append(f'  size = unpack_int32_{endianess}(rawdata, pos)[0]')
             lines.append('  pos += 4')
             aligned = 4
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     lines.append('  for _ in range(size):')
                     lines.append('    pos = (pos + 4 - 1) & -4')
@@ -425,13 +430,13 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
                     lines.append('  values.append(value)')
                     aligned = 1
                 else:
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
-                    if aligned < (anext_before := align(subdesc)):
+                    lines.append(f'  length = size * {SIZEMAP[subdesc[1][0]]}')
+                    if aligned < (anext_before := align(subdesc, typestore)):
                         lines.append('  if size:')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count=size, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)',
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
@@ -439,9 +444,9 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
                     lines.append('  pos += length')
                     aligned = anext_before
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                anext_before = align(subdesc)
-                lines.append(f'  msgdef = get_msgdef("{subdesc.args.name}", typestore)')
+            if subdesc[0] == Nodetype.NAME:
+                anext_before = align(subdesc, typestore)
+                lines.append(f'  msgdef = typestore.get_msgdef("{subdesc[1]}")')
                 lines.append('  value = []')
                 lines.append('  for _ in range(size):')
                 lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
@@ -450,11 +455,11 @@ def generate_deserialize_cdr(fields: list[Field], endianess: str) -> CDRDeser[T]
                 )
                 lines.append('    value.append(obj)')
                 lines.append('  values.append(value)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
             aligned = min([4, aligned])
 
-        if fnext and aligned < (anext_before := align(fnext.descriptor)):
+        if fnext and aligned < (anext_before := align(fnext[1], typestore)):
             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
 

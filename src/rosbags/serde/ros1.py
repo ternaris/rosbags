@@ -12,25 +12,47 @@ conversion of ROS1 to CDR.
 from __future__ import annotations
 
 import sys
-from itertools import tee
 from typing import TYPE_CHECKING, cast
 
-from .utils import SIZEMAP, Valtype, align, align_after, compile_lines, ndtype
+from rosbags.interfaces import Nodetype
+
+from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
+
+if sys.version_info >= (3, 10):  # pragma: no cover
+    from itertools import pairwise
+else:  # pragma: no cover
+    from .utils import pairwise
 
 if TYPE_CHECKING:
-    from typing import Iterator, TypeVar
+    from typing import TypeVar
 
-    from .typing import Bitcvt, BitcvtSize, CDRDeser, CDRSer, CDRSerSize, Field
+    from rosbags.interfaces.typing import (
+        Bitcvt,
+        BitcvtSize,
+        CDRDeser,
+        CDRSer,
+        CDRSerSize,
+        Fielddefs,
+        FieldDesc,
+    )
+    from rosbags.typesys.store import Typestore
 
     T = TypeVar('T')
 
 
-def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> Bitcvt | BitcvtSize:
+def generate_ros1_to_cdr(
+    fields: Fielddefs,
+    typename: str,
+    typestore: Typestore,
+    *,
+    copy: bool,
+) -> Bitcvt | BitcvtSize:
     """Generate ROS1 to CDR conversion function.
 
     Args:
         fields: Fields of message.
         typename: Message type name.
+        typestore: Typestore.
         copy: Generate conversion or sizing function.
 
     Returns:
@@ -38,15 +60,11 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
 
     """
     aligned = 8
-    iterators = tee([*fields, None])
-    icurr = cast('Iterator[Field]', iterators[0])
-    inext = iterators[1]
-    next(inext)
     funcname = 'ros1_to_cdr' if copy else 'getsize_ros1_to_cdr'
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         'from rosbags.serde.primitives import pack_int32_le',
         'from rosbags.serde.primitives import unpack_int32_le',
         f'def {funcname}(input, ipos, output, opos, typestore):',
@@ -55,20 +73,20 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
     if typename == 'std_msgs/msg/Header':
         lines.append('  ipos += 4')
 
-    for fcurr, fnext in zip(icurr, inext):
-        fieldname, desc = fcurr
+    for fcurr, fnext in pairwise([*fields, None]):
+        fieldname, desc = cast('tuple[str, FieldDesc]', fcurr)
 
         if fieldname == 'structure_needs_at_least_one_member':
             lines.append('  opos += 1')
             aligned = 1
 
-        elif desc.valtype == Valtype.MESSAGE:
-            lines.append(f'  func = get_msgdef("{desc.args.name}", typestore).{funcname}')
+        elif desc[0] == Nodetype.NAME:
+            lines.append(f'  func = typestore.get_msgdef("{desc[1]}").{funcname}')
             lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
-            aligned = align_after(desc)
+            aligned = align_after(desc, typestore)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append('  length = unpack_int32_le(input, ipos)[0] + 1')
                 if copy:
                     lines.append('  pack_int32_le(output, opos, length)')
@@ -80,18 +98,18 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                 lines.append('  opos += length')
                 aligned = 1
             else:
-                size = SIZEMAP[desc.args[0]]
+                size = SIZEMAP[desc[1][0]]
                 if copy:
                     lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                 lines.append(f'  ipos += {size}')
                 lines.append(f'  opos += {size}')
                 aligned = size
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     for _ in range(length):
                         lines.append('  opos = (opos + 4 - 1) & -4')
                         lines.append('  length = unpack_int32_le(input, ipos)[0] + 1')
@@ -107,35 +125,35 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                         lines.append('  opos += length')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     if copy:
                         lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                     lines.append(f'  ipos += {size}')
                     lines.append(f'  opos += {size}')
-                    aligned = SIZEMAP[subdesc.args[0]]
+                    aligned = SIZEMAP[subdesc[1][0]]
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
+            if subdesc[0] == Nodetype.NAME:
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
 
-                lines.append(f'  func = get_msgdef("{subdesc.args.name}", typestore).{funcname}')
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").{funcname}')
                 for _ in range(length):
                     if anext_before > anext_after:
                         lines.append(f'  opos = (opos + {anext_before} - 1) & -{anext_before}')
                     lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
                 aligned = anext_after
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  size = unpack_int32_le(input, ipos)[0]')
             if copy:
                 lines.append('  pack_int32_le(output, opos, size)')
             lines.append('  ipos += 4')
             lines.append('  opos += 4')
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
             aligned = 4
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  for _ in range(size):')
                     lines.append('    length = unpack_int32_le(input, ipos)[0] + 1')
                     lines.append('    opos = (opos + 4 - 1) & -4')
@@ -151,10 +169,10 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                     lines.append('    opos += length')
                     aligned = 1
                 else:
-                    if aligned < (anext_before := align(subdesc)):
+                    if aligned < (anext_before := align(subdesc, typestore)):
                         lines.append('  if size:')
                         lines.append(f'    opos = (opos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc[1][0]]}')
                     if copy:
                         lines.append('  output[opos:opos + length] = input[ipos:ipos + length]')
                     lines.append('  ipos += length')
@@ -162,17 +180,17 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
                     aligned = anext_before
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                lines.append(f'  func = get_msgdef("{subdesc.args.name}", typestore).{funcname}')
+                assert subdesc[0] == Nodetype.NAME
+                anext_before = align(subdesc, typestore)
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").{funcname}')
                 lines.append('  for _ in range(size):')
                 lines.append(f'    opos = (opos + {anext_before} - 1) & -{anext_before}')
                 lines.append('    ipos, opos = func(input, ipos, output, opos, typestore)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
             aligned = min([aligned, 4])
 
-        if fnext and aligned < (anext_before := align(fnext.descriptor)):
+        if fnext and aligned < (anext_before := align(fnext[1], typestore)):
             lines.append(f'  opos = (opos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
 
@@ -180,12 +198,19 @@ def generate_ros1_to_cdr(fields: list[Field], typename: str, *, copy: bool) -> B
     return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
-def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> Bitcvt | BitcvtSize:
+def generate_cdr_to_ros1(
+    fields: Fielddefs,
+    typename: str,
+    typestore: Typestore,
+    *,
+    copy: bool,
+) -> Bitcvt | BitcvtSize:
     """Generate CDR to ROS1 conversion function.
 
     Args:
         fields: Fields of message.
         typename: Message type name.
+        typestore: Typestore.
         copy: Generate conversion or sizing function.
 
     Returns:
@@ -193,15 +218,11 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
 
     """
     aligned = 8
-    iterators = tee([*fields, None])
-    icurr = cast('Iterator[Field]', iterators[0])
-    inext = iterators[1]
-    next(inext)
     funcname = 'cdr_to_ros1' if copy else 'getsize_cdr_to_ros1'
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         'from rosbags.serde.primitives import pack_int32_le',
         'from rosbags.serde.primitives import unpack_int32_le',
         f'def {funcname}(input, ipos, output, opos, typestore):',
@@ -210,20 +231,20 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
     if typename == 'std_msgs/msg/Header':
         lines.append('  opos += 4')
 
-    for fcurr, fnext in zip(icurr, inext):
-        fieldname, desc = fcurr
+    for fcurr, fnext in pairwise([*fields, None]):
+        fieldname, desc = cast('tuple[str, FieldDesc]', fcurr)
 
         if fieldname == 'structure_needs_at_least_one_member':
             lines.append('  ipos += 1')
             aligned = 1
 
-        elif desc.valtype == Valtype.MESSAGE:
-            lines.append(f'  func = get_msgdef("{desc.args.name}", typestore).{funcname}')
+        elif desc[0] == Nodetype.NAME:
+            lines.append(f'  func = typestore.get_msgdef("{desc[1]}").{funcname}')
             lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
-            aligned = align_after(desc)
+            aligned = align_after(desc, typestore)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append('  length = unpack_int32_le(input, ipos)[0] - 1')
                 if copy:
                     lines.append('  pack_int32_le(output, opos, length)')
@@ -235,18 +256,18 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                 lines.append('  opos += length')
                 aligned = 1
             else:
-                size = SIZEMAP[desc.args[0]]
+                size = SIZEMAP[desc[1][0]]
                 if copy:
                     lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                 lines.append(f'  ipos += {size}')
                 lines.append(f'  opos += {size}')
                 aligned = size
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     for _ in range(length):
                         lines.append('  ipos = (ipos + 4 - 1) & -4')
                         lines.append('  length = unpack_int32_le(input, ipos)[0] - 1')
@@ -260,35 +281,35 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                         lines.append('  opos += length')
                     aligned = 1
                 else:
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     if copy:
                         lines.append(f'  output[opos:opos + {size}] = input[ipos:ipos + {size}]')
                     lines.append(f'  ipos += {size}')
                     lines.append(f'  opos += {size}')
-                    aligned = SIZEMAP[subdesc.args[0]]
+                    aligned = SIZEMAP[subdesc[1][0]]
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                anext_before = align(subdesc)
-                anext_after = align_after(subdesc)
+            if subdesc[0] == Nodetype.NAME:
+                anext_before = align(subdesc, typestore)
+                anext_after = align_after(subdesc, typestore)
 
-                lines.append(f'  func = get_msgdef("{subdesc.args.name}", typestore).{funcname}')
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").{funcname}')
                 for _ in range(length):
                     if anext_before > anext_after:
                         lines.append(f'  ipos = (ipos + {anext_before} - 1) & -{anext_before}')
                     lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
                 aligned = anext_after
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  size = unpack_int32_le(input, ipos)[0]')
             if copy:
                 lines.append('  pack_int32_le(output, opos, size)')
             lines.append('  ipos += 4')
             lines.append('  opos += 4')
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
             aligned = 4
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  for _ in range(size):')
                     lines.append('    ipos = (ipos + 4 - 1) & -4')
                     lines.append('    length = unpack_int32_le(input, ipos)[0] - 1')
@@ -302,10 +323,10 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                     lines.append('    opos += length')
                     aligned = 1
                 else:
-                    if aligned < (anext_before := align(subdesc)):
+                    if aligned < (anext_before := align(subdesc, typestore)):
                         lines.append('  if size:')
                         lines.append(f'    ipos = (ipos + {anext_before} - 1) & -{anext_before}')
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc[1][0]]}')
                     if copy:
                         lines.append('  output[opos:opos + length] = input[ipos:ipos + length]')
                     lines.append('  ipos += length')
@@ -313,17 +334,17 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
                     aligned = anext_before
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                anext_before = align(subdesc)
-                lines.append(f'  func = get_msgdef("{subdesc.args.name}", typestore).{funcname}')
+                assert subdesc[0] == Nodetype.NAME
+                anext_before = align(subdesc, typestore)
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").{funcname}')
                 lines.append('  for _ in range(size):')
                 lines.append(f'    ipos = (ipos + {anext_before} - 1) & -{anext_before}')
                 lines.append('    ipos, opos = func(input, ipos, output, opos, typestore)')
-                aligned = align_after(subdesc)
+                aligned = align_after(subdesc, typestore)
 
             aligned = min([aligned, 4])
 
-        if fnext and aligned < (anext_before := align(fnext.descriptor)):
+        if fnext and aligned < (anext_before := align(fnext[1], typestore)):
             lines.append(f'  ipos = (ipos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
 
@@ -331,12 +352,12 @@ def generate_cdr_to_ros1(fields: list[Field], typename: str, *, copy: bool) -> B
     return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
 
 
-def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSize, int]:
+def generate_getsize_ros1(fields: Fielddefs, typestore: Typestore) -> tuple[CDRSerSize, int]:
     """Generate ros1 size calculation function.
 
     Args:
         fields: Fields of message.
-        typename: Message type name.
+        typestore: Typestore.
 
     Returns:
         Size calculation function and static size.
@@ -347,12 +368,8 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
 
     lines = [
         'import sys',
-        'from rosbags.serde.messages import get_msgdef',
         'def getsize_ros1(pos, message, typestore):',
     ]
-
-    if typename == 'std_msgs/msg/Header':
-        lines.append('  pos += 4')
 
     for fcurr in fields:
         fieldname, desc = fcurr
@@ -360,44 +377,46 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
         if fieldname == 'structure_needs_at_least_one_member':
             continue
 
-        if desc.valtype == Valtype.MESSAGE:
-            if desc.args.size_ros1:
-                lines.append(f'  pos += {desc.args.size_ros1}')
-                size += desc.args.size_ros1
+        if desc[0] == Nodetype.NAME:
+            msgdef = typestore.get_msgdef(desc[1])
+            if msgdef.size_ros1:
+                lines.append(f'  pos += {msgdef.size_ros1}')
+                size += msgdef.size_ros1
             else:
-                lines.append(f'  func = get_msgdef("{desc.args.name}", typestore).getsize_ros1')
+                lines.append(f'  func = typestore.get_msgdef("{desc[1]}").getsize_ros1')
                 lines.append(f'  pos = func(pos, message.{fieldname}, typestore)')
                 is_stat = False
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append(f'  pos += 4 + len(message.{fieldname}.encode())')
                 is_stat = False
             else:
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
-                size += SIZEMAP[desc.args[0]]
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
+                size += SIZEMAP[desc[1][0]]
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append(f'  val = message.{fieldname}')
                     lines.extend(f'  pos += 4 + len(val[{idx}].encode())' for idx in range(length))
                     is_stat = False
                 else:
-                    lines.append(f'  pos += {length * SIZEMAP[subdesc.args[0]]}')
-                    size += length * SIZEMAP[subdesc.args[0]]
+                    lines.append(f'  pos += {length * SIZEMAP[subdesc[1][0]]}')
+                    size += length * SIZEMAP[subdesc[1][0]]
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                if subdesc.args.size_ros1:
+                assert subdesc[0] == Nodetype.NAME
+                msgdef = typestore.get_msgdef(subdesc[1])
+                if msgdef.size_ros1:
                     for _ in range(length):
-                        lines.append(f'  pos += {subdesc.args.size_ros1}')
-                        size += subdesc.args.size_ros1
+                        lines.append(f'  pos += {msgdef.size_ros1}')
+                        size += msgdef.size_ros1
                 else:
                     lines.append(
-                        f'  func = get_msgdef("{subdesc.args.name}", typestore).getsize_ros1',
+                        f'  func = typestore.get_msgdef("{subdesc[1]}").getsize_ros1',
                     )
                     lines.append(f'  val = message.{fieldname}')
                     lines.extend(
@@ -405,25 +424,26 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
                     )
                     is_stat = False
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  pos += 4')
-            subdesc = desc.args[0]
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            subdesc = desc[1][0]
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append(f'  for val in message.{fieldname}:')
                     lines.append('    pos += 4 + len(val.encode())')
                 else:
-                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  pos += len(message.{fieldname}) * {SIZEMAP[subdesc[1][0]]}')
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
+                assert subdesc[0] == Nodetype.NAME
+                msgdef = typestore.get_msgdef(subdesc[1])
                 lines.append(f'  val = message.{fieldname}')
-                if subdesc.args.size_ros1:
-                    lines.append(f'  pos += {subdesc.args.size_ros1} * len(val)')
+                if msgdef.size_ros1:
+                    lines.append(f'  pos += {msgdef.size_ros1} * len(val)')
 
                 else:
                     lines.append(
-                        f'  func = get_msgdef("{subdesc.args.name}", typestore).getsize_ros1',
+                        f'  func = typestore.get_msgdef("{msgdef.name}").getsize_ros1',
                     )
                     lines.append('  for item in val:')
                     lines.append('    pos = func(pos, item, typestore)')
@@ -433,21 +453,22 @@ def generate_getsize_ros1(fields: list[Field], typename: str) -> tuple[CDRSerSiz
     return compile_lines(lines).getsize_ros1, is_stat * size
 
 
-def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
+def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
     """Generate ros1 serialization function.
 
     Args:
         fields: Fields of message.
-        typename: Message type name.
+        typestore: Typestore.
 
     Returns:
         Serializer function.
 
     """
+    _ = typestore
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         'from rosbags.serde.primitives import pack_bool_le',
         'from rosbags.serde.primitives import pack_octet_le',
         'from rosbags.serde.primitives import pack_int8_le',
@@ -463,9 +484,6 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
         'def serialize_ros1(rawdata, pos, message, typestore):',
     ]
 
-    if typename == 'std_msgs/msg/Header':
-        lines.append('  pos += 4')
-
     be_syms = ('>',) if sys.byteorder == 'little' else ('=', '>')
 
     for fcurr in fields:
@@ -475,13 +493,12 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
             continue
 
         lines.append(f'  val = message.{fieldname}')
-        if desc.valtype == Valtype.MESSAGE:
-            name = desc.args.name
-            lines.append(f'  func = get_msgdef("{name}", typestore).serialize_ros1')
+        if desc[0] == Nodetype.NAME:
+            lines.append(f'  func = typestore.get_msgdef("{desc[1]}").serialize_ros1')
             lines.append('  pos = func(rawdata, pos, val, typestore)')
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append('  bval = memoryview(val.encode())')
                 lines.append('  length = len(bval)')
                 lines.append('  pack_int32_le(rawdata, pos, length)')
@@ -489,16 +506,16 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 lines.append('  rawdata[pos:pos + length] = bval')
                 lines.append('  pos += length')
             else:
-                lines.append(f'  pack_{desc.args[0]}_le(rawdata, pos, val)')
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                lines.append(f'  pack_{desc[1][0]}_le(rawdata, pos, val)')
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
             lines.append(f'  if len(val) != {length}:')
             lines.append("    raise SerdeError('Unexpected array length')")
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     for idx in range(length):
                         lines.append(f'  bval = memoryview(val[{idx}].encode())')
                         lines.append('  length = len(bval)')
@@ -509,25 +526,24 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                 else:
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(f'  rawdata[pos:pos + {size}] = val.view(numpy.uint8)')
                     lines.append(f'  pos += {size}')
 
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                name = subdesc.args.name
-                lines.append(f'  func = get_msgdef("{name}", typestore).serialize_ros1')
+                assert subdesc[0] == Nodetype.NAME
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").serialize_ros1')
                 lines.extend(
                     f'  pos = func(rawdata, pos, val[{idx}], typestore)' for idx in range(length)
                 )
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  pack_int32_le(rawdata, pos, len(val))')
             lines.append('  pos += 4')
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  for item in val:')
                     lines.append('    bval = memoryview(item.encode())')
                     lines.append('    length = len(bval)')
@@ -536,15 +552,14 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
                     lines.append('    rawdata[pos:pos + length] = bval')
                     lines.append('    pos += length')
                 else:
-                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  size = len(val) * {SIZEMAP[subdesc[1][0]]}')
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
                     lines.append('  rawdata[pos:pos + size] = val.view(numpy.uint8)')
                     lines.append('  pos += size')
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                name = subdesc.args.name
-                lines.append(f'  func = get_msgdef("{name}", typestore).serialize_ros1')
+            if subdesc[0] == Nodetype.NAME:
+                lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").serialize_ros1')
                 lines.append('  for item in val:')
                 lines.append('    pos = func(rawdata, pos, item, typestore)')
 
@@ -552,21 +567,22 @@ def generate_serialize_ros1(fields: list[Field], typename: str) -> CDRSer:
     return compile_lines(lines).serialize_ros1  # type: ignore[no-any-return]
 
 
-def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]:
+def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDeser[T]:
     """Generate ros1 deserialization function.
 
     Args:
         fields: Fields of message.
-        typename: Message type name.
+        typestore: Typestore.
 
     Returns:
         Deserializer function.
 
     """
+    _ = typestore
     lines = [
         'import sys',
         'import numpy',
-        'from rosbags.serde.messages import SerdeError, get_msgdef',
+        'from rosbags.serde import SerdeError',
         'from rosbags.serde.primitives import unpack_bool_le',
         'from rosbags.serde.primitives import unpack_octet_le',
         'from rosbags.serde.primitives import unpack_int8_le',
@@ -582,9 +598,6 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]
         'def deserialize_ros1(rawdata, pos, cls, typestore):',
     ]
 
-    if typename == 'std_msgs/msg/Header':
-        lines.append('  pos += 4')
-
     be_syms = ('>',) if sys.byteorder == 'little' else ('=', '>')
 
     funcname = 'deserialize_ros1'
@@ -595,26 +608,26 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]
         if fieldname == 'structure_needs_at_least_one_member':
             continue
 
-        if desc.valtype == Valtype.MESSAGE:
-            lines.append(f'  msgdef = get_msgdef("{desc.args.name}", typestore)')
+        if desc[0] == Nodetype.NAME:
+            lines.append(f'  msgdef = typestore.get_msgdef("{desc[1]}")')
             lines.append(f'  obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore)')
             lines.append('  values.append(obj)')
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 lines.append('  length = unpack_int32_le(rawdata, pos)[0]')
                 lines.append('  string = bytes(rawdata[pos + 4:pos + 4 + length]).decode()')
                 lines.append('  values.append(string)')
                 lines.append('  pos += 4 + length')
             else:
-                lines.append(f'  value = unpack_{desc.args[0]}_le(rawdata, pos)[0]')
+                lines.append(f'  value = unpack_{desc[1][0]}_le(rawdata, pos)[0]')
                 lines.append('  values.append(value)')
-                lines.append(f'  pos += {SIZEMAP[desc.args[0]]}')
+                lines.append(f'  pos += {SIZEMAP[desc[1][0]]}')
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     for _ in range(length):
                         lines.append('  length = unpack_int32_le(rawdata, pos)[0]')
@@ -624,18 +637,18 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]
                         lines.append('  pos += 4 + length')
                     lines.append('  values.append(value)')
                 else:
-                    size = length * SIZEMAP[subdesc.args[0]]
+                    size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count={length}, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)',
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
                     lines.append('  values.append(val)')
                     lines.append(f'  pos += {size}')
             else:
-                assert subdesc.valtype == Valtype.MESSAGE
-                lines.append(f'  msgdef = get_msgdef("{subdesc.args.name}", typestore)')
+                assert subdesc[0] == Nodetype.NAME
+                lines.append(f'  msgdef = typestore.get_msgdef("{subdesc[1]}")')
                 lines.append('  value = []')
                 for _ in range(length):
                     lines.append(
@@ -645,13 +658,13 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]
                 lines.append('  values.append(value)')
 
         else:
-            assert desc.valtype == Valtype.SEQUENCE
+            assert desc[0] == Nodetype.SEQUENCE
             lines.append('  size = unpack_int32_le(rawdata, pos)[0]')
             lines.append('  pos += 4')
-            subdesc = desc.args[0]
+            subdesc = desc[1][0]
 
-            if subdesc.valtype == Valtype.BASE:
-                if subdesc.args[0] == 'string':
+            if subdesc[0] == Nodetype.BASE:
+                if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     lines.append('  for _ in range(size):')
                     lines.append('    length = unpack_int32_le(rawdata, pos)[0]')
@@ -661,18 +674,18 @@ def generate_deserialize_ros1(fields: list[Field], typename: str) -> CDRDeser[T]
                     lines.append('    pos += 4 + length')
                     lines.append('  values.append(value)')
                 else:
-                    lines.append(f'  length = size * {SIZEMAP[subdesc.args[0]]}')
+                    lines.append(f'  length = size * {SIZEMAP[subdesc[1][0]]}')
                     lines.append(
                         f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc.args[0])}, count=size, offset=pos)',
+                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)',
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
                     lines.append('  values.append(val)')
                     lines.append('  pos += length')
 
-            if subdesc.valtype == Valtype.MESSAGE:
-                lines.append(f'  msgdef = get_msgdef("{subdesc.args.name}", typestore)')
+            if subdesc[0] == Nodetype.NAME:
+                lines.append(f'  msgdef = typestore.get_msgdef("{subdesc[1]}")')
                 lines.append('  value = []')
                 lines.append('  for _ in range(size):')
                 lines.append(

@@ -19,13 +19,12 @@ from rosbags.rosbag2 import (
     Writer as Writer2,
     WriterError as WriterError2,
 )
-from rosbags.serde import cdr_to_ros1, ros1_to_cdr
-from rosbags.typesys import get_types_from_msg, register_types
-from rosbags.typesys.msg import generate_msgdef
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Sequence
+
 
 LATCH = """
 - history: 3
@@ -78,19 +77,19 @@ def downgrade_connection(rconn: Connection) -> Connection:
 
     Args:
         rconn: Rosbag2 connection.
+        typestore: Typestore.
 
     Returns:
         Rosbag1 connection.
 
     """
     assert isinstance(rconn.ext, ConnectionExtRosbag2)
-    msgdef, md5sum = generate_msgdef(rconn.msgtype)
     return Connection(
         rconn.id,
         rconn.topic,
         rconn.msgtype,
-        msgdef,
-        md5sum,
+        '',
+        '',
         -1,
         ConnectionExtRosbag1(None, int('durability: 1' in rconn.ext.offered_qos_profiles)),
         None,
@@ -115,6 +114,7 @@ def convert_1to2(
         ConverterError: If all connections are excluded.
 
     """
+    store = get_typestore(Stores.EMPTY)
     with Reader1(src) as reader, Writer2(dst) as writer:
         connmap: dict[int, Connection] = {}
         connections = [
@@ -138,17 +138,18 @@ def convert_1to2(
                     break
             else:
                 typs = get_types_from_msg(rconn.msgdef, rconn.msgtype)
-                register_types(typs)
+                store.register(typs)
                 conn = writer.add_connection(
                     candidate.topic,
                     candidate.msgtype,
+                    typestore=store,
                     serialization_format=candidate.ext.serialization_format,
                     offered_qos_profiles=candidate.ext.offered_qos_profiles,
                 )
             connmap[rconn.id] = conn
 
         for rconn, timestamp, data in reader.messages(connections=connections):
-            cdrdata = ros1_to_cdr(data, rconn.msgtype)
+            cdrdata = store.ros1_to_cdr(data, rconn.msgtype)
             writer.write(connmap[rconn.id], timestamp, cdrdata)
 
 
@@ -170,6 +171,12 @@ def convert_2to1(
         ConverterError: If all connections are excluded.
 
     """
+    store = get_typestore(Stores.ROS2_FOXY)
+    # Use same store as reader, but with ROS1 Header message definition.
+    ros1_store = get_typestore(Stores.ROS2_FOXY)
+    noetic_store = get_typestore(Stores.ROS1_NOETIC)
+    ros1_store.FIELDDEFS['std_msgs/msg/Header'] = noetic_store.FIELDDEFS['std_msgs/msg/Header']
+
     with Reader2(src) as reader, Writer1(dst) as writer:
         connmap: dict[int, Connection] = {}
         connections = [
@@ -187,7 +194,7 @@ def convert_2to1(
                 assert isinstance(conn.ext, ConnectionExtRosbag1)
                 if (
                     conn.topic == candidate.topic
-                    and conn.digest == candidate.digest
+                    and conn.msgtype == candidate.msgtype
                     and conn.ext.latching == candidate.ext.latching
                 ):
                     break
@@ -195,15 +202,14 @@ def convert_2to1(
                 conn = writer.add_connection(
                     candidate.topic,
                     candidate.msgtype,
-                    candidate.msgdef,
-                    candidate.digest,
-                    candidate.ext.callerid,
-                    candidate.ext.latching,
+                    typestore=ros1_store,
+                    callerid=candidate.ext.callerid,
+                    latching=candidate.ext.latching,
                 )
             connmap[rconn.id] = conn
 
         for rconn, timestamp, data in reader.messages(connections=connections):
-            ros1data = cdr_to_ros1(data, rconn.msgtype)
+            ros1data = store.cdr_to_ros1(data, rconn.msgtype)
             writer.write(connmap[rconn.id], timestamp, ros1data)
 
 

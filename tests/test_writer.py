@@ -10,6 +10,7 @@ import pytest
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag2
 from rosbags.rosbag2 import Writer, WriterError
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,9 +18,10 @@ if TYPE_CHECKING:
 
 def test_writer(tmp_path: Path) -> None:
     """Test Writer."""
+    store = get_typestore(Stores.LATEST)
     path = tmp_path / 'rosbag2'
     with Writer(path) as bag:
-        connection = bag.add_connection('/test', 'std_msgs/msg/Int8')
+        connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
         bag.write(connection, 42, b'\x00')
         bag.write(connection, 666, b'\x01' * 4096)
     assert (path / 'metadata.yaml').exists()
@@ -31,7 +33,7 @@ def test_writer(tmp_path: Path) -> None:
     bag = Writer(path)
     bag.set_compression(bag.CompressionMode.NONE, bag.CompressionFormat.ZSTD)
     with bag:
-        connection = bag.add_connection('/test', 'std_msgs/msg/Int8')
+        connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
         bag.write(connection, 42, b'\x00')
         bag.write(connection, 666, b'\x01' * 4096)
     assert (path / 'metadata.yaml').exists()
@@ -42,7 +44,7 @@ def test_writer(tmp_path: Path) -> None:
     bag = Writer(path)
     bag.set_compression(bag.CompressionMode.FILE, bag.CompressionFormat.ZSTD)
     with bag:
-        connection = bag.add_connection('/test', 'std_msgs/msg/Int8')
+        connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
         bag.write(connection, 42, b'\x00')
         bag.write(connection, 666, b'\x01' * 4096)
     assert (path / 'metadata.yaml').exists()
@@ -53,7 +55,7 @@ def test_writer(tmp_path: Path) -> None:
     bag = Writer(path)
     bag.set_compression(bag.CompressionMode.MESSAGE, bag.CompressionFormat.ZSTD)
     with bag:
-        connection = bag.add_connection('/test', 'std_msgs/msg/Int8')
+        connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
         bag.write(connection, 42, b'\x00')
         bag.write(connection, 666, b'\x01' * 4096)
     assert (path / 'metadata.yaml').exists()
@@ -84,6 +86,8 @@ def test_writer(tmp_path: Path) -> None:
 
 def test_failure_cases(tmp_path: Path) -> None:
     """Test writer failure cases."""
+    store = get_typestore(Stores.LATEST)
+
     with pytest.raises(WriterError, match='exists'):
         Writer(tmp_path)
 
@@ -120,9 +124,9 @@ def test_failure_cases(tmp_path: Path) -> None:
 
     bag = Writer(tmp_path / 'topic')
     bag.open()
-    bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage')
+    bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
     with pytest.raises(WriterError, match='only be added once'):
-        bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage')
+        bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
 
     bag = Writer(tmp_path / 'notopic')
     bag.open()

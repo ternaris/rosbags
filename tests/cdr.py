@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
-from rosbags.serde.messages import SerdeError, get_msgdef
-from rosbags.serde.utils import SIZEMAP, Valtype
-from rosbags.typesys import types
+from rosbags.interfaces import Nodetype
+from rosbags.serde import SerdeError
+from rosbags.serde.utils import SIZEMAP
 
 if TYPE_CHECKING:
     if sys.version_info >= (3, 10):
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-    from rosbags.interfaces.typing import Basename
-    from rosbags.serde.typing import Descriptor, Msgdef
+    from rosbags.interfaces.typing import Basename, FieldDesc
+    from rosbags.typesys.store import Msgdef, Typestore
 
     Array: TypeAlias = 'list[Msgdef[object]] | list[str] | NDArray[np.float64]'
     BasetypeMap: TypeAlias = 'dict[Basename, Struct]'
@@ -96,7 +96,12 @@ def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) -> tuple[str
 
 
 def deserialize_array(
-    rawdata: bytes, bmap: BasetypeMap, pos: int, num: int, desc: Descriptor
+    rawdata: bytes,
+    bmap: BasetypeMap,
+    pos: int,
+    num: int,
+    desc: FieldDesc,
+    typestore: Typestore,
 ) -> tuple[Array, int]:
     """Deserialize an array of items of same type.
 
@@ -106,6 +111,7 @@ def deserialize_array(
         pos: Read position.
         num: Number of elements.
         desc: Element type descriptor.
+        typestore: Typestore.
 
     Returns:
         Deserialized array and new read position.
@@ -114,25 +120,27 @@ def deserialize_array(
         SerdeError: Unexpected element type.
 
     """
-    if desc.valtype == Valtype.BASE:
-        if desc.args[0] == 'string':
+    if desc[0] == Nodetype.BASE:
+        if desc[1][0] == 'string':
             strs = []
             while (num := num - 1) >= 0:
                 val, pos = deserialize_string(rawdata, bmap, pos)
                 strs.append(val)
             return strs, pos
 
-        size = SIZEMAP[desc.args[0]]
+        size = SIZEMAP[desc[1][0]]
         pos = (pos + size - 1) & -size
-        ndarr = np.frombuffer(rawdata, dtype=desc.args[0], count=num, offset=pos)
+        ndarr = np.frombuffer(rawdata, dtype=desc[1][0], count=num, offset=pos)
         if (bmap is BASETYPEMAP_LE) != (sys.byteorder == 'little'):
             ndarr = ndarr.byteswap()  # no inplace on readonly array
-        return ndarr, pos + num * SIZEMAP[desc.args[0]]
+        return ndarr, pos + num * SIZEMAP[desc[1][0]]
 
-    if desc.valtype == Valtype.MESSAGE:
+    if desc[0] == Nodetype.NAME:
         msgs = []
         while (num := num - 1) >= 0:
-            rosmsg, pos = deserialize_message(rawdata, bmap, pos, desc.args)
+            rosmsg, pos = deserialize_message(
+                rawdata, bmap, pos, typestore.get_msgdef(desc[1]), typestore
+            )
             msgs.append(rosmsg)
         return msgs, pos
 
@@ -145,6 +153,7 @@ def deserialize_message(
     bmap: BasetypeMap,
     pos: int,
     msgdef: Msgdef[object],
+    typestore: Typestore,
 ) -> tuple[Msgdef[object], int]:
     """Deserialize a message.
 
@@ -153,6 +162,7 @@ def deserialize_message(
         bmap: Basetype metadata.
         pos: Read position.
         msgdef: Message definition.
+        typestore: Typestore.
 
     Returns:
         Deserialized message and new read position.
@@ -161,37 +171,40 @@ def deserialize_message(
     values: list[object] = []
 
     for _, desc in msgdef.fields:
-        if desc.valtype == Valtype.MESSAGE:
-            obj, pos = deserialize_message(rawdata, bmap, pos, desc.args)
+        if desc[0] == Nodetype.NAME:
+            obj, pos = deserialize_message(
+                rawdata, bmap, pos, typestore.get_msgdef(desc[1]), typestore
+            )
             values.append(obj)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 val, pos = deserialize_string(rawdata, bmap, pos)
                 values.append(val)
             else:
-                num, pos = deserialize_number(rawdata, bmap, pos, desc.args[0])
+                num, pos = deserialize_number(rawdata, bmap, pos, desc[1][0])
                 values.append(num)
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
-            arr, pos = deserialize_array(rawdata, bmap, pos, length, subdesc)
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
+            arr, pos = deserialize_array(rawdata, bmap, pos, length, subdesc, typestore)
             values.append(arr)
 
-        elif desc.valtype == Valtype.SEQUENCE:
+        elif desc[0] == Nodetype.SEQUENCE:
             size, pos = deserialize_number(rawdata, bmap, pos, 'int32')
-            arr, pos = deserialize_array(rawdata, bmap, pos, int(size), desc.args[0])
+            arr, pos = deserialize_array(rawdata, bmap, pos, int(size), desc[1][0], typestore)
             values.append(arr)
 
     return msgdef.cls(*values), pos
 
 
-def deserialize(rawdata: bytes, typename: str) -> Msgdef[object]:
+def deserialize(rawdata: bytes, typename: str, typestore: Typestore) -> object:
     """Deserialize raw data into a message object.
 
     Args:
         rawdata: Serialized data.
         typename: Type to deserialize.
+        typestore: Typestore,
 
     Returns:
         Deserialized message object.
@@ -199,12 +212,13 @@ def deserialize(rawdata: bytes, typename: str) -> Msgdef[object]:
     """
     _, little_endian = unpack_from('BB', rawdata, 0)
 
-    msgdef = get_msgdef(typename, types)
+    msgdef = typestore.get_msgdef(typename)
     obj, _ = deserialize_message(
         rawdata[4:],
         BASETYPEMAP_LE if little_endian else BASETYPEMAP_BE,
         0,
         msgdef,
+        typestore,
     )
 
     return obj
@@ -262,8 +276,9 @@ def serialize_array(
     rawdata: memoryview,
     bmap: BasetypeMap,
     pos: int,
-    desc: Descriptor,
+    desc: FieldDesc,
     val: Array,
+    typestore: Typestore,
 ) -> int:
     """Serialize an array of items of same type.
 
@@ -273,6 +288,7 @@ def serialize_array(
         pos: Write position.
         desc: Element type descriptor.
         val: Value to serialize.
+        typestore: Typestore.
 
     Returns:
         Next write position.
@@ -281,13 +297,13 @@ def serialize_array(
         SerdeError: Unexpected element type.
 
     """
-    if desc.valtype == Valtype.BASE:
-        if desc.args[0] == 'string':
+    if desc[0] == Nodetype.BASE:
+        if desc[1][0] == 'string':
             for item in val:
                 pos = serialize_string(rawdata, bmap, pos, cast('str', item))
             return pos
 
-        size = SIZEMAP[desc.args[0]]
+        size = SIZEMAP[desc[1][0]]
         pos = (pos + size - 1) & -size
         size *= len(val)
         val = cast('NDArray[np.float64]', val)
@@ -296,9 +312,11 @@ def serialize_array(
         rawdata[pos : pos + size] = memoryview(val.tobytes())
         return pos + size
 
-    if desc.valtype == Valtype.MESSAGE:
+    if desc[0] == Nodetype.NAME:
         for item in val:
-            pos = serialize_message(rawdata, bmap, pos, item, desc.args)
+            pos = serialize_message(
+                rawdata, bmap, pos, item, typestore.get_msgdef(desc[1]), typestore
+            )
         return pos
 
     msg = f'Nested arrays {desc!r} are not supported.'
@@ -311,6 +329,7 @@ def serialize_message(
     pos: int,
     message: object,
     msgdef: Msgdef[object],
+    typestore: Typestore,
 ) -> int:
     """Serialize a message.
 
@@ -320,6 +339,7 @@ def serialize_message(
         pos: Write position.
         message: Message object.
         msgdef: Message definition.
+        typestore: Typestore.
 
     Returns:
         Next write position.
@@ -327,33 +347,36 @@ def serialize_message(
     """
     for fieldname, desc in msgdef.fields:
         val = getattr(message, fieldname)
-        if desc.valtype == Valtype.MESSAGE:
-            pos = serialize_message(rawdata, bmap, pos, val, desc.args)
+        if desc[0] == Nodetype.NAME:
+            pos = serialize_message(
+                rawdata, bmap, pos, val, typestore.get_msgdef(desc[1]), typestore
+            )
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 pos = serialize_string(rawdata, bmap, pos, val)
             else:
-                pos = serialize_number(rawdata, bmap, pos, desc.args[0], val)
+                pos = serialize_number(rawdata, bmap, pos, desc[1][0], val)
 
-        elif desc.valtype == Valtype.ARRAY:
-            pos = serialize_array(rawdata, bmap, pos, desc.args[0], val)
+        elif desc[0] == Nodetype.ARRAY:
+            pos = serialize_array(rawdata, bmap, pos, desc[1][0], val, typestore)
 
-        elif desc.valtype == Valtype.SEQUENCE:
+        elif desc[0] == Nodetype.SEQUENCE:
             size = len(val)
             pos = serialize_number(rawdata, bmap, pos, 'int32', size)
-            pos = serialize_array(rawdata, bmap, pos, desc.args[0], val)
+            pos = serialize_array(rawdata, bmap, pos, desc[1][0], val, typestore)
 
     return pos
 
 
-def get_array_size(desc: Descriptor, val: Array, size: int) -> int:
+def get_array_size(desc: FieldDesc, val: Array, size: int, typestore: Typestore) -> int:
     """Calculate size of an array.
 
     Args:
         desc: Element type descriptor.
         val: Array to calculate size of.
         size: Current size of message.
+        typestore: Typestore.
 
     Returns:
         Size of val in bytes.
@@ -362,32 +385,33 @@ def get_array_size(desc: Descriptor, val: Array, size: int) -> int:
         SerdeError: Unexpected element type.
 
     """
-    if desc.valtype == Valtype.BASE:
-        if desc.args[0] == 'string':
+    if desc[0] == Nodetype.BASE:
+        if desc[1][0] == 'string':
             for item in val:
                 size = (size + 4 - 1) & -4
                 size += 4 + len(item) + 1
             return size
 
-        isize = SIZEMAP[desc.args[0]]
+        isize = SIZEMAP[desc[1][0]]
         size = (size + isize - 1) & -isize
         return size + isize * len(val)
 
-    if desc.valtype == Valtype.MESSAGE:
+    if desc[0] == Nodetype.NAME:
         for item in val:
-            size = get_size(item, desc.args, size)
+            size = get_size(item, typestore.get_msgdef(desc[1]), typestore, size)
         return size
 
     msg = f'Nested arrays {desc!r} are not supported.'
     raise SerdeError(msg)  # pragma: no cover
 
 
-def get_size(message: object, msgdef: Msgdef[object], size: int = 0) -> int:
+def get_size(message: object, msgdef: Msgdef[object], typestore: Typestore, size: int = 0) -> int:
     """Calculate size of serialzied message.
 
     Args:
         message: Message object.
         msgdef: Message definition.
+        typestore: Typestore.
         size: Current size of message.
 
     Returns:
@@ -399,29 +423,29 @@ def get_size(message: object, msgdef: Msgdef[object], size: int = 0) -> int:
     """
     for fieldname, desc in msgdef.fields:
         val = getattr(message, fieldname)
-        if desc.valtype == Valtype.MESSAGE:
-            size = get_size(val, desc.args, size)
+        if desc[0] == Nodetype.NAME:
+            size = get_size(val, typestore.get_msgdef(desc[1]), typestore, size)
 
-        elif desc.valtype == Valtype.BASE:
-            if desc.args[0] == 'string':
+        elif desc[0] == Nodetype.BASE:
+            if desc[1][0] == 'string':
                 size = (size + 4 - 1) & -4
                 size += 4 + len(val.encode()) + 1
             else:
-                isize = SIZEMAP[desc.args[0]]
+                isize = SIZEMAP[desc[1][0]]
                 size = (size + isize - 1) & -isize
                 size += isize
 
-        elif desc.valtype == Valtype.ARRAY:
-            subdesc, length = desc.args
+        elif desc[0] == Nodetype.ARRAY:
+            subdesc, length = desc[1]
             if len(val) != length:
                 msg = f'Unexpected array length: {len(val)} != {length}.'
                 raise SerdeError(msg)
-            size = get_array_size(subdesc, val, size)
+            size = get_array_size(subdesc, val, size, typestore)
 
-        elif desc.valtype == Valtype.SEQUENCE:
+        elif desc[0] == Nodetype.SEQUENCE:
             size = (size + 4 - 1) & -4
             size += 4
-            size = get_array_size(desc.args[0], val, size)
+            size = get_array_size(desc[1][0], val, size, typestore)
 
     return size
 
@@ -429,6 +453,7 @@ def get_size(message: object, msgdef: Msgdef[object], size: int = 0) -> int:
 def serialize(
     message: object,
     typename: str,
+    typestore: Typestore,
     *,
     little_endian: bool = sys.byteorder == 'little',
 ) -> memoryview:
@@ -438,13 +463,14 @@ def serialize(
         message: Message object.
         typename: Type to serialize.
         little_endian: Should use little endianess.
+        typestore: Typestore.
 
     Returns:
         Serialized bytes.
 
     """
-    msgdef = get_msgdef(typename, types)
-    size = 4 + get_size(message, msgdef)
+    msgdef = typestore.get_msgdef(typename)
+    size = 4 + get_size(message, msgdef, typestore)
     rawdata = memoryview(bytearray(size))
 
     pack_into('BB', rawdata, 0, 0, little_endian)
@@ -454,6 +480,7 @@ def serialize(
         0,
         message,
         msgdef,
+        typestore,
     )
     assert pos + 4 == size
     return rawdata.toreadonly()

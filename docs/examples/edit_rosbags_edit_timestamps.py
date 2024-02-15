@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import ConnectionExtRosbag2
 from rosbags.rosbag2 import Reader, Writer
-from rosbags.serde import deserialize_cdr, serialize_cdr
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,6 +21,7 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
         offset: Amount of nanoseconds to offset timestamps.
 
     """
+    typestore = get_typestore(Stores.ROS2_FOXY)
     with Reader(src) as reader, Writer(dst) as writer:
         conn_map = {}
         for conn in reader.connections:
@@ -34,11 +35,11 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
 
         for conn, timestamp, data in reader.messages():
             # Adjust header timestamps, too
-            msg = deserialize_cdr(data, conn.msgtype)
+            msg = typestore.deserialize_cdr(data, conn.msgtype)
             if head := getattr(msg, 'header', None):
                 headstamp = head.stamp.sec * 10**9 + head.stamp.nanosec + offset
                 head.stamp.sec = headstamp // 10**9
                 head.stamp.nanosec = headstamp % 10**9
-                outdata = serialize_cdr(msg, conn.msgtype)
+                outdata = typestore.serialize_cdr(msg, conn.msgtype)
 
             writer.write(conn_map[conn.id], timestamp + offset, outdata)

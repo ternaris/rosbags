@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from rosbags.rosbag2 import Reader, Writer
-from rosbags.serde import deserialize_cdr, serialize_cdr
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize('mode', [*Writer.CompressionMode])
 def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
     """Test full data roundtrip."""
+    store = get_typestore(Stores.LATEST)
 
     class Foo:
         """Dummy class."""
@@ -29,8 +30,8 @@ def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
     wbag.set_compression(mode, wbag.CompressionFormat.ZSTD)
     with wbag:
         msgtype = 'std_msgs/msg/Float64'
-        wconnection = wbag.add_connection('/test', msgtype)
-        wbag.write(wconnection, 42, serialize_cdr(Foo, msgtype))
+        wconnection = wbag.add_connection('/test', msgtype, typestore=store)
+        wbag.write(wconnection, 42, store.serialize_cdr(Foo, msgtype))
 
     rbag = Reader(path)
     with rbag:
@@ -39,7 +40,7 @@ def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
         assert rconnection.topic == wconnection.topic
         assert rconnection.msgtype == wconnection.msgtype
         assert rconnection.ext == wconnection.ext
-        msg = deserialize_cdr(raw, rconnection.msgtype)
+        msg = store.deserialize_cdr(raw, rconnection.msgtype)
         assert getattr(msg, 'data', None) == Foo.data
         with pytest.raises(StopIteration):
             next(gen)

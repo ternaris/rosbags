@@ -10,20 +10,24 @@ Instances of the :py:class:`Writer <rosbags.rosbag1.Writer>` class can create an
 .. code-block:: python
 
    from rosbags.rosbag1 import Writer
-   from rosbags.serde import cdr_to_ros1, serialize_cdr
-   from rosbags.typesys.types import std_msgs__msg__String as String
+   from rosbags.typesys import Stores, get_typestore
 
-   # create writer instance and open for writing
+
+   # Create a typestore and get the string class.
+   typestore = get_typestore(Stores.LATEST)
+   String = typestore.types['std_msgs/msg/String']
+
+   # Create writer instance and open for writing.
    with Writer('/home/ros/rosbag_2020_03_24.bag') as writer:
-       # add new connection
+       # Add new connection.
        topic = '/chatter'
        msgtype = String.__msgtype__
-       connection = writer.add_connection(topic, msgtype, latching=True)
+       connection = writer.add_connection(topic, msgtype, typestore=typestore)
 
-       # serialize and write message
-       message = String('hello world')
+       # Serialize and write message.
        timestamp = 42
-       writer.write(connection, timestamp, cdr_to_ros1(serialize_cdr(message, msgtype), msgtype))
+       message = String('hello world')
+       writer.write(connection, timestamp, typestore.serialize_ros1(message, msgtype))
 
 Reading rosbag1
 ---------------
@@ -32,23 +36,26 @@ Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are typically
 .. code-block:: python
 
    from rosbags.rosbag1 import Reader
-   from rosbags.serde import deserialize_cdr, ros1_to_cdr
+   from rosbags.typesys import Stores, get_typestore
 
 
-   # create reader instance
-   with Reader('/home/ros/rosbag_2020_03_24.bag') as reader:
-       # topic and msgtype information is available on .connections list
+   # Create a typestore and get the string class.
+   typestore = get_typestore(Stores.LATEST)
+
+   # Create reader instance and open for reading.
+   with Reader('/home/ros/rosbag_2020_03_24') as reader:
+       # Topic and msgtype information is available on .connections list.
        for connection in reader.connections:
            print(connection.topic, connection.msgtype)
 
-       # iterate over messages
+       # Iterate over messages.
        for connection, timestamp, rawdata in reader.messages():
            if connection.topic == '/imu_raw/Imu':
-               msg = deserialize_cdr(ros1_to_cdr(rawdata, connection.msgtype), connection.msgtype)
+               msg = typestore.deserialize_ros1(rawdata, connection.msgtype)
                print(msg.header.frame_id)
 
-       # messages() accepts connection filters
+       # The .messages() method accepts connection filters.
        connections = [x for x in reader.connections if x.topic == '/imu_raw/Imu']
        for connection, timestamp, rawdata in reader.messages(connections=connections):
-           msg = deserialize_cdr(ros1_to_cdr(rawdata, connection.msgtype), connection.msgtype)
+           msg = typestore.deserialize_ros1(rawdata, connection.msgtype)
            print(msg.header.frame_id)

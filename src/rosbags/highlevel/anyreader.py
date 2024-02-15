@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import functools
 import operator
+import warnings
 from contextlib import suppress
-from dataclasses import dataclass
 from heapq import merge
 from itertools import groupby
 from typing import TYPE_CHECKING
@@ -21,9 +21,7 @@ from rosbags.rosbag2 import (
     Reader as Reader2,
     ReaderError as ReaderError2,
 )
-from rosbags.serde import deserialize_cdr, deserialize_ros1
-from rosbags.typesys import get_types_from_msg, register_types, types
-from rosbags.typesys.idl import get_types_from_idl
+from rosbags.typesys import Stores, get_types_from_idl, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
     import sys
@@ -42,7 +40,8 @@ if TYPE_CHECKING:
         from typing_extensions import TypeGuard
 
     from rosbags.interfaces import Connection
-    from rosbags.interfaces.typing import Typesdict, Typestore
+    from rosbags.interfaces.typing import Typesdict
+    from rosbags.typesys.store import Typestore
 
 
 class AnyReaderError(Exception):
@@ -57,30 +56,23 @@ def is_reader1(val: Sequence[Reader1] | Sequence[Reader2]) -> TypeGuard[Sequence
     return all(isinstance(x, Reader1) for x in val)
 
 
-@dataclass
-class SimpleTypeStore:
-    """Simple type store implementation."""
-
-    FIELDDEFS: Typesdict
-
-    def __hash__(self) -> int:
-        """Create hash."""
-        return id(self)
-
-
 class AnyReader:
     """Unified rosbag1 and rosbag2 reader."""
 
     readers: Sequence[Reader1] | Sequence[Reader2]
     typestore: Typestore
 
-    def __init__(self, paths: Sequence[Path]) -> None:
+    def __init__(
+        self, paths: Sequence[Path], *, default_typestore: Typestore | None = None
+    ) -> None:
         """Initialize RosbagReader.
 
         Opens one or multiple rosbag1 recordings or a single rosbag2 recording.
 
         Args:
             paths: Paths to multiple rosbag1 files or single rosbag2 directory.
+            default_typestore: Typestore to deserialize messages if bag has
+                no embedded message definions.
 
         Raises:
             AnyReaderError: If paths do not exist or multiple rosbag2 files are given.
@@ -102,6 +94,8 @@ class AnyReader:
         self.is2 = (paths[0] / 'metadata.yaml').exists()
         self.isopen = False
         self.connections: list[Connection] = []
+        self.default_typestore = default_typestore
+        self.typestore = get_typestore(Stores.EMPTY)
 
         try:
             if self.is2:
@@ -111,15 +105,13 @@ class AnyReader:
         except ReaderErrors as err:
             raise AnyReaderError(*err.args) from err
 
-        self.typestore = SimpleTypeStore({})
-
     def _deser_ros1(self, rawdata: bytes, typ: str) -> object:
         """Deserialize ROS1 message."""
-        return deserialize_ros1(rawdata, typ, self.typestore)
+        return self.typestore.deserialize_ros1(rawdata, typ)
 
     def _deser_ros2(self, rawdata: bytes, typ: str) -> object:
         """Deserialize CDR message."""
-        return deserialize_cdr(rawdata, typ, self.typestore)
+        return self.typestore.deserialize_cdr(rawdata, typ)
 
     def deserialize(self, rawdata: bytes, typ: str) -> object:
         """Deserialize message with appropriate helper."""
@@ -139,14 +131,6 @@ class AnyReader:
                     reader.close()
             raise AnyReaderError(*err.args) from err
 
-        for key in [
-            'builtin_interfaces/msg/Time',
-            'builtin_interfaces/msg/Duration',
-            'std_msgs/msg/Header',
-        ]:
-            self.typestore.FIELDDEFS[key] = types.FIELDDEFS[key]
-            attr = key.replace('/', '__')
-            setattr(self.typestore, attr, getattr(types, attr))
         typs: Typesdict = {}
         if self.is2:
             reader = self.readers[0]
@@ -162,18 +146,22 @@ class AnyReader:
                                 typs.update(get_types_from_idl(idl))
                         else:
                             typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
-                register_types(typs, self.typestore)
+            elif self.default_typestore:
+                typs.update(self.default_typestore.FIELDDEFS)
             else:
-                for key, value in types.FIELDDEFS.items():
-                    self.typestore.FIELDDEFS[key] = value
-                    attr = key.replace('/', '__')
-                    setattr(self.typestore, attr, getattr(types, attr))
+                warnings.warn(
+                    'AnyReader should be instantiated with an explicit typestore when reading '
+                    'old Rosbag2 files without embedded message type definions. Using `foxy` '
+                    'types as a workaround.',
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                typs.update(get_typestore(Stores.ROS2_FOXY).FIELDDEFS)
         else:
             for reader in self.readers:
                 for connection in reader.connections:
                     typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
-            register_types(typs, self.typestore)
-
+        self.typestore.register(typs)
         self.connections = [y for x in self.readers for y in x.connections]
         self.isopen = True
 

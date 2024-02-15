@@ -45,9 +45,15 @@ Read and deserialize messages from rosbag1 or rosbag2 files:
    from pathlib import Path
 
    from rosbags.highlevel import AnyReader
+   from rosbags.typesys import Stores, get_typestore
 
-   # create reader instance and open for reading
-   with AnyReader([Path('/home/ros/rosbag_2020_03_24')]) as reader:
+   bagpath = Path('/home/ros/rosbag_2020_03_24')
+
+   # Create a type store to use if the bag has no message definitions.
+   typestore = get_typestore(Stores.ROS2_FOXY)
+
+   # Create reader instance and open for reading.
+   with AnyReader([bagpath], default_typestore=typestore) as reader:
        connections = [x for x in reader.connections if x.topic == '/imu_raw/Imu']
        for connection, timestamp, rawdata in reader.messages(connections=connections):
             msg = reader.deserialize(rawdata, connection.msgtype)
@@ -93,11 +99,11 @@ Development
 Clone the repository and setup your local checkout::
 
    git clone https://gitlab.com/ternaris/rosbags.git
-   
+
    cd rosbags
    python -m venv venv
    . venv/bin/activate
-   
+
    pip install -r requirements-dev.txt
    pip install -e .
 

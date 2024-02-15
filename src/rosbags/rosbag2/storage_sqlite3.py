@@ -7,14 +7,14 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING
 
-from rosbags.typesys.base import hash_rihs01
 from rosbags.typesys.msg import get_types_from_msg
+from rosbags.typesys.store import Typestore
 
 from .errors import ReaderError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import ClassVar, Generator, Iterable
+    from typing import Generator, Iterable
 
     from rosbags.interfaces import Connection
 
@@ -28,6 +28,7 @@ class ReaderSqlite3:
         Args:
             paths: Paths of storage files.
             connections: List of connections.
+            store: Typestore.
 
         """
         self.paths = paths
@@ -77,12 +78,11 @@ class ReaderSqlite3:
                 assert typ['encoding'] == 'ros2msg'
                 types = get_types_from_msg(typ['msgdef'], typ['name'])
 
-                class Store:
-                    FIELDDEFS: ClassVar = types
+                store = Typestore()
+                store.register(types)
 
-                assert typ['digest'] == hash_rihs01(
+                assert typ['digest'] == store.hash_rihs01(
                     typ['name'],
-                    Store,
                 ), f'Failed to parse {typ["name"]}'
         else:
             msgtypes = []

@@ -4,25 +4,21 @@
 
 from __future__ import annotations
 
-from enum import IntEnum
 from importlib.util import module_from_spec, spec_from_loader
+from itertools import tee
 from typing import TYPE_CHECKING
 
+from rosbags.interfaces import Nodetype
+
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from types import ModuleType
+    from typing import TypeVar
 
-    from rosbags.interfaces.typing import Basename
+    from rosbags.interfaces.typing import Basename, FieldDesc
+    from rosbags.typesys.store import Typestore
 
-    from .typing import Descriptor
-
-
-class Valtype(IntEnum):
-    """Msg field value types."""
-
-    BASE = 1
-    MESSAGE = 2
-    ARRAY = 3
-    SEQUENCE = 4
+    T = TypeVar('T')
 
 
 SIZEMAP: dict[Basename, int] = {
@@ -43,48 +39,50 @@ SIZEMAP: dict[Basename, int] = {
 }
 
 
-def align(entry: Descriptor) -> int:
+def align(entry: FieldDesc, typestore: Typestore) -> int:
     """Get alignment requirement for entry.
 
     Args:
         entry: Field.
+        typestore: Typestore.
 
     Returns:
         Required alignment in bytes.
 
     """
-    if entry.valtype == Valtype.BASE:
-        if entry.args[0] == 'string':
+    if entry[0] == Nodetype.BASE:
+        if entry[1][0] == 'string':
             return 4
-        return SIZEMAP[entry.args[0]]
-    if entry.valtype == Valtype.MESSAGE:
-        return align(entry.args.fields[0].descriptor)
-    if entry.valtype == Valtype.ARRAY:
-        return align(entry.args[0])
-    assert entry.valtype == Valtype.SEQUENCE
+        return SIZEMAP[entry[1][0]]
+    if entry[0] == Nodetype.NAME:
+        return align(typestore.get_msgdef(entry[1]).fields[0][1], typestore)
+    if entry[0] == Nodetype.ARRAY:
+        return align(entry[1][0], typestore)
+    assert entry[0] == Nodetype.SEQUENCE
     return 4
 
 
-def align_after(entry: Descriptor) -> int:
+def align_after(entry: FieldDesc, typestore: Typestore) -> int:
     """Get alignment after entry.
 
     Args:
         entry: Field.
+        typestore: Typestore.
 
     Returns:
         Memory alignment after entry.
 
     """
-    if entry.valtype == Valtype.BASE:
-        if entry.args[0] == 'string':
+    if entry[0] == Nodetype.BASE:
+        if entry[1][0] == 'string':
             return 1
-        return SIZEMAP[entry.args[0]]
-    if entry.valtype == Valtype.MESSAGE:
-        return align_after(entry.args.fields[-1].descriptor)
-    if entry.valtype == Valtype.ARRAY:
-        return align_after(entry.args[0])
-    assert entry.valtype == Valtype.SEQUENCE
-    return min([4, align_after(entry.args[0])])
+        return SIZEMAP[entry[1][0]]
+    if entry[0] == Nodetype.NAME:
+        return align_after(typestore.get_msgdef(entry[1]).fields[-1][1], typestore)
+    if entry[0] == Nodetype.ARRAY:
+        return align_after(entry[1][0], typestore)
+    assert entry[0] == Nodetype.SEQUENCE
+    return min([4, align_after(entry[1][0], typestore)])
 
 
 def compile_lines(lines: list[str]) -> ModuleType:
@@ -107,3 +105,10 @@ def compile_lines(lines: list[str]) -> ModuleType:
 def ndtype(typ: str) -> str:
     """Normalize numpy dtype."""
     return {'bool': 'bool_', 'octet': 'uint8'}.get(typ, typ)
+
+
+def pairwise(iterable: Iterable[T]) -> zip[tuple[T, T]]:  # pragma: no cover
+    """Polyfil for itertools.pairwise."""
+    left, right = tee(iterable)
+    next(right, None)
+    return zip(left, right)

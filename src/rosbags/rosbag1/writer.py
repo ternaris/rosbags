@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import struct
+import warnings
 from bz2 import compress as bz2_compress
 from collections import defaultdict
 from dataclasses import dataclass
@@ -16,7 +17,8 @@ from typing import TYPE_CHECKING, Dict
 from lz4.frame import compress as lz4_compress
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag1
-from rosbags.typesys.msg import denormalize_msgtype, generate_msgdef
+from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.msg import denormalize_msgtype
 
 from .reader import RecordType
 
@@ -29,6 +31,8 @@ if TYPE_CHECKING:
         from typing import Self
     else:
         from typing_extensions import Self
+
+    from rosbags.typesys.store import Typestore
 
 
 class WriterError(Exception):
@@ -218,6 +222,8 @@ class Writer:
         self,
         topic: str,
         msgtype: str,
+        *,
+        typestore: Typestore | None = None,
         msgdef: str | None = None,
         md5sum: str | None = None,
         callerid: str | None = None,
@@ -230,6 +236,7 @@ class Writer:
         Args:
             topic: Topic name.
             msgtype: Message type.
+            typestore: Typestore.
             msgdef: Message definiton.
             md5sum: Message hash.
             callerid: Caller id.
@@ -247,8 +254,15 @@ class Writer:
             raise WriterError(msg)
 
         if msgdef is None or md5sum is None:
-            msgdef, md5sum = generate_msgdef(msgtype)
-        assert msgdef
+            if not typestore:
+                warnings.warn(
+                    'Writer.add_connection should be called with typestore or msgdef/md5sum pair.',
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                typestore = get_typestore(Stores.ROS2_FOXY)
+            msgdef, md5sum = typestore.generate_msgdef(msgtype)
+        assert msgdef is not None
         assert md5sum
 
         connection = Connection(

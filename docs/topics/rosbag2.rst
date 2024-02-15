@@ -4,7 +4,7 @@ The :py:mod:`rosbags.rosbag2` package provides a conformant implementation of ro
 
 Supported Versions
 ------------------
-All versions up to the current (ROS2 Humble) version 6 are supported.
+All versions up to the current (ROS2 Iron) version 8 are supported.
 
 Supported Features
 ------------------
@@ -27,20 +27,24 @@ Instances of the :py:class:`Writer <rosbags.rosbag2.Writer>` class can create an
 .. code-block:: python
 
    from rosbags.rosbag2 import Writer
-   from rosbags.serde import serialize_cdr
-   from rosbags.typesys.types import std_msgs__msg__String as String
+   from rosbags.typesys import Stores, get_typestore
 
-   # create writer instance and open for writing
+
+   # Create a typestore and get the string class.
+   typestore = get_typestore(Stores.LATEST)
+   String = typestore.types['std_msgs/msg/String']
+
+   # Create writer instance and open for writing.
    with Writer('/home/ros/rosbag_2020_03_24') as writer:
-       # add new connection
+       # Add new connection.
        topic = '/chatter'
        msgtype = String.__msgtype__
-       connection = writer.add_connection(topic, msgtype, 'cdr', '')
+       connection = writer.add_connection(topic, msgtype, typestore=typestore)
 
-       # serialize and write message
+       # Serialize and write message.
        timestamp = 42
        message = String('hello world')
-       writer.write(connection, timestamp, serialize_cdr(message, msgtype))
+       writer.write(connection, timestamp, typestore.serialize_cdr(message, msgtype))
 
 Reading rosbag2
 ---------------
@@ -49,22 +53,26 @@ Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are used to r
 .. code-block:: python
 
    from rosbags.rosbag2 import Reader
-   from rosbags.serde import deserialize_cdr
+   from rosbags.typesys import Stores, get_typestore
 
-   # create reader instance and open for reading
+
+   # Create a typestore and get the string class.
+   typestore = get_typestore(Stores.LATEST)
+
+   # Create reader instance and open for reading.
    with Reader('/home/ros/rosbag_2020_03_24') as reader:
-       # topic and msgtype information is available on .connections list
+       # Topic and msgtype information is available on .connections list.
        for connection in reader.connections:
            print(connection.topic, connection.msgtype)
 
-       # iterate over messages
+       # Iterate over messages.
        for connection, timestamp, rawdata in reader.messages():
            if connection.topic == '/imu_raw/Imu':
-               msg = deserialize_cdr(rawdata, connection.msgtype)
+               msg = typestore.deserialize_cdr(rawdata, connection.msgtype)
                print(msg.header.frame_id)
 
-       # messages() accepts connection filters
+       # The .messages() method accepts connection filters.
        connections = [x for x in reader.connections if x.topic == '/imu_raw/Imu']
        for connection, timestamp, rawdata in reader.messages(connections=connections):
-           msg = deserialize_cdr(rawdata, connection.msgtype)
+           msg = typestore.deserialize_cdr(rawdata, connection.msgtype)
            print(msg.header.frame_id)

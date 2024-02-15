@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum, auto
-from hashlib import md5
 from pathlib import PurePosixPath as Path
 from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
 
-from . import types
-from .base import TypesysError, normalize_fieldname, parse_message_definition
+from .base import normalize_fieldname, parse_message_definition
 from .peg import Rule, Visitor, parse_grammar
 
 if TYPE_CHECKING:
@@ -42,7 +40,6 @@ if TYPE_CHECKING:
         FieldDesc,
         NameDesc,
         Typesdict,
-        Typestore,
     )
 
     T = TypeVar('T')
@@ -381,130 +378,3 @@ def get_types_from_msg(text: str, name: str) -> Typesdict:
 
     """
     return parse_message_definition(VisitorMSG(), f'MSG: {name}\n{text}')
-
-
-def gendefhash(
-    typename: str,
-    subdefs: dict[str, tuple[str, str]],
-    typestore: Typestore = types,
-    ros_version: int = 1,
-) -> tuple[str, str]:
-    """Generate message definition and hash for type.
-
-    The subdefs argument will be filled with child definitions.
-
-    Args:
-        typename: Name of type to generate definition for.
-        subdefs: Child definitions.
-        typestore: Custom type store.
-        ros_version: ROS version number.
-
-    Returns:
-        Message definition and hash.
-
-    Raises:
-        TypesysError: Type does not exist.
-
-    """
-    typemap = (
-        {'builtin_interfaces/msg/Time': 'time', 'builtin_interfaces/msg/Duration': 'duration'}
-        if ros_version == 1
-        else {}
-    )
-
-    deftext: list[str] = []
-    hashtext: list[str] = []
-    if typename not in typestore.FIELDDEFS:
-        msg = f'Type {typename!r} is unknown.'
-        raise TypesysError(msg)
-
-    for name, typ, value in typestore.FIELDDEFS[typename][0]:
-        stripped_name = name.rstrip('_')
-        deftext.append(f'{typ} {stripped_name}={value}')
-        hashtext.append(f'{typ} {stripped_name}={value}')
-
-    for name, desc in typestore.FIELDDEFS[typename][1]:
-        if name == 'structure_needs_at_least_one_member':
-            continue
-        stripped_name = name.rstrip('_')
-        if desc[0] == Nodetype.BASE:
-            argname, arglimit = desc[1]
-            if argname == 'octet':
-                argname = 'byte'  # type: ignore[assignment]
-            elif argname == 'string':
-                argname = f'string<={arglimit}' if arglimit else 'string'  # type: ignore[assignment]
-            deftext.append(f'{argname} {stripped_name}')
-            hashtext.append(f'{argname} {stripped_name}')
-        elif desc[0] == int(Nodetype.NAME):
-            args = desc[1]
-            assert isinstance(args, str)
-            subname = args
-            if subname in typemap:
-                deftext.append(f'{typemap[subname]} {stripped_name}')
-                hashtext.append(f'{typemap[subname]} {stripped_name}')
-            else:
-                if subname not in subdefs:
-                    subdefs[subname] = ('', '')
-                    subdefs[subname] = gendefhash(subname, subdefs, typestore, ros_version)
-                deftext.append(f'{denormalize_msgtype(subname)} {stripped_name}')
-                hashtext.append(f'{subdefs[subname][1]} {stripped_name}')
-        else:
-            assert desc[0] in {Nodetype.ARRAY, Nodetype.SEQUENCE}
-            assert isinstance(desc[1], tuple)
-            subdesc, num = desc[1]
-            isubtype, isubname = subdesc
-            count = '' if num == 0 else str(num) if desc[0] == int(Nodetype.ARRAY) else f'<={num}'
-            if isubtype == int(Nodetype.BASE):
-                if isubname[0] == 'octet':
-                    isubname = ('byte', 0)  # type: ignore[assignment]
-                elif isubname[0] == 'string':
-                    isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)  # type: ignore[assignment]
-                deftext.append(f'{isubname[0]}[{count}] {stripped_name}')
-                hashtext.append(f'{isubname[0]}[{count}] {stripped_name}')
-            elif isubname in typemap:
-                assert isinstance(isubname, str)
-                deftext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
-                hashtext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
-            else:
-                assert isinstance(isubname, str)
-                if isubname not in subdefs:
-                    subdefs[isubname] = ('', '')
-                    subdefs[isubname] = gendefhash(isubname, subdefs, typestore, ros_version)
-                deftext.append(f'{denormalize_msgtype(isubname)}[{count}] {stripped_name}')
-                hashtext.append(f'{subdefs[isubname][1]} {stripped_name}')
-
-    if ros_version == 1 and typename == 'std_msgs/msg/Header':
-        deftext.insert(0, 'uint32 seq')
-        hashtext.insert(0, 'uint32 seq')
-
-    deftext.append('')
-    return '\n'.join(deftext), md5('\n'.join(hashtext).encode()).hexdigest()  # noqa: S324
-
-
-def generate_msgdef(
-    typename: str,
-    typestore: Typestore = types,
-    ros_version: int = 1,
-) -> tuple[str, str]:
-    """Generate message definition for type.
-
-    Args:
-        typename: Name of type to generate definition for.
-        typestore: Custom type store.
-        ros_version: ROS version number.
-
-    Returns:
-        Message definition.
-
-    """
-    subdefs: dict[str, tuple[str, str]] = {}
-    msgdef, md5sum = gendefhash(typename, subdefs, typestore, ros_version)
-
-    msgdef = ''.join(
-        [
-            msgdef,
-            *[f'{"=" * 80}\nMSG: {denormalize_msgtype(k)}\n{v[0]}' for k, v in subdefs.items()],
-        ],
-    )
-
-    return msgdef, md5sum

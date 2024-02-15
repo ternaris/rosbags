@@ -3,7 +3,7 @@
 """Rosbags typing."""
 
 import sys
-from typing import Dict, List, Literal, Protocol, Tuple, Union
+from typing import Callable, Dict, List, Literal, Protocol, Tuple, TypeVar, Union
 
 from . import Nodetype
 
@@ -11,6 +11,8 @@ if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
+
+T = TypeVar('T')
 
 Basename: TypeAlias = Literal[
     'bool',
@@ -34,8 +36,9 @@ Basetype: TypeAlias = Tuple[Basename, int]
 BaseDesc: TypeAlias = Tuple[Literal[Nodetype.BASE], Basetype]
 NameDesc: TypeAlias = Tuple[Literal[Nodetype.NAME], str]
 FieldDesc: TypeAlias = Union[
-    BaseDesc | NameDesc,
-    Tuple[Literal[Nodetype.ARRAY, Nodetype.SEQUENCE], Tuple[BaseDesc | NameDesc, int]],
+    BaseDesc,
+    NameDesc,
+    Tuple[Literal[Nodetype.ARRAY, Nodetype.SEQUENCE], Tuple[Union[BaseDesc, NameDesc], int]],
 ]
 
 ConstValue: TypeAlias = Union[str, bool, int, float]
@@ -49,3 +52,11 @@ class Typestore(Protocol):
     """Type storage."""
 
     FIELDDEFS: Typesdict
+
+
+Bitcvt = Callable[[bytes, int, bytes, int, Typestore], Tuple[int, int]]
+BitcvtSize = Callable[[bytes, int, None, int, Typestore], Tuple[int, int]]
+
+CDRDeser = Callable[[bytes, int, type, Typestore], Tuple[T, int]]
+CDRSer = Callable[[bytes, int, object, Typestore], int]
+CDRSerSize = Callable[[int, object, Typestore], int]

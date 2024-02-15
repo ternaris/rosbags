@@ -10,6 +10,7 @@ from unittest.mock import Mock
 import pytest
 
 from rosbags.rosbag1 import Writer, WriterError
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -41,13 +42,25 @@ def test_empty(tmp_path: Path) -> None:
 
 def test_add_connection(tmp_path: Path) -> None:
     """Test adding of connections."""
+    store = get_typestore(Stores.LATEST)
+
     path = tmp_path / 'test.bag'
 
     with pytest.raises(WriterError, match='not opened'):
-        Writer(path).add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        Writer(path).add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
 
     with Writer(path) as writer:
-        res = writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        res = writer.add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
         assert res.id == 0
     data = path.read_bytes()
     assert data.count(b'MESSAGE_DEFINITION') == 2
@@ -55,7 +68,7 @@ def test_add_connection(tmp_path: Path) -> None:
     path.unlink()
 
     with Writer(path) as writer:
-        res = writer.add_connection('/foo', 'std_msgs/msg/Int8')
+        res = writer.add_connection('/foo', 'std_msgs/msg/Int8', typestore=store)
         assert res.id == 0
     data = path.read_bytes()
     assert data.count(b'int8 data') == 2
@@ -63,25 +76,40 @@ def test_add_connection(tmp_path: Path) -> None:
     path.unlink()
 
     with Writer(path) as writer:
-        writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        writer.add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
         with pytest.raises(WriterError, match='can only be added once'):
-            writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+            writer.add_connection(
+                '/foo',
+                'test_msgs/msg/Test',
+                msgdef='MESSAGE_DEFINITION',
+                md5sum='HASH',
+            )
     path.unlink()
 
     with Writer(path) as writer:
-        res1 = writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        res1 = writer.add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
         res2 = writer.add_connection(
             '/foo',
             'test_msgs/msg/Test',
-            'MESSAGE_DEFINITION',
-            'HASH',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
             callerid='src',
         )
         res3 = writer.add_connection(
             '/foo',
             'test_msgs/msg/Test',
-            'MESSAGE_DEFINITION',
-            'HASH',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
             latching=1,
         )
         assert (res1.id, res2.id, res3.id) == (0, 1, 2)
@@ -104,22 +132,27 @@ def test_write_simple(tmp_path: Path) -> None:
     path = tmp_path / 'test.bag'
 
     with Writer(path) as writer:
-        conn_foo = writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        conn_foo = writer.add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
         conn_latching = writer.add_connection(
             '/foo',
             'test_msgs/msg/Test',
-            'MESSAGE_DEFINITION',
-            'HASH',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
             latching=1,
         )
         conn_bar = writer.add_connection(
             '/bar',
             'test_msgs/msg/Bar',
-            'OTHER_DEFINITION',
-            'HASH',
+            msgdef='OTHER_DEFINITION',
+            md5sum='HASH',
             callerid='src',
         )
-        writer.add_connection('/baz', 'test_msgs/msg/Baz', 'NEVER_WRITTEN', 'HASH')
+        writer.add_connection('/baz', 'test_msgs/msg/Baz', msgdef='NEVER_WRITTEN', md5sum='HASH')
 
         writer.write(conn_foo, 42, b'DEADBEEF')
         writer.write(conn_latching, 42, b'DEADBEEF')
@@ -141,22 +174,27 @@ def test_write_simple(tmp_path: Path) -> None:
 
     with Writer(path) as writer:
         writer.chunk_threshold = 256
-        conn_foo = writer.add_connection('/foo', 'test_msgs/msg/Test', 'MESSAGE_DEFINITION', 'HASH')
+        conn_foo = writer.add_connection(
+            '/foo',
+            'test_msgs/msg/Test',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
+        )
         conn_latching = writer.add_connection(
             '/foo',
             'test_msgs/msg/Test',
-            'MESSAGE_DEFINITION',
-            'HASH',
+            msgdef='MESSAGE_DEFINITION',
+            md5sum='HASH',
             latching=1,
         )
         conn_bar = writer.add_connection(
             '/bar',
             'test_msgs/msg/Bar',
-            'OTHER_DEFINITION',
-            'HASH',
+            msgdef='OTHER_DEFINITION',
+            md5sum='HASH',
             callerid='src',
         )
-        writer.add_connection('/baz', 'test_msgs/msg/Baz', 'NEVER_WRITTEN', 'HASH')
+        writer.add_connection('/baz', 'test_msgs/msg/Baz', msgdef='NEVER_WRITTEN', md5sum='HASH')
 
         writer.write(conn_foo, 42, b'DEADBEEF')
         writer.write(conn_latching, 42, b'DEADBEEF')
@@ -187,12 +225,13 @@ def test_compression_errors(tmp_path: Path) -> None:
 @pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
 def test_compression_modes(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
     """Test compression modes."""
+    store = get_typestore(Stores.LATEST)
     path = tmp_path / 'test.bag'
     writer = Writer(path)
     if fmt:
         writer.set_compression(fmt)
     with writer:
-        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8')
+        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8', typestore=store)
         writer.write(conn, 42, b'\x42')
     data = path.read_bytes()
     assert data.count(f'compression={fmt.name.lower() if fmt else "none"}'.encode()) == 1
@@ -201,12 +240,13 @@ def test_compression_modes(tmp_path: Path, fmt: Writer.CompressionFormat | None)
 @pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
 def test_chunksize_is_correct(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
     """Test chunksize is correct."""
+    store = get_typestore(Stores.LATEST)
     path = tmp_path / 'test1.bag'
     writer = Writer(path)
     if fmt:
         writer.set_compression(fmt)
     with writer:
-        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8')
+        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8', typestore=store)
         writer.write(conn, 42, b'\x42')
     data = path.read_bytes()
     assert b'size=\xca\x00\x00\x00' in data
@@ -216,7 +256,7 @@ def test_chunksize_is_correct(tmp_path: Path, fmt: Writer.CompressionFormat | No
     if fmt:
         writer.set_compression(fmt)
     with writer:
-        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8')
+        conn = writer.add_connection('/foo', 'std_msgs/msg/Int8', typestore=store)
         writer.write(conn, 42, b'\x42')
         writer.write(conn, 43, b'\x43')
     data = path.read_bytes()

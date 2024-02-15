@@ -17,13 +17,15 @@ Supported formats:
 """
 
 from .base import TypesysError
+from .deprecated import register_types
 from .idl import get_types_from_idl
-from .msg import generate_msgdef, get_types_from_msg
-from .register import register_types
+from .msg import get_types_from_msg
+from .stores import Stores, get_typestore
 
 __all__ = [
+    'Stores',
     'TypesysError',
-    'generate_msgdef',
+    'get_typestore',
     'get_types_from_idl',
     'get_types_from_msg',
     'register_types',

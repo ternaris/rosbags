@@ -16,6 +16,8 @@ from rosbags.convert.converter import LATCH
 from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2
 from rosbags.rosbag1 import ReaderError
 from rosbags.rosbag2 import WriterError
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import ros2_foxy
 
 
 def test_cliwrapper(tmp_path: Path) -> None:
@@ -132,9 +134,9 @@ def test_convert_1to2(tmp_path: Path) -> None:
         'rosbags.convert.converter.Writer2'
     ) as writer, patch(
         'rosbags.convert.converter.get_types_from_msg', return_value={'typ': 'def'}
-    ), patch('rosbags.convert.converter.register_types') as register_types, patch(
-        'rosbags.convert.converter.ros1_to_cdr'
-    ) as ros1_to_cdr:
+    ), patch('rosbags.typesys.store.Typestore.register') as register_types, patch(
+        'rosbags.typesys.store.Typestore.ros1_to_cdr'
+    ) as ros1_to_cdr, patch('rosbags.convert.converter.get_typestore') as get_store:
         readerinst = reader.return_value.__enter__.return_value
         writerinst = writer.return_value.__enter__.return_value
 
@@ -214,6 +216,8 @@ def test_convert_1to2(tmp_path: Path) -> None:
 
         ros1_to_cdr.return_value = b'666'
 
+        get_store.return_value = Typestore(ros2_foxy)
+
         convert(Path('foo.bag'), None)
 
         reader.assert_called_with(Path('foo.bag'))
@@ -222,9 +226,27 @@ def test_convert_1to2(tmp_path: Path) -> None:
         writer.assert_called_with(Path('foo'))
         writerinst.add_connection.assert_has_calls(
             [
-                call('/topic', 'typ', serialization_format='cdr', offered_qos_profiles=''),
-                call('/topic', 'typ', serialization_format='cdr', offered_qos_profiles=LATCH),
-                call('/other', 'typ', serialization_format='cdr', offered_qos_profiles=''),
+                call(
+                    '/topic',
+                    'typ',
+                    typestore=get_store.return_value,
+                    serialization_format='cdr',
+                    offered_qos_profiles='',
+                ),
+                call(
+                    '/topic',
+                    'typ',
+                    typestore=get_store.return_value,
+                    serialization_format='cdr',
+                    offered_qos_profiles=LATCH,
+                ),
+                call(
+                    '/other',
+                    'typ',
+                    typestore=get_store.return_value,
+                    serialization_format='cdr',
+                    offered_qos_profiles='',
+                ),
             ],
         )
         writerinst.write.assert_has_calls(
@@ -273,7 +295,9 @@ def test_convert_2to1(tmp_path: Path) -> None:
 
     with patch('rosbags.convert.converter.Reader2') as reader, patch(
         'rosbags.convert.converter.Writer1'
-    ) as writer, patch('rosbags.convert.converter.cdr_to_ros1') as cdr_to_ros1:
+    ) as writer, patch('rosbags.typesys.store.Typestore.cdr_to_ros1') as cdr_to_ros1, patch(
+        'rosbags.convert.converter.get_typestore'
+    ) as get_store:
         readerinst = reader.return_value.__enter__.return_value
         writerinst = writer.return_value.__enter__.return_value
 
@@ -369,7 +393,7 @@ def test_convert_2to1(tmp_path: Path) -> None:
 
         writerinst.connections = []
 
-        def add_connection(*_: str) -> Connection:
+        def add_connection(*_1: str, **_2: str) -> Connection:
             """Mock for Writer.add_connection."""
             writerinst.connections = [
                 conn for _, conn in zip(range(len(writerinst.connections) + 1), wconnections)
@@ -379,6 +403,8 @@ def test_convert_2to1(tmp_path: Path) -> None:
         writerinst.add_connection.side_effect = add_connection
 
         cdr_to_ros1.return_value = b'666'
+
+        get_store.return_value = Typestore(ros2_foxy)
 
         convert(Path('foo'), None)
 
@@ -393,26 +419,23 @@ def test_convert_2to1(tmp_path: Path) -> None:
                 call(
                     '/topic',
                     'std_msgs/msg/Bool',
-                    'bool data\n',
-                    '8b94c1b53db61fb6aed406028ad6332a',
-                    None,
-                    0,
+                    typestore=get_store.return_value,
+                    callerid=None,
+                    latching=0,
                 ),
                 call(
                     '/topic',
                     'std_msgs/msg/Bool',
-                    'bool data\n',
-                    '8b94c1b53db61fb6aed406028ad6332a',
-                    None,
-                    1,
+                    typestore=get_store.return_value,
+                    callerid=None,
+                    latching=1,
                 ),
                 call(
                     '/other',
                     'std_msgs/msg/Bool',
-                    'bool data\n',
-                    '8b94c1b53db61fb6aed406028ad6332a',
-                    None,
-                    0,
+                    typestore=get_store.return_value,
+                    callerid=None,
+                    latching=0,
                 ),
             ],
         )

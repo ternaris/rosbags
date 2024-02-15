@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import sqlite3
+import warnings
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,8 +14,7 @@ import zstandard
 from ruamel.yaml import YAML
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag2
-from rosbags.typesys.base import hash_rihs01
-from rosbags.typesys.msg import generate_msgdef, get_types_from_msg
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     import sys
@@ -25,6 +25,8 @@ if TYPE_CHECKING:
         from typing import Self
     else:
         from typing_extensions import Self
+
+    from rosbags.typesys.store import Typestore
 
     from .metadata import Metadata
 
@@ -174,6 +176,7 @@ class Writer:
         topic: str,
         msgtype: str,
         *,
+        typestore: Typestore | None = None,
         msgdef: str | None = None,
         rihs01: str | None = None,
         serialization_format: str = 'cdr',
@@ -186,6 +189,7 @@ class Writer:
         Args:
             topic: Topic name.
             msgtype: Message type.
+            typestore: Typestore.
             msgdef: Message definiton.
             rihs01: Message hash.
             serialization_format: Serialization format.
@@ -203,14 +207,16 @@ class Writer:
             raise WriterError(msg)
 
         if msgdef is None or rihs01 is None:
-            msgdef, _ = generate_msgdef(msgtype, ros_version=2)
-            types = get_types_from_msg(msgdef, msgtype)
-
-            class Store:
-                FIELDDEFS = types
-
-            rihs01 = hash_rihs01(msgtype, Store)
-        assert msgdef
+            if not typestore:
+                warnings.warn(
+                    'Writer.add_connection should be called with typestore or msgdef/rihs01 pair.',
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                typestore = get_typestore(Stores.ROS2_FOXY)
+            msgdef, _ = typestore.generate_msgdef(msgtype, ros_version=2)
+            rihs01 = typestore.hash_rihs01(msgtype)
+        assert msgdef is not None
         assert rihs01
 
         if msgtype not in self.added_types:
