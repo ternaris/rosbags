@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Reader tests."""
+"""Reader Tests."""
 
 from __future__ import annotations
 
@@ -184,7 +184,7 @@ def test_indexdata() -> None:
 
 
 def test_reader(tmp_path: Path) -> None:
-    """Test reader and deserializer on simple bag."""
+    """Test reader reads all messages."""
     # empty bag
     bag = tmp_path / 'test.bag'
     write_bag(bag, create_default_header())
@@ -275,8 +275,8 @@ def test_reader(tmp_path: Path) -> None:
         assert msgs[0][2] == b'MSGCONTENT5'
 
 
-def test_user_errors(tmp_path: Path) -> None:
-    """Test user errors."""
+def test_raises_if_user_error(tmp_path: Path) -> None:
+    """Test reader raises if user makes error."""
     bag = tmp_path / 'test.bag'
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
 

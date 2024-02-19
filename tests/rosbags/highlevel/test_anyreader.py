@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Reader tests."""
+"""AnyReader Tests."""
 
 from __future__ import annotations
 
@@ -272,3 +272,34 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
         'test_msg/msg/Foo': ([], [('foo', (1, ('string', 0)))]),
         'test_msgs/msg/Bar': ([], [('bar', (1, ('string', 0)))]),
     }
+
+
+def test_deprecations(bags2: list[Path]) -> None:
+    """Test AnyReader on rosbag2."""
+
+    class MockReader:
+        """Mock reader."""
+
+        def __init__(self, paths: list[Path]) -> None:
+            """Initialize mock."""
+            _ = paths
+            self.connections = [
+                Connection(
+                    1,
+                    '/foo',
+                    'test_msg/msg/Foo',
+                    '',
+                    '',
+                    0,
+                    None,  # type: ignore[arg-type]
+                    self,
+                ),
+            ]
+
+        def open(self) -> None:
+            """Unused."""
+
+    with patch('rosbags.highlevel.anyreader.Reader2', MockReader), pytest.deprecated_call(
+        match='explicit typestore',
+    ):
+        AnyReader([bags2[0]]).open()

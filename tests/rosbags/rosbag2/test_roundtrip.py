@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Test full data roundtrip."""
+"""Writer/Reader Roundtrip Tests."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import pytest
 
 from rosbags.rosbag2 import Reader, Writer
 from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.stores.latest import std_msgs__msg__Float64 as Float64
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,21 +18,17 @@ if TYPE_CHECKING:
 
 @pytest.mark.parametrize('mode', [*Writer.CompressionMode])
 def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
-    """Test full data roundtrip."""
+    """Test messages stay the same between write and read."""
     store = get_typestore(Stores.LATEST)
 
-    class Foo:
-        """Dummy class."""
-
-        data = 1.25
+    float64 = Float64(1.25)
 
     path = tmp_path / 'rosbag2'
     wbag = Writer(path)
     wbag.set_compression(mode, wbag.CompressionFormat.ZSTD)
     with wbag:
-        msgtype = 'std_msgs/msg/Float64'
-        wconnection = wbag.add_connection('/test', msgtype, typestore=store)
-        wbag.write(wconnection, 42, store.serialize_cdr(Foo, msgtype))
+        wconnection = wbag.add_connection('/test', float64.__msgtype__, typestore=store)
+        wbag.write(wconnection, 42, store.serialize_cdr(float64, float64.__msgtype__))
 
     rbag = Reader(path)
     with rbag:
@@ -41,6 +38,6 @@ def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
         assert rconnection.msgtype == wconnection.msgtype
         assert rconnection.ext == wconnection.ext
         msg = store.deserialize_cdr(raw, rconnection.msgtype)
-        assert getattr(msg, 'data', None) == Foo.data
+        assert msg == float64
         with pytest.raises(StopIteration):
             next(gen)

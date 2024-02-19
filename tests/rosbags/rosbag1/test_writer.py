@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Writer tests."""
+"""Writer Tests."""
 
 from __future__ import annotations
 
@@ -261,3 +261,10 @@ def test_chunksize_is_correct(tmp_path: Path, fmt: Writer.CompressionFormat | No
         writer.write(conn, 43, b'\x43')
     data = path.read_bytes()
     assert b'size=\xf9\x00\x00\x00' in data
+
+
+def test_deprecations(tmp_path: Path) -> None:
+    """Test writer deprecations."""
+    bag = Writer(tmp_path / 'bag')
+    with bag, pytest.deprecated_call():
+        bag.add_connection('/foo', 'std_msgs/msg/Empty')

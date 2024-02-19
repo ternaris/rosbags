@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Reader tests."""
+"""Reader Tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ import pytest
 import zstandard
 
 from rosbags.rosbag2 import Reader, ReaderError, Writer
-from tests.rosbags.serde.test_serde import MSG_JOINT, MSG_MAGN, MSG_MAGN_BIG, MSG_POLY
 
 if TYPE_CHECKING:
     from typing import BinaryIO, Iterable
@@ -85,9 +84,19 @@ rosbag2_bagfile_information:
 """
 
 
+@pytest.fixture()
+def empty_bag(tmp_path: Path) -> Path:
+    """Manually contruct empty bag."""
+    (tmp_path / 'metadata.yaml').write_text(METADATA_EMPTY)
+    dbpath = tmp_path / 'db.db3'
+    dbh = sqlite3.connect(dbpath)
+    dbh.executescript(Writer.SQLITE_SCHEMA)
+    return tmp_path
+
+
 @pytest.fixture(params=['none', 'file', 'message'])
-def bag(request: SubRequest, tmp_path: Path) -> Path:
-    """Manually contruct bag."""
+def bag_sqlite3(request: SubRequest, tmp_path: Path) -> Path:
+    """Manually contruct sqlite3 bag."""
     (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='' if request.param != 'file' else '.zstd',
@@ -117,11 +126,21 @@ def bag(request: SubRequest, tmp_path: Path) -> Path:
     )
     cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
-        (1, 1, 666, MSG_POLY[0] if request.param != 'message' else comp.compress(MSG_POLY[0])),
+        (
+            1,
+            1,
+            666,
+            b'poly message' if request.param != 'message' else comp.compress(b'poly message'),
+        ),
     )
     cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
-        (2, 2, 708, MSG_MAGN[0] if request.param != 'message' else comp.compress(MSG_MAGN[0])),
+        (
+            2,
+            2,
+            708,
+            b'magn message' if request.param != 'message' else comp.compress(b'magn message'),
+        ),
     )
     cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
@@ -129,12 +148,17 @@ def bag(request: SubRequest, tmp_path: Path) -> Path:
             3,
             2,
             708,
-            MSG_MAGN_BIG[0] if request.param != 'message' else comp.compress(MSG_MAGN_BIG[0]),
+            b'magn message' if request.param != 'message' else comp.compress(b'magn message'),
         ),
     )
     cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
-        (4, 3, 708, MSG_JOINT[0] if request.param != 'message' else comp.compress(MSG_JOINT[0])),
+        (
+            4,
+            3,
+            708,
+            b'joint message' if request.param != 'message' else comp.compress(b'joint message'),
+        ),
     )
     dbh.commit()
 
@@ -146,14 +170,9 @@ def bag(request: SubRequest, tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_empty_bag(tmp_path: Path) -> None:
-    """Test bags with broken fs layout."""
-    (tmp_path / 'metadata.yaml').write_text(METADATA_EMPTY)
-    dbpath = tmp_path / 'db.db3'
-    dbh = sqlite3.connect(dbpath)
-    dbh.executescript(Writer.SQLITE_SCHEMA)
-
-    with Reader(tmp_path) as reader:
+def test_empty_bag(empty_bag: Path) -> None:
+    """Test metadata of empty bag is correct."""
+    with Reader(empty_bag) as reader:
         assert reader.message_count == 0
         assert reader.start_time == 2**63 - 1
         assert reader.end_time == 0
@@ -164,9 +183,9 @@ def test_empty_bag(tmp_path: Path) -> None:
         assert reader.ros_distro == 'rosbags'
 
 
-def test_reader(bag: Path) -> None:
-    """Test reader and deserializer on simple bag."""
-    with Reader(bag) as reader:
+def test_reader_sqlite3(bag_sqlite3: Path) -> None:
+    """Test reader sqlite3 reads all messages."""
+    with Reader(bag_sqlite3) as reader:
         assert reader.duration == 43
         assert reader.start_time == 666
         assert reader.end_time == 709
@@ -181,14 +200,14 @@ def test_reader(bag: Path) -> None:
         assert connection.topic == '/poly'
         assert connection.msgtype == 'geometry_msgs/msg/Polygon'
         assert timestamp == 666
-        assert rawdata == MSG_POLY[0]
+        assert rawdata == b'poly message'
 
-        for idx in range(2):
+        for _ in range(2):
             connection, timestamp, rawdata = next(gen)
             assert connection.topic == '/magn'
             assert connection.msgtype == 'sensor_msgs/msg/MagneticField'
             assert timestamp == 708
-            assert rawdata == [MSG_MAGN, MSG_MAGN_BIG][idx][0]
+            assert rawdata == b'magn message'
 
         connection, timestamp, rawdata = next(gen)
         assert connection.topic == '/joint'
@@ -198,9 +217,9 @@ def test_reader(bag: Path) -> None:
             next(gen)
 
 
-def test_message_filters(bag: Path) -> None:
-    """Test reader filters messages."""
-    with Reader(bag) as reader:
+def test_message_filters(bag_sqlite3: Path) -> None:
+    """Test reader sqlite3 filters messages."""
+    with Reader(bag_sqlite3) as reader:
         magn_connections = [x for x in reader.connections if x.topic == '/magn']
         gen = reader.messages(connections=magn_connections)
         connection, _, _ = next(gen)
@@ -235,15 +254,15 @@ def test_message_filters(bag: Path) -> None:
             next(gen)
 
 
-def test_user_errors(bag: Path) -> None:
-    """Test user errors."""
-    reader = Reader(bag)
+def test_raises_if_reader_closed(bag_sqlite3: Path) -> None:
+    """Test reader raises if methods called on closed."""
+    reader = Reader(bag_sqlite3)
     with pytest.raises(ReaderError, match='Rosbag is not open'):
         next(reader.messages())
 
 
-def test_failure_cases(tmp_path: Path) -> None:
-    """Test bags with broken fs layout."""
+def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
+    """Test reader raises if fs layout is broken."""
     with pytest.raises(ReaderError, match='not read metadata'):
         Reader(tmp_path)
 
@@ -441,7 +460,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<I', 1),
                 struct.pack('<Q', 666),
                 struct.pack('<Q', 666),
-                MSG_POLY[0],
+                b'poly message',
             ),
         )
 
@@ -505,7 +524,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<I', 1),
                 struct.pack('<Q', 708),
                 struct.pack('<Q', 708),
-                MSG_MAGN[0],
+                b'magn message',
             ),
         )
         messages.append((2, 708, bio.tell()))
@@ -517,7 +536,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<I', 2),
                 struct.pack('<Q', 708),
                 struct.pack('<Q', 708),
-                MSG_MAGN_BIG[0],
+                b'magn message',
             ),
         )
 
@@ -532,7 +551,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<I', 1),
                 struct.pack('<Q', 708),
                 struct.pack('<Q', 708),
-                MSG_JOINT[0],
+                b'joint message',
             ),
         )
 
@@ -634,7 +653,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
 
 
 def test_reader_mcap(bag_mcap: Path) -> None:
-    """Test reader and deserializer on simple bag."""
+    """Test reader mcap reads all messages."""
     with Reader(bag_mcap) as reader:
         assert reader.duration == 43
         assert reader.start_time == 666
@@ -650,14 +669,14 @@ def test_reader_mcap(bag_mcap: Path) -> None:
         assert connection.topic == '/poly'
         assert connection.msgtype == 'geometry_msgs/msg/Polygon'
         assert timestamp == 666
-        assert rawdata == MSG_POLY[0]
+        assert rawdata == b'poly message'
 
-        for idx in range(2):
+        for _ in range(2):
             connection, timestamp, rawdata = next(gen)
             assert connection.topic == '/magn'
             assert connection.msgtype == 'sensor_msgs/msg/MagneticField'
             assert timestamp == 708
-            assert rawdata == [MSG_MAGN, MSG_MAGN_BIG][idx][0]
+            assert rawdata == b'magn message'
 
         connection, timestamp, rawdata = next(gen)
         assert connection.topic == '/joint'
@@ -668,7 +687,7 @@ def test_reader_mcap(bag_mcap: Path) -> None:
 
 
 def test_message_filters_mcap(bag_mcap: Path) -> None:
-    """Test reader filters messages."""
+    """Test reader mcap filters messages."""
     with Reader(bag_mcap) as reader:
         magn_connections = [x for x in reader.connections if x.topic == '/magn']
         gen = reader.messages(connections=magn_connections)
@@ -705,7 +724,7 @@ def test_message_filters_mcap(bag_mcap: Path) -> None:
 
 
 def test_bag_mcap_files(tmp_path: Path) -> None:
-    """Test bad mcap files."""
+    """Test reader raises if mcap files are bad."""
     (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='.mcap',

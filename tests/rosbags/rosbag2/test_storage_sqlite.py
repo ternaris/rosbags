@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Sqlite3 storage tests."""
+"""Sqlite3 Storage Tests."""
 
 from __future__ import annotations
 
@@ -122,7 +122,6 @@ def test_detects_schema_version(tmp_path: Path) -> None:
         ],
     ):
         dbpath = tmp_path / 'db.db3'
-        dbpath.unlink(missing_ok=True)
         con = sqlite3.connect(dbpath)
         con.executescript(version)
         con.close()
@@ -130,6 +129,7 @@ def test_detects_schema_version(tmp_path: Path) -> None:
         reader.open()
         assert reader.schema == index + 1
         reader.close()
+        dbpath.unlink()
 
 
 def test_type_definitions_are_read(tmp_path: Path) -> None:
@@ -156,7 +156,7 @@ def test_type_definitions_are_read(tmp_path: Path) -> None:
 
 
 def test_raises_on_closed_reader(tmp_path: Path) -> None:
-    """Test type definitions are read."""
+    """Test methods raise on closed reader."""
     dbpath = tmp_path / 'db.db3'
     con = sqlite3.connect(dbpath)
     con.executescript(SQLITE_SCHEMA_V4)

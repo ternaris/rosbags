@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Reference CDR message serializer and deserializer."""
+"""Reference CDR Message Serializer and Deserializer."""
 
 from __future__ import annotations
 
@@ -58,7 +58,10 @@ BASETYPEMAP_BE: BasetypeMap = {
 
 
 def deserialize_number(
-    rawdata: bytes, bmap: BasetypeMap, pos: int, basetype: Basename
+    rawdata: bytes,
+    bmap: BasetypeMap,
+    pos: int,
+    basetype: Basename,
 ) -> tuple[bool | float | int, int]:
     """Deserialize a single boolean, float, or int.
 

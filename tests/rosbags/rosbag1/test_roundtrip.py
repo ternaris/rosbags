@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Test full data roundtrip."""
+"""Writer/Reader Roundtrip Tests."""
 
 from __future__ import annotations
 
@@ -10,35 +10,35 @@ import pytest
 
 from rosbags.rosbag1 import Reader, Writer
 from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.stores.ros1_noetic import std_msgs__msg__Float64 as Float64
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.mark.parametrize('fmt', [None, Writer.CompressionFormat.BZ2, Writer.CompressionFormat.LZ4])
+@pytest.mark.parametrize('fmt', [None, *Writer.CompressionFormat])
 def test_roundtrip(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None:
-    """Test full data roundtrip."""
-    store = get_typestore(Stores.LATEST)
+    """Test messages stay the same between write and read."""
+    store = get_typestore(Stores.ROS1_NOETIC)
 
-    class Foo:
-        """Dummy class."""
-
-        data = 1.25
+    float64 = Float64(1.25)
 
     path = tmp_path / 'test.bag'
     wbag = Writer(path)
     if fmt:
         wbag.set_compression(fmt)
     with wbag:
-        msgtype = 'std_msgs/msg/Float64'
-        conn = wbag.add_connection('/test', msgtype, typestore=store)
-        wbag.write(conn, 42, store.cdr_to_ros1(store.serialize_cdr(Foo, msgtype), msgtype))
+        wconnection = wbag.add_connection('/test', float64.__msgtype__, typestore=store)
+        wbag.write(wconnection, 42, store.serialize_ros1(float64, float64.__msgtype__))
 
     rbag = Reader(path)
     with rbag:
         gen = rbag.messages()
-        connection, _, raw = next(gen)
-        msg = store.deserialize_cdr(store.ros1_to_cdr(raw, connection.msgtype), connection.msgtype)
-        assert getattr(msg, 'data', None) == Foo.data
+        rconnection, _, raw = next(gen)
+        assert rconnection.topic == wconnection.topic
+        # Should implement: assert rconnection.msgtype == wconnection.msgtype
+        assert rconnection.ext == wconnection.ext
+        msg = store.deserialize_ros1(raw, rconnection.msgtype)
+        assert msg == float64
         with pytest.raises(StopIteration):
             next(gen)

@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Rosbag1to2 converter tests."""
+"""Rosbag Converter Tests."""
 
 from __future__ import annotations
 

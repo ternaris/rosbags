@@ -1,6 +1,6 @@
 # Copyright 2020 - 2024 Ternaris
 # SPDX-License-Identifier: Apache-2.0
-"""Writer tests."""
+"""Writer Tests."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_writer(tmp_path: Path) -> None:
-    """Test Writer."""
+def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
+    """Test writer writes storage file and metadata."""
     store = get_typestore(Stores.LATEST)
     path = tmp_path / 'rosbag2'
     with Writer(path) as bag:
@@ -125,6 +125,12 @@ def test_failure_cases(tmp_path: Path) -> None:
     bag = Writer(tmp_path / 'topic')
     bag.open()
     bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
+    bag.add_connection(
+        '/tf',
+        'tf2_msgs/msg/TFMessage',
+        typestore=store,
+        serialization_format='ros1',
+    )
     with pytest.raises(WriterError, match='only be added once'):
         bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
 
@@ -142,3 +148,10 @@ def test_failure_cases(tmp_path: Path) -> None:
     )
     with pytest.raises(WriterError, match='unknown connection'):
         bag.write(connection, 42, b'\x00')
+
+
+def test_deprecations(tmp_path: Path) -> None:
+    """Test writer deprecations."""
+    bag = Writer(tmp_path / 'bag')
+    with bag, pytest.deprecated_call():
+        bag.add_connection('/foo', 'std_msgs/msg/Empty')
