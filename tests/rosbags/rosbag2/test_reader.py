@@ -16,8 +16,7 @@ import pytest
 import zstandard
 
 from rosbags.rosbag2 import Reader, ReaderError, Writer
-
-from .test_serde import MSG_JOINT, MSG_MAGN, MSG_MAGN_BIG, MSG_POLY
+from tests.rosbags.serde.test_serde import MSG_JOINT, MSG_MAGN, MSG_MAGN_BIG, MSG_POLY
 
 if TYPE_CHECKING:
     from typing import BinaryIO, Iterable
