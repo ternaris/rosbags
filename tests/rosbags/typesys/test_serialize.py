@@ -74,6 +74,32 @@ def test_serializer_errors() -> None:
 
 
 @pytest.mark.usefixtures('_comparable')
+def test_padding_is_correct_after_base_array() -> None:
+    """Test padding is correctly adjusted after small base arrays."""
+    store = get_typestore(Stores.LATEST)
+
+    typename = 'test_msgs/msg/ab_au16'
+    msgdef = """
+    bool[1] ab
+    uint16[2] au16
+    """
+    cdr_bytestream = b'\x01\x00\x02\x03\x04\x05'
+    ros1_bytestream = b'\x01\x02\x03\x04\x05'
+
+    store.register(get_types_from_msg(msgdef, typename))
+
+    ab_au16 = store.types[typename]
+    msg = ab_au16(ab=np.array([True], dtype=np.bool_), au16=np.array([770, 1284], np.uint16))
+
+    cdr = store.serialize_cdr(msg, typename)
+    assert cdr[4:] == cdr_bytestream
+    assert store.deserialize_cdr(cdr, typename) == msg
+
+    assert store.cdr_to_ros1(cdr, typename) == ros1_bytestream
+    assert store.ros1_to_cdr(ros1_bytestream, typename) == cdr
+
+
+@pytest.mark.usefixtures('_comparable')
 def test_empty_sequences_do_not_add_padding() -> None:
     """Test empty sequences do not add padding."""
     store = get_typestore(Stores.LATEST)

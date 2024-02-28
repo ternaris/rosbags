@@ -90,6 +90,7 @@ def generate_getsize_cdr(fields: Fielddefs, typestore: Typestore) -> tuple[CDRSe
                 else:
                     lines.append(f'  pos += {length * SIZEMAP[subdesc[1][0]]}')
                     size += length * SIZEMAP[subdesc[1][0]]
+                    aligned = SIZEMAP[subdesc[1][0]]
 
             else:
                 assert subdesc[0] == Nodetype.NAME
@@ -250,6 +251,7 @@ def generate_serialize_cdr(fields: Fielddefs, typestore: Typestore, endianess: s
                     size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(f'  rawdata[pos:pos + {size}] = val.view(numpy.uint8)')
                     lines.append(f'  pos += {size}')
+                    aligned = SIZEMAP[subdesc[1][0]]
 
             else:
                 assert subdesc[0] == Nodetype.NAME
@@ -394,6 +396,7 @@ def generate_deserialize_cdr(
                         lines.append('  val = val.byteswap()')
                     lines.append('  values.append(val)')
                     lines.append(f'  pos += {size}')
+                    aligned = SIZEMAP[subdesc[1][0]]
             else:
                 assert subdesc[0] == Nodetype.NAME
                 anext_before = align(subdesc, typestore)
