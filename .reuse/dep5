@@ -3,7 +3,7 @@ Upstream-Name: rosbags
 Upstream-Contact: Ternaris <team@ternaris.com>
 Source: https://gitlab.com/ternaris/rosbags
 
-Files: .gitignore .gitlab/* requirements*.txt *.toml *.yml **/Dockerfile
+Files: .gitignore .github/* .gitlab/* requirements*.txt *.toml *.yml **/Dockerfile
 Copyright: 2016 - 2024 Ternaris <team@ternaris.com>
 License: CC0-1.0
 
