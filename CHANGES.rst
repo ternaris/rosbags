@@ -3,6 +3,17 @@
 Changes
 =======
 
+0.9.20 - 2024-02-29
+-------------------
+
+- Deprecate APIs working on global types
+- Support explicit typestores for message handling
+- Ship core types from current and historic ROS distributions
+- Fix CDR alignment after base arrays `#72`_
+
+.. _#72: https://gitlab.com/ternaris/rosbags/issues/72
+
+
 0.9.19 - 2023-12-23
 -------------------
 
