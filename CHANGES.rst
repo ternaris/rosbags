@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.9.21 - 2024-03-04
+-------------------
+
+- Fix Python 3.9 and 3.10 compatibility `#73`_
+
+.. _#73: https://gitlab.com/ternaris/rosbags/issues/72
+
+
 0.9.20 - 2024-02-29
 -------------------
 
