@@ -392,6 +392,7 @@ def get_array_size(desc: FieldDesc, val: Array, size: int, typestore: Typestore)
         if desc[1][0] == 'string':
             for item in val:
                 size = (size + 4 - 1) & -4
+                assert isinstance(item, str)
                 size += 4 + len(item) + 1
             return size
 

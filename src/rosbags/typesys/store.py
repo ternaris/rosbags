@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass
 from hashlib import md5, sha256
 from importlib.util import module_from_spec, spec_from_loader
 from itertools import starmap
 from struct import pack_into
-from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from rosbags.interfaces import Nodetype
 from rosbags.serde.cdr import generate_deserialize_cdr, generate_getsize_cdr, generate_serialize_cdr
@@ -89,7 +90,8 @@ TIDMAP = {
 }
 
 
-class Msgdef(NamedTuple, Generic[T]):
+@dataclass(frozen=True)
+class Msgdef(Generic[T]):
     """Metadata of a message."""
 
     name: str
