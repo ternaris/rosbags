@@ -115,6 +115,9 @@ def convert_1to2(
 
     """
     store = get_typestore(Stores.EMPTY)
+    foxy_store = get_typestore(Stores.ROS2_FOXY)
+    store.register({'std_msgs/msg/Header': foxy_store.FIELDDEFS['std_msgs/msg/Header']})
+
     with Reader1(src) as reader, Writer2(dst) as writer:
         connmap: dict[int, Connection] = {}
         connections = [
@@ -138,6 +141,7 @@ def convert_1to2(
                     break
             else:
                 typs = get_types_from_msg(rconn.msgdef, rconn.msgtype)
+                typs.pop('std_msgs/msg/Header', None)
                 store.register(typs)
                 conn = writer.add_connection(
                     candidate.topic,
@@ -175,7 +179,8 @@ def convert_2to1(
     # Use same store as reader, but with ROS1 Header message definition.
     ros1_store = get_typestore(Stores.ROS2_FOXY)
     noetic_store = get_typestore(Stores.ROS1_NOETIC)
-    ros1_store.FIELDDEFS['std_msgs/msg/Header'] = noetic_store.FIELDDEFS['std_msgs/msg/Header']
+    ros1_store.FIELDDEFS.pop('std_msgs/msg/Header')
+    ros1_store.register({'std_msgs/msg/Header': noetic_store.FIELDDEFS['std_msgs/msg/Header']})
 
     with Reader2(src) as reader, Writer1(dst) as writer:
         connmap: dict[int, Connection] = {}
