@@ -3,12 +3,20 @@
 Changes
 =======
 
+0.9.22 - 2024-03-06
+-------------------
+
+- Fix header definition handling in rosbag converter `#74`_
+
+.. _#74: https://gitlab.com/ternaris/rosbags/issues/74
+
+
 0.9.21 - 2024-03-04
 -------------------
 
 - Fix Python 3.9 and 3.10 compatibility `#73`_
 
-.. _#73: https://gitlab.com/ternaris/rosbags/issues/72
+.. _#73: https://gitlab.com/ternaris/rosbags/issues/73
 
 
 0.9.20 - 2024-02-29
