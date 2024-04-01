@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.9.23 - 2024-04-01
+-------------------
+
+- Remove IDL octet support as it is not used in ROS, fixes `#81`_
+
+.. _#81: https://gitlab.com/ternaris/rosbags/issues/81
+
+
 0.9.22 - 2024-03-06
 -------------------
 
