@@ -16,8 +16,8 @@ T = TypeVar('T')
 
 Basename: TypeAlias = Literal[
     'bool',
+    'byte',
     'char',
-    'octet',
     'int8',
     'int16',
     'int32',

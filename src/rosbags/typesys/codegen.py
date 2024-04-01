@@ -31,7 +31,7 @@ def get_typehint(desc: FieldDesc) -> str:
     if desc[0] == Nodetype.BASE:
         if desc[1][0] == 'string':
             return 'str'
-        typ = 'int' if desc[1][0] == 'octet' else desc[1][0]
+        typ = 'int' if desc[1][0] in {'char', 'byte'} else desc[1][0]
         match = INTLIKE.match(typ)
         assert match, typ
         return match.group(1)
@@ -44,10 +44,11 @@ def get_typehint(desc: FieldDesc) -> str:
     sub = desc[1][0]
     if sub[0] == Nodetype.BASE:
         typ = sub[1][0]
-        if typ == 'octet' or INTLIKE.match(typ):
+        if typ in {'byte', 'char'} or INTLIKE.match(typ):
             typ = {
                 'bool': 'bool_',
-                'octet': 'uint8',
+                'byte': 'uint8',
+                'char': 'uint8',
             }.get(typ, typ)
             return f'np.ndarray[None, np.dtype[np.{typ}]]'
 

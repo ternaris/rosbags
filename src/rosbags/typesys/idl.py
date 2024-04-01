@@ -174,7 +174,6 @@ base_type_spec
   / integer_type
   / char_type
   / boolean_type
-  / octet_type
 
 integer_type
   = r'u?int(64|32|16|8)\b'
@@ -188,9 +187,6 @@ char_type
 
 boolean_type
   = r'boolean\b'
-
-octet_type
-  = r'octet\b'
 
 string_type
   = 'string' '<' expression '>'

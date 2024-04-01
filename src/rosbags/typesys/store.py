@@ -80,7 +80,7 @@ TIDMAP = {
     'char': 13,
     # Unsupported 'wchar': 14,
     'bool': 15,
-    'octet': 16,
+    'byte': 16,
     'string': 17,
     # Unsupported 'wstring': 18,
     # Unsupported 'fixed_string': 19,
@@ -393,9 +393,7 @@ class Typestore:
             stripped_name = name.rstrip('_')
             if desc[0] == Nodetype.BASE:
                 argname, arglimit = desc[1]
-                if argname == 'octet':
-                    argname = 'byte'  # type: ignore[assignment]
-                elif argname == 'string':
+                if argname == 'string':
                     argname = f'string<={arglimit}' if arglimit else 'string'  # type: ignore[assignment]
                 deftext.append(f'{argname} {stripped_name}')
                 hashtext.append(f'{argname} {stripped_name}')
@@ -421,9 +419,7 @@ class Typestore:
                     '' if num == 0 else str(num) if desc[0] == int(Nodetype.ARRAY) else f'<={num}'
                 )
                 if isubtype == int(Nodetype.BASE):
-                    if isubname[0] == 'octet':
-                        isubname = ('byte', 0)  # type: ignore[assignment]
-                    elif isubname[0] == 'string':
+                    if isubname[0] == 'string':
                         isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)  # type: ignore[assignment]
                     deftext.append(f'{isubname[0]}[{count}] {stripped_name}')
                     hashtext.append(f'{isubname[0]}[{count}] {stripped_name}')

@@ -1712,13 +1712,13 @@ FIELDDEFS = {
     ),
     'diagnostic_msgs/msg/DiagnosticStatus': (
         [
-            ('OK', 'octet', 0),
-            ('WARN', 'octet', 1),
-            ('ERROR', 'octet', 2),
-            ('STALE', 'octet', 3),
+            ('OK', 'byte', 0),
+            ('WARN', 'byte', 1),
+            ('ERROR', 'byte', 2),
+            ('STALE', 'byte', 3),
         ],
         [
-            ('level', (T.BASE, ('octet', 0))),
+            ('level', (T.BASE, ('byte', 0))),
             ('name', (T.BASE, ('string', 0))),
             ('message', (T.BASE, ('string', 0))),
             ('hardware_id', (T.BASE, ('string', 0))),
@@ -2096,11 +2096,11 @@ FIELDDEFS = {
     ),
     'rcl_interfaces/msg/Log': (
         [
-            ('DEBUG', 'octet', 10),
-            ('INFO', 'octet', 20),
-            ('WARN', 'octet', 30),
-            ('ERROR', 'octet', 40),
-            ('FATAL', 'octet', 50),
+            ('DEBUG', 'byte', 10),
+            ('INFO', 'byte', 20),
+            ('WARN', 'byte', 30),
+            ('ERROR', 'byte', 40),
+            ('FATAL', 'byte', 50),
         ],
         [
             ('stamp', (T.NAME, 'builtin_interfaces/msg/Time')),
@@ -2186,7 +2186,7 @@ FIELDDEFS = {
             ('integer_value', (T.BASE, ('int64', 0))),
             ('double_value', (T.BASE, ('float64', 0))),
             ('string_value', (T.BASE, ('string', 0))),
-            ('byte_array_value', (T.SEQUENCE, ((T.BASE, ('octet', 0)), 0))),
+            ('byte_array_value', (T.SEQUENCE, ((T.BASE, ('byte', 0)), 0))),
             ('bool_array_value', (T.SEQUENCE, ((T.BASE, ('bool', 0)), 0))),
             ('integer_array_value', (T.SEQUENCE, ((T.BASE, ('int64', 0)), 0))),
             ('double_array_value', (T.SEQUENCE, ((T.BASE, ('float64', 0)), 0))),
@@ -2579,20 +2579,20 @@ FIELDDEFS = {
     'std_msgs/msg/Byte': (
         [],
         [
-            ('data', (T.BASE, ('octet', 0))),
+            ('data', (T.BASE, ('byte', 0))),
         ],
     ),
     'std_msgs/msg/ByteMultiArray': (
         [],
         [
             ('layout', (T.NAME, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (T.SEQUENCE, ((T.BASE, ('octet', 0)), 0))),
+            ('data', (T.SEQUENCE, ((T.BASE, ('byte', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Char': (
         [],
         [
-            ('data', (T.BASE, ('uint8', 0))),
+            ('data', (T.BASE, ('char', 0))),
         ],
     ),
     'std_msgs/msg/ColorRGBA': (

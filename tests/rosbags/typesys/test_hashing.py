@@ -76,7 +76,7 @@ def test_ros1md5() -> None:
 
     store.register(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
     _, digest = store.generate_msgdef('test_msgs/msg/Hash')
-    assert digest == 'da79f46add822e47e8d80ce6923b222b'
+    assert digest == 'ba5c64f27c2f554bc2975575c3ce3c20'
 
 
 def test_rihs01() -> None:
@@ -101,5 +101,5 @@ def test_rihs01() -> None:
     store.register(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
     assert (
         store.hash_rihs01('test_msgs/msg/Hash')
-        == 'RIHS01_136fe82ed111f28ccca4ffb8e93b24942d858ef1f2a808cec546e313be75cf28'
+        == 'RIHS01_6f444494cb202f5c8dc6f92c98f4c60b926f1b24a3dc1cabfa7fbd35c72e246a'
     )

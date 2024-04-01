@@ -232,7 +232,8 @@ class VisitorMSG(Visitor):
 
     BASETYPES: ClassVar[set[str]] = {
         'bool',
-        'octet',
+        'byte',
+        'char',
         'int8',
         'int16',
         'int32',
@@ -323,8 +324,6 @@ class VisitorMSG(Visitor):
         dct: dict[str, str] = {
             'time': 'builtin_interfaces/msg/Time',
             'duration': 'builtin_interfaces/msg/Duration',
-            'byte': 'octet',
-            'char': 'uint8',
         }
         typespec = dct.get(typespec, typespec)
         if typespec in VisitorMSG.BASETYPES:

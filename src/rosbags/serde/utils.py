@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 
 SIZEMAP: dict[Basename, int] = {
     'bool': 1,
+    'byte': 1,
     'char': 1,
-    'octet': 1,
     'int8': 1,
     'int16': 2,
     'int32': 4,
@@ -104,7 +104,7 @@ def compile_lines(lines: list[str]) -> ModuleType:
 
 def ndtype(typ: str) -> str:
     """Normalize numpy dtype."""
-    return {'bool': 'bool_', 'octet': 'uint8'}.get(typ, typ)
+    return {'bool': 'bool_', 'char': 'uint8'}.get(typ, typ)
 
 
 def pairwise(iterable: Iterable[T]) -> zip[tuple[T, T]]:  # pragma: no cover

@@ -179,8 +179,8 @@ def test_msg_parser_accepts_multiple_definitions() -> None:
     assert 'test_msgs/msg/Other' in ret
     fields = ret['test_msgs/msg/Foo'][1]
     assert fields[0][1][1] == 'std_msgs/msg/Header'
-    assert fields[1][1][1] == ('octet', 0)
-    assert fields[2][1][1] == ('uint8', 0)
+    assert fields[1][1][1] == ('byte', 0)
+    assert fields[2][1][1] == ('char', 0)
     consts = ret['test_msgs/msg/Other'][0]
     assert consts == [('static', 'uint32', 42)]
 

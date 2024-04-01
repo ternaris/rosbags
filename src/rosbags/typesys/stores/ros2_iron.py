@@ -303,7 +303,7 @@ FIELDDEFS = {
     'rmw_dds_common/msg/Gid': (
         [],
         [
-            ('data', (T.ARRAY, ((T.BASE, ('uint8', 0)), 16))),
+            ('data', (T.ARRAY, ((T.BASE, ('char', 0)), 16))),
         ],
     ),
     'sensor_msgs/msg/BatteryState': (
@@ -376,7 +376,7 @@ FIELDDEFS = {
         [
             ('event_type', (T.BASE, ('uint8', 0))),
             ('stamp', (T.NAME, 'builtin_interfaces/msg/Time')),
-            ('client_gid', (T.ARRAY, ((T.BASE, ('uint8', 0)), 16))),
+            ('client_gid', (T.ARRAY, ((T.BASE, ('char', 0)), 16))),
             ('sequence_number', (T.BASE, ('int64', 0))),
         ],
     ),

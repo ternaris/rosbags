@@ -2053,13 +2053,13 @@ FIELDDEFS = {
     ),
     'diagnostic_msgs/msg/DiagnosticStatus': (
         [
-            ('OK', 'octet', 0),
-            ('WARN', 'octet', 1),
-            ('ERROR', 'octet', 2),
-            ('STALE', 'octet', 3),
+            ('OK', 'byte', 0),
+            ('WARN', 'byte', 1),
+            ('ERROR', 'byte', 2),
+            ('STALE', 'byte', 3),
         ],
         [
-            ('level', (T.BASE, ('octet', 0))),
+            ('level', (T.BASE, ('byte', 0))),
             ('name', (T.BASE, ('string', 0))),
             ('message', (T.BASE, ('string', 0))),
             ('hardware_id', (T.BASE, ('string', 0))),
@@ -2144,9 +2144,9 @@ FIELDDEFS = {
     ),
     'dynamic_reconfigure/msg/SensorLevels': (
         [
-            ('RECONFIGURE_CLOSE', 'octet', 3),
-            ('RECONFIGURE_STOP', 'octet', 1),
-            ('RECONFIGURE_RUNNING', 'octet', 0),
+            ('RECONFIGURE_CLOSE', 'byte', 3),
+            ('RECONFIGURE_STOP', 'byte', 1),
+            ('RECONFIGURE_RUNNING', 'byte', 0),
         ],
         [
             ('structure_needs_at_least_one_member', (T.BASE, ('uint8', 0))),
@@ -2482,15 +2482,15 @@ FIELDDEFS = {
     ),
     'rosgraph_msgs/msg/Log': (
         [
-            ('DEBUG', 'octet', 1),
-            ('INFO', 'octet', 2),
-            ('WARN', 'octet', 4),
-            ('ERROR', 'octet', 8),
-            ('FATAL', 'octet', 16),
+            ('DEBUG', 'byte', 1),
+            ('INFO', 'byte', 2),
+            ('WARN', 'byte', 4),
+            ('ERROR', 'byte', 8),
+            ('FATAL', 'byte', 16),
         ],
         [
             ('header', (T.NAME, 'std_msgs/msg/Header')),
-            ('level', (T.BASE, ('octet', 0))),
+            ('level', (T.BASE, ('byte', 0))),
             ('name', (T.BASE, ('string', 0))),
             ('msg', (T.BASE, ('string', 0))),
             ('file', (T.BASE, ('string', 0))),
@@ -2891,20 +2891,20 @@ FIELDDEFS = {
     'std_msgs/msg/Byte': (
         [],
         [
-            ('data', (T.BASE, ('octet', 0))),
+            ('data', (T.BASE, ('byte', 0))),
         ],
     ),
     'std_msgs/msg/ByteMultiArray': (
         [],
         [
             ('layout', (T.NAME, 'std_msgs/msg/MultiArrayLayout')),
-            ('data', (T.SEQUENCE, ((T.BASE, ('octet', 0)), 0))),
+            ('data', (T.SEQUENCE, ((T.BASE, ('byte', 0)), 0))),
         ],
     ),
     'std_msgs/msg/Char': (
         [],
         [
-            ('data', (T.BASE, ('uint8', 0))),
+            ('data', (T.BASE, ('char', 0))),
         ],
     ),
     'std_msgs/msg/ColorRGBA': (

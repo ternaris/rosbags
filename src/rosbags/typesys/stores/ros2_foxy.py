@@ -174,7 +174,7 @@ FIELDDEFS = {
     'rmw_dds_common/msg/Gid': (
         [],
         [
-            ('data', (T.ARRAY, ((T.BASE, ('uint8', 0)), 24))),
+            ('data', (T.ARRAY, ((T.BASE, ('char', 0)), 24))),
         ],
     ),
     'rmw_dds_common/msg/NodeEntitiesInfo': (
