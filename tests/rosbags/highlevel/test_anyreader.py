@@ -56,6 +56,7 @@ def bags2(tmp_path: Path) -> list[Path]:
     """Test data fixture."""
     paths = [
         tmp_path / 'ros2_1',
+        tmp_path / 'ros2_2',
         tmp_path / 'bad',
     ]
     store = get_typestore(Stores.LATEST)
@@ -68,8 +69,13 @@ def bags2(tmp_path: Path) -> list[Path]:
         writer.write(topic1, 5, HEADER + b'\x05')
         writer.write(topic2, 15, HEADER + b'\x15\x00')
 
-    paths[1].mkdir()
-    (paths[1] / 'metadata.yaml').write_text(':')
+    store = get_typestore(Stores.LATEST)
+    with Writer2(paths[1]) as writer:
+        topic3 = writer.add_connection('/topic3', 'std_msgs/msg/Int32', typestore=store)
+        writer.write(topic3, 4, HEADER + b'\x01\x00\x00\x00')
+
+    paths[2].mkdir()
+    (paths[2] / 'metadata.yaml').write_text(':')
 
     return paths
 
@@ -149,11 +155,8 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
 @pytest.mark.parametrize('strip_types', [False, True])
 def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
     """Test AnyReader on rosbag2."""
-    with pytest.raises(AnyReaderError, match='multiple rosbag2'):
-        AnyReader(bags2)
-
     with pytest.raises(AnyReaderError, match='YAML'):
-        AnyReader([bags2[1]])
+        AnyReader([bags2[2]])
 
     ctx: AbstractContextManager[None] = (
         patch(  # type: ignore[assignment]
@@ -164,16 +167,18 @@ def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
         else nullcontext()
     )
     typestore = get_typestore(Stores.LATEST)
-    with ctx, AnyReader([bags2[0]], default_typestore=typestore) as reader:
+    with ctx, AnyReader(bags2[:2], default_typestore=typestore) as reader:
         assert reader.duration == 15
         assert reader.start_time == 1
         assert reader.end_time == 16
-        assert reader.message_count == 5
-        assert list(reader.topics.keys()) == ['/topic1', '/topic2']
+        assert reader.message_count == 6
+        assert list(reader.topics.keys()) == ['/topic1', '/topic2', '/topic3']
         assert len(reader.topics['/topic1'].connections) == 1
         assert reader.topics['/topic1'].msgcount == 3
         assert len(reader.topics['/topic2'].connections) == 1
         assert reader.topics['/topic2'].msgcount == 2
+        assert len(reader.topics['/topic3'].connections) == 1
+        assert reader.topics['/topic3'].msgcount == 1
 
         gen = reader.messages()
 
@@ -187,6 +192,11 @@ def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
         assert nxt[1:] == (2, HEADER + b'\x02\x00')
         msg = reader.deserialize(nxt[2], nxt[0].msgtype)
         assert msg.data == 2  # type: ignore[attr-defined]
+        nxt = next(gen)
+        assert nxt[0].topic == '/topic3'
+        assert nxt[1:] == (4, HEADER + b'\x01\x00\x00\x00')
+        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
+        assert msg.data == 1  # type: ignore[attr-defined]
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (5, HEADER + b'\x05')

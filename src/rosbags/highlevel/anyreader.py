@@ -34,11 +34,6 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
-    if sys.version_info >= (3, 10):
-        from typing import TypeGuard
-    else:
-        from typing_extensions import TypeGuard
-
     from rosbags.interfaces import Connection
     from rosbags.interfaces.typing import Typesdict
     from rosbags.typesys.store import Typestore
@@ -49,11 +44,6 @@ class AnyReaderError(Exception):
 
 
 ReaderErrors = (ReaderError1, ReaderError2)
-
-
-def is_reader1(val: Sequence[Reader1] | Sequence[Reader2]) -> TypeGuard[Sequence[Reader1]]:
-    """Determine wether all items are Reader1 instances."""
-    return all(isinstance(x, Reader1) for x in val)
 
 
 class AnyReader:
@@ -75,15 +65,11 @@ class AnyReader:
                 no embedded message definions.
 
         Raises:
-            AnyReaderError: If paths do not exist or multiple rosbag2 files are given.
+            AnyReaderError: If paths do not exist.
 
         """
         if not paths:
             msg = 'Must call with at least one path.'
-            raise AnyReaderError(msg)
-
-        if len(paths) > 1 and any((x / 'metadata.yaml').exists() for x in paths):
-            msg = 'Opening of multiple rosbag2 recordings is not supported.'
             raise AnyReaderError(msg)
 
         if missing := [x for x in paths if not x.exists()]:
@@ -132,37 +118,31 @@ class AnyReader:
             raise AnyReaderError(*err.args) from err
 
         typs: Typesdict = {}
-        if self.is2:
-            reader = self.readers[0]
-            assert isinstance(reader, Reader2)
-            if reader.connections and reader.connections[0].msgdef:
-                for connection in reader.connections:
-                    if connection.msgdef:
-                        sep = '=' * 80 + '\n'
-                        if connection.msgdef.startswith(f'{sep}IDL: '):
-                            for msgdef in connection.msgdef.split(sep)[1:]:
-                                hdr, idl = msgdef.split('\n', 1)
-                                assert hdr.startswith('IDL: ')
-                                typs.update(get_types_from_idl(idl))
-                        else:
-                            typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
-            elif self.default_typestore:
-                typs.update(self.default_typestore.FIELDDEFS)
-            else:
-                warnings.warn(
-                    'AnyReader should be instantiated with an explicit typestore when reading '
-                    'old Rosbag2 files without embedded message type definions. Using `foxy` '
-                    'types as a workaround.',
-                    category=DeprecationWarning,
-                    stacklevel=2,
-                )
-                typs.update(get_typestore(Stores.ROS2_FOXY).FIELDDEFS)
-        else:
-            for reader in self.readers:
-                for connection in reader.connections:
-                    typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
-        self.typestore.register(typs)
         self.connections = [y for x in self.readers for y in x.connections]
+        connections = [x for x in self.connections if x.msgdef]
+        if connections:
+            sep = '=' * 80 + '\n'
+            for connection in connections:
+                if connection.msgdef.startswith(f'{sep}IDL: '):
+                    for msgdef in connection.msgdef.split(sep)[1:]:
+                        hdr, idl = msgdef.split('\n', 1)
+                        assert hdr.startswith('IDL: ')
+                        typs.update(get_types_from_idl(idl))
+                else:
+                    typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
+
+        elif self.default_typestore:
+            typs.update(self.default_typestore.FIELDDEFS)
+        else:
+            warnings.warn(
+                'AnyReader should be instantiated with an explicit typestore when reading '
+                'old Rosbag2 files without embedded message type definions. Using `foxy` '
+                'types as a workaround.',
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            typs.update(get_typestore(Stores.ROS2_FOXY).FIELDDEFS)
+        self.typestore.register(typs)
         self.isopen = True
 
     def close(self) -> None:
@@ -212,12 +192,6 @@ class AnyReader:
     def topics(self) -> dict[str, TopicInfo]:
         """Topics stored in the rosbags."""
         assert self.isopen
-
-        if self.is2:
-            assert isinstance(self.readers[0], Reader2)
-            return self.readers[0].topics
-
-        assert is_reader1(self.readers)
 
         def summarize(names_infos: Iterable[tuple[str, TopicInfo]]) -> TopicInfo:
             """Summarize topic infos."""
