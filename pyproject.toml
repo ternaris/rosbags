@@ -61,7 +61,7 @@ dev = [
 ]
 
 [project.scripts]
-rosbags-convert = "rosbags.convert.__main__:main"
+rosbags-convert = "rosbags.convert.cli:main"
 
 [project.urls]
 Homepage = "https://gitlab.com/ternaris/rosbags"
@@ -118,6 +118,7 @@ select = [
 ignore = [
   "ANN101",
   "C901",
+  "PLR0911",
   "PLR0912",
   "PLR0913",
   "PLR0915",

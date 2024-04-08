@@ -4,26 +4,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from functools import partial
+from typing import TYPE_CHECKING, cast
 
-from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2
+import numpy as np
+
+from rosbags.highlevel.anyreader import AnyReader, AnyReaderError
+from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2, Nodetype
 from rosbags.rosbag1 import (
-    Reader as Reader1,
-    ReaderError as ReaderError1,
     Writer as Writer1,
     WriterError as WriterError1,
 )
 from rosbags.rosbag2 import (
-    Reader as Reader2,
-    ReaderError as ReaderError2,
     Writer as Writer2,
     WriterError as WriterError2,
 )
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
     from pathlib import Path
-    from typing import Sequence
+
+    from rosbags.typesys.store import Typestore
 
 
 LATCH = """
@@ -44,209 +46,408 @@ LATCH = """
   avoid_ros_namespace_conventions: false
 """.strip()
 
+# Legacy message types that will always be renamed
+STATIC_MSGTYPE_RENAMES = {
+    'tf/msg/tfMessage': 'tf2_msgs/msg/TFMessage',
+}
+
 
 class ConverterError(Exception):
     """Converter Error."""
 
 
-def upgrade_connection(rconn: Connection) -> Connection:
-    """Convert rosbag1 connection to rosbag2 connection.
-
-    Args:
-        rconn: Rosbag1 connection.
-
-    Returns:
-        Rosbag2 connection.
-
-    """
-    assert isinstance(rconn.ext, ConnectionExtRosbag1)
-    return Connection(
-        rconn.id,
-        rconn.topic,
-        rconn.msgtype,
-        '',
-        '',
-        0,
-        ConnectionExtRosbag2('cdr', LATCH if rconn.ext.latching else ''),
-        None,
-    )
+def echo(text: str) -> None:
+    """Print text."""
+    print(text)  # noqa: T201
 
 
-def downgrade_connection(rconn: Connection) -> Connection:
-    """Convert rosbag2 connection to rosbag1 connection.
+def is_same_wireformat(
+    src_typestore: Typestore,
+    dst_typestore: Typestore,
+    src_msgtype: str,
+    dst_msgtype: str,
+) -> bool:
+    """Check if wireformat of messages is identical."""
+    if src_msgtype == 'std_msgs/msg/Header':
+        return True
+    src_fields = src_typestore.FIELDDEFS[src_msgtype][1]
+    dst_fields = dst_typestore.FIELDDEFS[dst_msgtype][1]
 
-    Args:
-        rconn: Rosbag2 connection.
-        typestore: Typestore.
+    if len(src_fields) != len(dst_fields):
+        return False
 
-    Returns:
-        Rosbag1 connection.
+    for (_, src), (_, dst) in zip(src_fields, dst_fields, strict=True):
+        if src != dst:
+            return False
 
-    """
-    assert isinstance(rconn.ext, ConnectionExtRosbag2)
-    return Connection(
-        rconn.id,
-        rconn.topic,
-        rconn.msgtype,
-        '',
-        '',
-        -1,
-        ConnectionExtRosbag1(None, int('durability: 1' in rconn.ext.offered_qos_profiles)),
-        None,
-    )
+        sub_src = src[1][0] if src[0] == Nodetype.SEQUENCE or src[0] == Nodetype.ARRAY else src
+        sub_dst = dst[1][0] if dst[0] == Nodetype.SEQUENCE or dst[0] == Nodetype.ARRAY else dst
+        if sub_src[0] == Nodetype.NAME:
+            assert isinstance(sub_dst[1], str)
+            if not is_same_wireformat(src_typestore, dst_typestore, sub_src[1], sub_dst[1]):
+                return False
+
+    return True
 
 
-def convert_1to2(
-    src: Path,
-    dst: Path,
-    exclude_topics: Sequence[str],
-    include_topics: Sequence[str],
-) -> None:
-    """Convert Rosbag1 to Rosbag2.
+def default_message(
+    typestore: Typestore,
+    msgtype: str,
+) -> object:
+    """Create default message."""
+    values: list[object] = []
 
-    Args:
-        src: Rosbag1 path.
-        dst: Rosbag2 path.
-        exclude_topics: Topics to exclude from conversion, even if included explicitly.
-        include_topics: Topics to include in conversion, instead of all.
-
-    Raises:
-        ConverterError: If all connections are excluded.
-
-    """
-    store = get_typestore(Stores.EMPTY)
-    foxy_store = get_typestore(Stores.ROS2_FOXY)
-    store.register({'std_msgs/msg/Header': foxy_store.FIELDDEFS['std_msgs/msg/Header']})
-
-    with Reader1(src) as reader, Writer2(dst) as writer:
-        connmap: dict[int, Connection] = {}
-        connections = [
-            x
-            for x in reader.connections
-            if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
-        ]
-        if not connections:
-            msg = 'No connections left for conversion.'
-            raise ConverterError(msg)
-        for rconn in connections:
-            candidate = upgrade_connection(rconn)
-            assert isinstance(candidate.ext, ConnectionExtRosbag2)
-            for conn in writer.connections:
-                assert isinstance(conn.ext, ConnectionExtRosbag2)
-                if (
-                    conn.topic == candidate.topic
-                    and conn.msgtype == candidate.msgtype
-                    and conn.ext == candidate.ext
-                ):
-                    break
+    for _, typ in typestore.FIELDDEFS[msgtype][1]:
+        if typ[0] == Nodetype.BASE:
+            values.append('' if typ[1][0] == 'string' else 0)
+        elif typ[0] == Nodetype.NAME:
+            values.append(default_message(typestore, typ[1]))
+        else:
+            assert typ[0] in {Nodetype.SEQUENCE, Nodetype.ARRAY}
+            subtyp = typ[1][0]
+            size = 0 if typ[0] == Nodetype.SEQUENCE else typ[1][1]
+            if subtyp[0] == Nodetype.BASE:
+                if subtyp[1][0] == 'string':
+                    values.append([''] * size)
+                else:
+                    dtype = 'uint8' if subtyp[1][0] == 'char' else subtyp[1][0]
+                    values.append(np.zeros(size, dtype=np.dtype(dtype)))
             else:
-                typs = get_types_from_msg(rconn.msgdef, rconn.msgtype)
+                values.append([default_message(typestore, subtyp[1])] * size)
+
+    return typestore.types[msgtype](*values)
+
+
+def migrate_message(
+    src_typestore: Typestore,
+    dst_typestore: Typestore,
+    src_msgtype: str,
+    dst_msgtype: str,
+    cache: dict[str, object],
+    src_msg: object,
+) -> object:
+    """Migrate message."""
+    values: list[object] = []
+
+    src_def = src_typestore.FIELDDEFS[src_msgtype][1]
+    dst_def = dst_typestore.FIELDDEFS[dst_msgtype][1]
+
+    src_map = dict(src_def)
+    dst_map = dict(dst_def)
+
+    dst_src = {x: x for x in dst_map if x in src_map}
+
+    removed = [x[0] for x in src_def if x[0] not in dst_map]
+    added = [x[0] for x in dst_def if x[0] not in src_map]
+    for dst_name in added:
+        for src_name in removed:
+            if src_map[src_name] == dst_map[dst_name]:
+                dst_src[dst_name] = src_name
+                removed.remove(src_name)
+                break
+        else:
+            dst_src[dst_name] = '__missing__'
+
+    if dst_msgtype not in cache:
+        cache[dst_msgtype] = default_message(dst_typestore, dst_msgtype)
+    def_msg = cache[dst_msgtype]
+
+    for dst_name, dst_type in dst_map.items():
+        src_name = dst_src[dst_name]
+        if src_name == '__missing__':
+            values.append(getattr(def_msg, dst_name))
+            continue
+
+        src_type = src_map[src_name]
+
+        if dst_type[0] == Nodetype.BASE:
+            if src_type[0] == Nodetype.BASE and (dst_type[1][0] == 'string') == (
+                src_type[1][0] == 'string'
+            ):
+                values.append(getattr(src_msg, src_name))
+            else:
+                values.append(getattr(def_msg, src_name))
+        elif dst_type[0] == Nodetype.NAME:
+            if src_type[0] == Nodetype.NAME:
+                values.append(
+                    migrate_message(
+                        src_typestore,
+                        dst_typestore,
+                        src_type[1],
+                        dst_type[1],
+                        cache,
+                        getattr(src_msg, src_name),
+                    ),
+                )
+            else:
+                values.append(getattr(def_msg, src_name))
+        else:
+            assert dst_type[0] in {Nodetype.SEQUENCE, Nodetype.ARRAY}
+            src_sub = src_type[1][0]
+            dst_sub = dst_type[1][0]
+            if src_sub[0] != dst_sub[0]:
+                values.append(getattr(def_msg, src_name))
+            else:
+                size = dst_type[1][1]
+                src_value = getattr(src_msg, src_name)
+                if size and size < len(src_value):
+                    src_value = src_value[:size]
+                if dst_sub[0] == Nodetype.BASE and dst_sub[1][0] != 'string':
+                    dtype = 'uint8' if dst_sub[1][0] == 'char' else dst_sub[1][0]
+                    src_value = src_value.astype(dtype)
+                elif dst_sub[0] == Nodetype.NAME:
+                    assert isinstance(src_sub[1], str)
+                    src_value = [
+                        migrate_message(
+                            src_typestore,
+                            dst_typestore,
+                            src_sub[1],
+                            dst_sub[1],
+                            cache,
+                            x,
+                        )
+                        for x in src_value
+                    ]
+                if dst_type[0] == Nodetype.ARRAY and len(src_value) != size:
+                    oldsize = len(src_value)
+                    if isinstance(src_value, np.ndarray):
+                        src_value = np.resize(src_value, size)
+                        src_value[oldsize:] = 0
+                    else:
+                        src_value += [getattr(def_msg, dst_name)] * (size - oldsize)
+                values.append(src_value)
+
+    return dst_typestore.types[dst_msgtype](*values)
+
+
+def migrate_bytes(
+    src_typestore: Typestore,
+    dst_typestore: Typestore,
+    src_msgtype: str,
+    dst_msgtype: str,
+    cache: dict[str, object],
+    data: bytes,
+    *,
+    src_is2: bool,
+    dst_is2: bool,
+) -> bytes:
+    """Migrate message."""
+    src_msg = (
+        src_typestore.deserialize_cdr(data, src_msgtype)
+        if src_is2
+        else src_typestore.deserialize_ros1(data, src_msgtype)
+    )
+
+    dst_msg = migrate_message(
+        src_typestore,
+        dst_typestore,
+        src_msgtype,
+        dst_msgtype,
+        cache,
+        src_msg,
+    )
+
+    return (
+        dst_typestore.serialize_cdr(dst_msg, dst_msgtype, little_endian=True)
+        if dst_is2
+        else dst_typestore.serialize_ros1(dst_msg, dst_msgtype)
+    )
+
+
+def generate_message_converter(
+    src_typestore: Typestore,
+    dst_typestore: Typestore,
+    src_msgtype: str,
+    dst_msgtype: str,
+    cache: dict[str, object],
+    *,
+    src_is2: bool,
+    dst_is2: bool,
+) -> Callable[[bytes], bytes]:
+    """Generate message converter."""
+    if is_same_wireformat(src_typestore, dst_typestore, src_msgtype, dst_msgtype):
+        if src_is2 == dst_is2:
+            return lambda x: x
+        if src_is2:
+            return partial(src_typestore.cdr_to_ros1, typename=src_msgtype)
+        return partial(dst_typestore.ros1_to_cdr, typename=dst_msgtype)
+
+    echo(f'Msgtype will be migrated: {dst_msgtype}')
+    return partial(
+        migrate_bytes,
+        src_typestore,
+        dst_typestore,
+        src_msgtype,
+        dst_msgtype,
+        cache,
+        src_is2=src_is2,
+        dst_is2=dst_is2,
+    )
+
+
+def create_connections_converters(
+    connections: Sequence[Connection],
+    typestore: Typestore | None,
+    reader: AnyReader,
+    writer: Writer1 | Writer2,
+) -> tuple[dict[tuple[int, object], Connection], dict[str, Callable[[bytes], bytes]]]:
+    """Create writer connections and return mapping."""
+    is2 = isinstance(writer, Writer2)
+
+    connmap: dict[tuple[int, object], Connection] = {}
+    convmap: dict[str, Callable[[bytes], bytes]] = {}
+
+    cache: dict[str, object] = {}
+
+    if not typestore:
+        if reader.is2 == is2:
+            typestore = reader.typestore
+        else:
+            header = get_typestore(Stores.ROS2_FOXY if is2 else Stores.ROS1_NOETIC).FIELDDEFS[
+                'std_msgs/msg/Header'
+            ]
+            typestore = get_typestore(Stores.EMPTY)
+            typestore.register(
+                {
+                    **reader.typestore.FIELDDEFS,
+                    'std_msgs/msg/Header': header,
+                },
+            )
+
+    for rconn in connections:
+        topic = rconn.topic
+        msgtype = STATIC_MSGTYPE_RENAMES.get(rconn.msgtype, rconn.msgtype)
+
+        if msgtype not in convmap:
+            if msgtype not in typestore.FIELDDEFS:
+                echo(f'Missing msgtype in destination, copying from source: {msgtype!r}')
+                typs = get_types_from_msg(
+                    reader.typestore.generate_msgdef(
+                        rconn.msgtype,
+                        ros_version=2 if is2 else 1,
+                    )[0],
+                    msgtype,
+                )
                 typs.pop('std_msgs/msg/Header', None)
-                store.register(typs)
-                conn = writer.add_connection(
-                    candidate.topic,
-                    candidate.msgtype,
-                    typestore=store,
-                    serialization_format=candidate.ext.serialization_format,
-                    offered_qos_profiles=candidate.ext.offered_qos_profiles,
-                )
-            connmap[rconn.id] = conn
+                typestore.register(typs)
+            convmap[msgtype] = generate_message_converter(
+                reader.typestore,
+                typestore,
+                rconn.msgtype,
+                msgtype,
+                cache,
+                src_is2=reader.is2,
+                dst_is2=is2,
+            )
 
-        for rconn, timestamp, data in reader.messages(connections=connections):
-            cdrdata = store.ros1_to_cdr(data, rconn.msgtype)
-            writer.write(connmap[rconn.id], timestamp, cdrdata)
-
-
-def convert_2to1(
-    src: Path,
-    dst: Path,
-    exclude_topics: Sequence[str],
-    include_topics: Sequence[str],
-) -> None:
-    """Convert Rosbag2 to Rosbag1.
-
-    Args:
-        src: Rosbag2 path.
-        dst: Rosbag1 path.
-        exclude_topics: Topics to exclude from conversion, even if included explicitly.
-        include_topics: Topics to include in conversion, instead of all.
-
-    Raises:
-        ConverterError: If all connections are excluded.
-
-    """
-    store = get_typestore(Stores.ROS2_FOXY)
-    # Use same store as reader, but with ROS1 Header message definition.
-    ros1_store = get_typestore(Stores.ROS2_FOXY)
-    noetic_store = get_typestore(Stores.ROS1_NOETIC)
-    ros1_store.FIELDDEFS.pop('std_msgs/msg/Header')
-    ros1_store.register({'std_msgs/msg/Header': noetic_store.FIELDDEFS['std_msgs/msg/Header']})
-
-    with Reader2(src) as reader, Writer1(dst) as writer:
-        connmap: dict[int, Connection] = {}
-        connections = [
-            x
-            for x in reader.connections
-            if x.topic not in exclude_topics and (not include_topics or x.topic in include_topics)
-        ]
-        if not connections:
-            msg = 'No connections left for conversion.'
-            raise ConverterError(msg)
-        for rconn in connections:
-            candidate = downgrade_connection(rconn)
-            assert isinstance(candidate.ext, ConnectionExtRosbag1)
+        if isinstance(writer, Writer2):
+            ext2 = (
+                rconn.ext
+                if isinstance(rconn.ext, ConnectionExtRosbag2)
+                else ConnectionExtRosbag2('cdr', LATCH if rconn.ext.latching else '')
+            )
             for conn in writer.connections:
-                assert isinstance(conn.ext, ConnectionExtRosbag1)
-                if (
-                    conn.topic == candidate.topic
-                    and conn.msgtype == candidate.msgtype
-                    and conn.ext.latching == candidate.ext.latching
-                ):
+                if topic == conn.topic and msgtype == conn.msgtype and conn.ext == ext2:
                     break
             else:
                 conn = writer.add_connection(
-                    candidate.topic,
-                    candidate.msgtype,
-                    typestore=ros1_store,
-                    callerid=candidate.ext.callerid,
-                    latching=candidate.ext.latching,
+                    topic,
+                    msgtype,
+                    typestore=typestore,
+                    serialization_format=ext2.serialization_format,
+                    offered_qos_profiles=ext2.offered_qos_profiles,
                 )
-            connmap[rconn.id] = conn
+        else:
+            ext1 = (
+                rconn.ext
+                if isinstance(rconn.ext, ConnectionExtRosbag1)
+                else ConnectionExtRosbag1(
+                    None,
+                    int('durability: 1' in rconn.ext.offered_qos_profiles),
+                )
+            )
+            for conn in writer.connections:
+                if topic == conn.topic and msgtype == conn.msgtype and conn.ext == ext1:
+                    break
+            else:
+                conn = writer.add_connection(
+                    topic,
+                    msgtype,
+                    typestore=typestore,
+                    callerid=ext1.callerid,
+                    latching=ext1.latching,
+                )
+        connmap[(rconn.id, rconn.owner)] = conn
 
-        for rconn, timestamp, data in reader.messages(connections=connections):
-            ros1data = store.cdr_to_ros1(data, rconn.msgtype)
-            writer.write(connmap[rconn.id], timestamp, ros1data)
+    return connmap, convmap
 
 
 def convert(
-    src: Path,
-    dst: Path | None,
-    exclude_topics: Sequence[str] = (),
-    include_topics: Sequence[str] = (),
+    srcs: Sequence[Path],
+    dst: Path,
+    default_typestore: Typestore | None,
+    typestore: Typestore | None,
+    exclude_topics: Sequence[str],
+    include_topics: Sequence[str],
+    exclude_msgtypes: Sequence[str],
+    include_msgtypes: Sequence[str],
 ) -> None:
     """Convert between Rosbag1 and Rosbag2.
 
     Args:
-        src: Source rosbag.
-        dst: Destination rosbag.
+        srcs: Rosbag files to read from.
+        dst: Destination path to write rosbag to.
+        default_typestore: Default typestore if source files have not message definitions.
+        typestore: Convert messages to this destination typestore.
         exclude_topics: Topics to exclude from conversion, even if included explicitly.
         include_topics: Topics to include in conversion, instead of all.
+        exclude_msgtypes: Message types to exclude from conversion, even if included explicitly.
+        include_msgtypes: Message types to include in conversion, instead of all.
 
-    Raises:
-        ConverterError: An error occured during reading, writing, or
-            converting.
+    ExcGroups:
+        topics: Select topics to exclude or include. (options are mutually exclusive)
 
     """
-    upgrade = src.suffix == '.bag'
-    dst = dst if dst else src.with_suffix('' if upgrade else '.bag')
-    if dst.exists():
-        msg = f'Output path {str(dst)!r} exists already.'
-        raise ConverterError(msg)
-    func = convert_1to2 if upgrade else convert_2to1
+    is2 = dst.suffix != '.bag'
+    writercls = Writer2 if is2 else Writer1
 
     try:
-        func(src, dst, exclude_topics, include_topics)
-    except (ReaderError1, ReaderError2) as err:
+        with (
+            AnyReader(srcs, default_typestore=default_typestore) as reader,
+            cast('type[Writer1 | Writer2]', writercls)(dst) as writer,
+        ):
+            connections = [
+                x
+                for x in reader.connections
+                if x.topic not in exclude_topics
+                and x.msgtype not in exclude_msgtypes
+                and (
+                    x.topic in include_topics or x.msgtype in include_msgtypes
+                    if include_topics and include_msgtypes
+                    else x.topic in include_topics
+                    if include_topics
+                    else x.msgtype in include_msgtypes
+                    if include_msgtypes
+                    else True
+                )
+            ]
+            if not connections:
+                return
+
+            connmap, convmap = create_connections_converters(
+                connections,
+                typestore,
+                reader,
+                writer,
+            )
+            for rconn, timestamp, data in reader.messages(connections=connections):
+                writer.write(
+                    connmap[(rconn.id, rconn.owner)],
+                    timestamp,
+                    convmap[rconn.msgtype](data),
+                )
+
+    except AnyReaderError as err:
         msg = f'Reading source bag: {err}'
         raise ConverterError(msg) from err
     except (WriterError1, WriterError2) as err:
