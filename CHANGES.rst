@@ -3,6 +3,15 @@
 Changes
 =======
 
+0.10.0 - 2024-04-09
+-------------------
+
+- Increase minimum required Python version to 3.10
+- Add reading multiple ROS2 bags to AnyReader
+- Add merging of bags to rosbags-convert
+- Add message type definition migration to rosbags-convert
+
+
 0.9.23 - 2024-04-01
 -------------------
 
