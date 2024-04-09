@@ -49,6 +49,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = [
+  "declinate",
   "mypy",
   "pytest",
   "pytest-cov",
