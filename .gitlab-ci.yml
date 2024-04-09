@@ -5,9 +5,9 @@ stages:
 
 test:
   stage: test
-  image: python:3.10
+  image: python:$VERSION
   script:
-    - python3.10 -m venv venv
+    - python$VERSION -m venv venv
     - venv/bin/python -m pip install -r requirements-dev.txt
     - venv/bin/python -m pip install -e .[dev]
     - venv/bin/python -m pytest --cov=src --cov-report=term --cov-report=xml --junit-xml=report.xml
@@ -25,6 +25,12 @@ test:
         coverage_format: cobertura
         path: coverage.xml
       junit: report.xml
+  parallel:
+    matrix:
+      - VERSION:
+        - "3.10"
+        - "3.11"
+        - "3.12"
 
 
 build:
