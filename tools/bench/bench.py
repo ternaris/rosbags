@@ -23,7 +23,8 @@ from rosbags.rosbag2 import Reader
 from rosbags.serde import deserialize_cdr
 
 if TYPE_CHECKING:
-    from typing import Generator, Protocol
+    from collections.abc import Generator
+    from typing import Protocol
 
     class NativeMSG(Protocol):
         """Minimal native ROS message interface used for benchmark."""
@@ -80,7 +81,7 @@ def compare_msg(lite: object, native: NativeMSG) -> None:
 
         elif isinstance(lite_val, list):
             assert len(native_val) == len(lite_val), f'{fieldname} length mismatch'
-            for sub1, sub2 in zip(native_val, lite_val):
+            for sub1, sub2 in zip(native_val, lite_val, strict=False):
                 compare_msg(sub2, sub1)
         elif isinstance(lite_val, float) and isnan(lite_val):
             assert isnan(native_val)
@@ -92,7 +93,7 @@ def compare(path: Path) -> None:
     """Compare raw and deserialized messages."""
     with Reader(path) as reader:
         gens = (reader.messages(), ReaderPy(path).messages())
-        for item, item_py in zip(*gens):
+        for item, item_py in zip(*gens, strict=False):
             connection, timestamp, data = item
             topic_py, msgtype_py, timestamp_py, data_py = item_py
 

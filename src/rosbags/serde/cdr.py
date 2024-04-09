@@ -12,16 +12,12 @@ middlewares.
 from __future__ import annotations
 
 import sys
+from itertools import pairwise
 from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
 
 from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
-
-if sys.version_info >= (3, 10):  # pragma: no cover
-    from itertools import pairwise
-else:  # pragma: no cover
-    from .utils import pairwise
 
 if TYPE_CHECKING:
     from typing import TypeVar

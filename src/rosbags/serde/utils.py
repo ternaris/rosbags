@@ -5,13 +5,11 @@
 from __future__ import annotations
 
 from importlib.util import module_from_spec, spec_from_loader
-from itertools import tee
 from typing import TYPE_CHECKING
 
 from rosbags.interfaces import Nodetype
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from types import ModuleType
     from typing import TypeVar
 
@@ -105,10 +103,3 @@ def compile_lines(lines: list[str]) -> ModuleType:
 def ndtype(typ: str) -> str:
     """Normalize numpy dtype."""
     return {'bool': 'bool_', 'char': 'uint8'}.get(typ, typ)
-
-
-def pairwise(iterable: Iterable[T]) -> zip[tuple[T, T]]:  # pragma: no cover
-    """Polyfil for itertools.pairwise."""
-    left, right = tee(iterable)
-    next(right, None)
-    return zip(left, right)

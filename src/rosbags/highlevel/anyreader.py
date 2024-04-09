@@ -25,9 +25,10 @@ from rosbags.typesys import Stores, get_types_from_idl, get_types_from_msg, get_
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Generator, Iterable, Sequence
     from pathlib import Path
     from types import TracebackType
-    from typing import Generator, Iterable, Literal, Sequence
+    from typing import Literal
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -235,7 +236,7 @@ class AnyReader:
         assert self.isopen
 
         def get_owner(connection: Connection) -> Reader1 | Reader2:
-            assert isinstance(connection.owner, (Reader1, Reader2))
+            assert isinstance(connection.owner, Reader1 | Reader2)
             return connection.owner
 
         if connections:

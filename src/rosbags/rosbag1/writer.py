@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum, auto
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from lz4.frame import compress as lz4_compress
 
@@ -24,8 +24,9 @@ from .reader import RecordType
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Callable
     from types import TracebackType
-    from typing import BinaryIO, Callable, Literal
+    from typing import BinaryIO, Literal
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -69,7 +70,7 @@ def serialize_time(val: int) -> bytes:
     return struct.pack('<LL', sec, nsec)
 
 
-class Header(Dict[str, bytes]):
+class Header(dict[str, bytes]):
     """Record header."""
 
     def set_uint32(self, name: str, value: int) -> None:

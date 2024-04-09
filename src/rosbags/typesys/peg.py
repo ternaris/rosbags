@@ -14,14 +14,9 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Mapping
-    from typing import Pattern, TypedDict
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    from re import Pattern
+    from typing import TypeAlias, TypedDict
 
     class Node(TypedDict):
         """Tree node."""

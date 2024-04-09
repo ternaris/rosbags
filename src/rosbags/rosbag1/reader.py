@@ -16,7 +16,7 @@ from io import BytesIO
 from itertools import groupby
 from operator import add
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from lz4.frame import decompress as lz4_decompress
 
@@ -25,8 +25,9 @@ from rosbags.typesys.msg import normalize_msgtype
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Callable, Generator, Iterable
     from types import TracebackType
-    from typing import BinaryIO, Callable, Generator, Iterable, Literal
+    from typing import BinaryIO, Literal
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -133,7 +134,7 @@ def deserialize_time(val: bytes) -> int:
     return sec * 10**9 + nsec
 
 
-class Header(Dict[str, bytes]):
+class Header(dict[str, bytes]):
     """Record header."""
 
     def get_uint8(self, name: str) -> int:

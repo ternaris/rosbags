@@ -2,15 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbags typing."""
 
-import sys
-from typing import Callable, Dict, List, Literal, Protocol, Tuple, TypeVar, Union
+from collections.abc import Callable
+from typing import Literal, Protocol, TypeAlias, TypeVar
 
 from . import Nodetype
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 T = TypeVar('T')
 
@@ -31,21 +26,21 @@ Basename: TypeAlias = Literal[
     'float128',
     'string',
 ]
-Basetype: TypeAlias = Tuple[Basename, int]
+Basetype: TypeAlias = tuple[Basename, int]
 
-BaseDesc: TypeAlias = Tuple[Literal[Nodetype.BASE], Basetype]
-NameDesc: TypeAlias = Tuple[Literal[Nodetype.NAME], str]
-FieldDesc: TypeAlias = Union[
-    BaseDesc,
-    NameDesc,
-    Tuple[Literal[Nodetype.ARRAY, Nodetype.SEQUENCE], Tuple[Union[BaseDesc, NameDesc], int]],
-]
+BaseDesc: TypeAlias = tuple[Literal[Nodetype.BASE], Basetype]
+NameDesc: TypeAlias = tuple[Literal[Nodetype.NAME], str]
+FieldDesc: TypeAlias = (
+    BaseDesc
+    | NameDesc
+    | tuple[Literal[Nodetype.ARRAY, Nodetype.SEQUENCE], tuple[BaseDesc | NameDesc, int]]
+)
 
-ConstValue: TypeAlias = Union[str, bool, int, float]
+ConstValue: TypeAlias = str | bool | int | float
 
-Constdefs: TypeAlias = List[Tuple[str, Basename, ConstValue]]
-Fielddefs: TypeAlias = List[Tuple[str, FieldDesc]]
-Typesdict: TypeAlias = Dict[str, Tuple[Constdefs, Fielddefs]]
+Constdefs: TypeAlias = list[tuple[str, Basename, ConstValue]]
+Fielddefs: TypeAlias = list[tuple[str, FieldDesc]]
+Typesdict: TypeAlias = dict[str, tuple[Constdefs, Fielddefs]]
 
 
 class Typestore(Protocol):
@@ -54,9 +49,9 @@ class Typestore(Protocol):
     FIELDDEFS: Typesdict
 
 
-Bitcvt = Callable[[bytes, int, bytes, int, Typestore], Tuple[int, int]]
-BitcvtSize = Callable[[bytes, int, None, int, Typestore], Tuple[int, int]]
+Bitcvt = Callable[[bytes, int, bytes, int, Typestore], tuple[int, int]]
+BitcvtSize = Callable[[bytes, int, None, int, Typestore], tuple[int, int]]
 
-CDRDeser = Callable[[bytes, int, type, Typestore], Tuple[T, int]]
+CDRDeser = Callable[[bytes, int, type, Typestore], tuple[T, int]]
 CDRSer = Callable[[bytes, int, object, Typestore], int]
 CDRSerSize = Callable[[int, object, Typestore], int]

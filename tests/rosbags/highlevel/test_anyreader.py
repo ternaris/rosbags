@@ -17,8 +17,8 @@ from rosbags.rosbag2 import Writer as Writer2
 from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
-    from typing import Sequence
 
 HEADER = b'\x00\x01\x00\x00'
 
@@ -273,9 +273,10 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
         def open(self) -> None:
             """Unused."""
 
-    with patch('rosbags.highlevel.anyreader.Reader2', MockReader), patch(
-        'rosbags.typesys.store.Typestore.register'
-    ) as mock_register_types:
+    with (
+        patch('rosbags.highlevel.anyreader.Reader2', MockReader),
+        patch('rosbags.typesys.store.Typestore.register') as mock_register_types,
+    ):
         AnyReader([bags2[0]]).open()
     mock_register_types.assert_called_once()
     assert mock_register_types.call_args[0][0] == {
@@ -309,7 +310,10 @@ def test_deprecations(bags2: list[Path]) -> None:
         def open(self) -> None:
             """Unused."""
 
-    with patch('rosbags.highlevel.anyreader.Reader2', MockReader), pytest.deprecated_call(
-        match='explicit typestore',
+    with (
+        patch('rosbags.highlevel.anyreader.Reader2', MockReader),
+        pytest.deprecated_call(
+            match='explicit typestore',
+        ),
     ):
         AnyReader([bags2[0]]).open()

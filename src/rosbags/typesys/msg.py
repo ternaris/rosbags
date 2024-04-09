@@ -23,13 +23,7 @@ from .base import normalize_fieldname, parse_message_definition
 from .peg import Rule, Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    import sys
-    from typing import ClassVar, Literal, TypeVar
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    from typing import ClassVar, Literal, TypeAlias, TypeVar
 
     from rosbags.interfaces.typing import (
         BaseDesc,

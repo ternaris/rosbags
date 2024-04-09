@@ -13,8 +13,8 @@ from rosbags.typesys.store import Typestore
 from .errors import ReaderError
 
 if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
     from pathlib import Path
-    from typing import Generator, Iterable
 
     from rosbags.interfaces import Connection
 

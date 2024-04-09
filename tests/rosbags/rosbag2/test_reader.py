@@ -18,7 +18,8 @@ import zstandard
 from rosbags.rosbag2 import Reader, ReaderError, Writer
 
 if TYPE_CHECKING:
-    from typing import BinaryIO, Iterable
+    from collections.abc import Iterable
+    from typing import BinaryIO
 
     from _pytest.fixtures import SubRequest
 
@@ -269,8 +270,9 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
     metadata = tmp_path / 'metadata.yaml'
 
     metadata.write_text('')
-    with pytest.raises(ReaderError, match='not read'), mock.patch.object(
-        Path, 'read_text', side_effect=PermissionError
+    with (
+        pytest.raises(ReaderError, match='not read'),
+        mock.patch.object(Path, 'read_text', side_effect=PermissionError),
     ):
         Reader(tmp_path)
 

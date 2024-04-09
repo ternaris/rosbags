@@ -21,13 +21,8 @@ from .base import normalize_fieldname, parse_message_definition
 from .peg import Visitor, parse_grammar
 
 if TYPE_CHECKING:
-    import sys
-    from typing import Generator, Literal
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    from collections.abc import Generator
+    from typing import Literal, TypeAlias
 
     from rosbags.interfaces.typing import (
         BaseDesc,
@@ -396,7 +391,7 @@ class VisitorIDL(Visitor):
                 alias = declarator[1][1]
                 typ, name = base
                 assert isinstance(typ, Nodetype)
-                assert isinstance(name, (str, tuple))
+                assert isinstance(name, str | tuple)
                 count = declarator[2][1]
                 assert isinstance(count, int)
                 value = cast('FieldDesc', (Nodetype.ARRAY, ((typ, name), count)))
@@ -538,7 +533,7 @@ class VisitorIDL(Visitor):
             Node.LITERAL,
             Nodetype.NAME,
         }:
-            assert isinstance(children[1], (str, bool, int, float))
+            assert isinstance(children[1], str | bool | int | float)
             return children
 
         assert isinstance(children[0], tuple)

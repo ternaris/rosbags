@@ -15,8 +15,8 @@ from rosbags.rosbag1 import Reader, ReaderError
 from rosbags.rosbag1.reader import IndexData
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
-    from typing import Sequence
 
 
 def ser(data: dict[str, bytes] | bytes) -> bytes:
@@ -292,8 +292,9 @@ def test_failure_cases(tmp_path: Path) -> None:
         Reader(bag).open()
 
     bag.write_text('')
-    with patch('pathlib.Path.open', side_effect=IOError), pytest.raises(
-        ReaderError, match='not open'
+    with (
+        patch('pathlib.Path.open', side_effect=IOError),
+        pytest.raises(ReaderError, match='not open'),
     ):
         Reader(bag).open()
 

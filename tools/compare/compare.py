@@ -28,7 +28,8 @@ rosgraph_msgs.msg.TopicStatistics = Mock()
 import rosbag.bag  # type: ignore[import-not-found]  # noqa: E402
 
 if TYPE_CHECKING:
-    from typing import Generator, Protocol, runtime_checkable
+    from collections.abc import Generator
+    from typing import Protocol, runtime_checkable
 
     @runtime_checkable
     class NativeMSG(Protocol):
@@ -99,9 +100,9 @@ def compare(ref: object, msg: object) -> None:
             assert (msg == ref).all()
 
     elif isinstance(msg, list):
-        assert isinstance(ref, (list, np.ndarray))
+        assert isinstance(ref, list | np.ndarray)
         assert len(msg) == len(ref)
-        for refitem, msgitem in zip(ref, msg):
+        for refitem, msgitem in zip(ref, msg, strict=False):
             compare(refitem, msgitem)
 
     elif isinstance(msg, str):
@@ -128,7 +129,7 @@ def main_bag1_bag1(path1: Path, path2: Path) -> None:
     src1 = reader1.read_messages(raw=True, return_connection_header=True)
     src2 = reader2.read_messages(raw=True, return_connection_header=True)
 
-    for msg1, msg2 in zip(src1, src2):
+    for msg1, msg2 in zip(src1, src2, strict=False):
         assert msg1.connection_header == msg2.connection_header
         assert msg1.message[:-2] == msg2.message[:-2]
         assert msg1.timestamp == msg2.timestamp
@@ -154,7 +155,7 @@ def main_bag1_bag2(path1: Path, path2: Path) -> None:
 
     fixup_ros1(reader1._connections.values())  # noqa: SLF001
 
-    for msg1, msg2 in zip(src1, src2):
+    for msg1, msg2 in zip(src1, src2, strict=False):
         assert msg1.topic == msg2[0]
         assert msg1.timestamp.to_nsec() == msg2[1]
         compare(msg1.message, msg2[2])

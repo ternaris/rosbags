@@ -20,9 +20,9 @@ from .storage_sqlite3 import ReaderSqlite3
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Mapping
+    from collections.abc import Generator, Iterable, Mapping
     from types import TracebackType
-    from typing import Generator, Iterable, Literal
+    from typing import Literal
 
     if sys.version_info >= (3, 11):
         from typing import Self

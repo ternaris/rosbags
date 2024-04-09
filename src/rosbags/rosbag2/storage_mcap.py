@@ -15,8 +15,9 @@ from lz4.frame import decompress as lz4_decompress
 from .errors import ReaderError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterable
     from pathlib import Path
-    from typing import BinaryIO, Callable, Generator, Iterable
+    from typing import BinaryIO
 
     from rosbags.interfaces import Connection
 
@@ -266,7 +267,7 @@ class MCAPFile:
                 chunk.channel_count.update(
                     {
                         x[1]: count // 16
-                        for x, y, z in zip(offset_channel, offsets[1:], offsets)
+                        for x, y, z in zip(offset_channel, offsets[1:], offsets, strict=False)
                         if (count := y - z - 15)
                     },
                 )

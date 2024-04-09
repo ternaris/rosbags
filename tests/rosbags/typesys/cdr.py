@@ -15,10 +15,7 @@ from rosbags.serde import SerdeError
 from rosbags.serde.utils import SIZEMAP
 
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     from numpy.typing import NDArray
 
