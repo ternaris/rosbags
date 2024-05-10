@@ -83,6 +83,18 @@ bool return=true
 uint64 yield
 """
 
+NAME_COLLISION_MSG = """
+std_msgs/Int s_int
+Int c_int
+
+================================================================================
+MSG: collision_msgs/Int
+int16 value
+================================================================================
+MSG: std_msgs/Int
+int8 data
+"""
+
 
 def test_msg_parser_raises_on_bad_definition() -> None:
     """Test msg parser raises on bad definition."""
@@ -221,3 +233,12 @@ def test_msg_parser_avoids_python_keyword_collisions() -> None:
 
     assert ret['keyword_msgs/msg/Foo'][0][0][0] == 'return_'
     assert ret['keyword_msgs/msg/Foo'][1][0][0] == 'yield_'
+
+
+def test_msg_parser_handles_name_collisions() -> None:
+    """Test msg parser handles identical type names in different namespaces."""
+    ret = get_types_from_msg(NAME_COLLISION_MSG, 'collision_msgs/msg/Foo')
+    get_typestore(Stores.EMPTY).register(ret)
+
+    assert ret['collision_msgs/msg/Foo'][1][0][1][1] == 'std_msgs/msg/Int'
+    assert ret['collision_msgs/msg/Foo'][1][1][1][1] == 'collision_msgs/msg/Int'

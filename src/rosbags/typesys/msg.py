@@ -159,13 +159,13 @@ def normalize_msgtype(name: str) -> str:
     return str(path)
 
 
-def normalize_fieldtype(typename: str, field: FieldDesc, names: list[str]) -> FieldDesc:
+def normalize_fieldtype(typename: str, idx: int, field: FieldDesc) -> FieldDesc:
     """Normalize field typename.
 
     Args:
         typename: Type name of field owner.
+        idx: Field index.
         field: Field definition.
-        names: Valid message names.
 
     Returns:
         Normalized fieldtype.
@@ -174,7 +174,6 @@ def normalize_fieldtype(typename: str, field: FieldDesc, names: list[str]) -> Fi
     if field[0] == Nodetype.BASE:
         return field
 
-    dct = {Path(name).name: name for name in names}
     ftype, args = field
     ifield = field if ftype == Nodetype.NAME else args[0]
 
@@ -185,9 +184,7 @@ def normalize_fieldtype(typename: str, field: FieldDesc, names: list[str]) -> Fi
     assert ifield[0] == Nodetype.NAME
 
     name = ifield[1]
-    if name in dct:
-        name = dct[name]
-    elif name == 'Header':
+    if name == 'Header' and not idx:
         name = 'std_msgs/msg/Header'
     elif '/' not in name:
         name = str(Path(typename).parent / name)
@@ -248,7 +245,6 @@ class VisitorMSG(Visitor):
         """Process start symbol."""
         typelist = [children[0], *[x[1] for x in children[1]]]
         typedict = dict(typelist)
-        names = list(typedict.keys())
         res: Typesdict = {}
         for name, items in typedict.items():
             consts: Constdefs = []
@@ -259,7 +255,9 @@ class VisitorMSG(Visitor):
                     consts.append(item[1])
                 else:
                     assert item[0] == Node.FIELD
-                    fields.append((item[1][0], normalize_fieldtype(name, item[1][1], names)))
+                    fields.append(
+                        (item[1][0], normalize_fieldtype(name, len(fields), item[1][1])),
+                    )
 
             res[name] = consts, fields
         return res
