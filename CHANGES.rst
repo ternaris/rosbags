@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.10.1 - 2024-05-10
+-------------------
+
+- Avoid name collisions with relative typenames `#85`_
+
+.. _#85: https://gitlab.com/ternaris/rosbags/issues/85
+
+
 0.10.0 - 2024-04-09
 -------------------
 
