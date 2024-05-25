@@ -22,8 +22,16 @@ from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
 if TYPE_CHECKING:
     from typing import TypeVar
 
-    from rosbags.interfaces.typing import CDRDeser, CDRSer, CDRSerSize, Fielddefs, FieldDesc
-    from rosbags.typesys.store import Typestore
+    from rosbags.interfaces import (
+        CDRDeser,
+        CDRSer,
+        CDRSerSize,
+        Typestore,
+    )
+    from rosbags.interfaces.typing import (
+        Fielddefs,
+        FieldDesc,
+    )
 
     T = TypeVar('T')
 
@@ -168,7 +176,8 @@ def generate_getsize_cdr(fields: Fielddefs, typestore: Typestore) -> tuple[CDRSe
             aligned = anext_before
             is_stat = False
     lines.append('  return pos')
-    return compile_lines(lines).getsize_cdr, is_stat * size
+    funcname = 'getsize_cdr'
+    return cast('CDRSerSize', getattr(compile_lines(lines), funcname)), is_stat * size
 
 
 def generate_serialize_cdr(fields: Fielddefs, typestore: Typestore, endianess: str) -> CDRSer:
@@ -307,7 +316,8 @@ def generate_serialize_cdr(fields: Fielddefs, typestore: Typestore, endianess: s
             lines.append(f'  pos = (pos + {anext_before} - 1) & -{anext_before}')
             aligned = anext_before
     lines.append('  return pos')
-    return compile_lines(lines).serialize_cdr  # type: ignore[no-any-return]
+    funcname = 'serialize_cdr'
+    return cast('CDRSer', getattr(compile_lines(lines), funcname))
 
 
 def generate_deserialize_cdr(
@@ -387,8 +397,10 @@ def generate_deserialize_cdr(
                 else:
                     size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(
-                        f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)',
+                        (
+                            f'  val = numpy.frombuffer(rawdata, '
+                            f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)'
+                        ),
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
@@ -436,8 +448,10 @@ def generate_deserialize_cdr(
                         lines.append('  if size:')
                         lines.append(f'    pos = (pos + {anext_before} - 1) & -{anext_before}')
                     lines.append(
-                        f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)',
+                        (
+                            f'  val = numpy.frombuffer(rawdata, '
+                            f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)'
+                        ),
                     )
                     if (endianess == 'le') != (sys.byteorder == 'little'):
                         lines.append('  val = val.byteswap()')
@@ -465,4 +479,5 @@ def generate_deserialize_cdr(
             aligned = anext_before
 
     lines.append('  return cls(*values), pos')
-    return compile_lines(lines).deserialize_cdr  # type: ignore[no-any-return]
+    funcname = 'deserialize_cdr'
+    return cast('CDRDeser[T]', getattr(compile_lines(lines), funcname))

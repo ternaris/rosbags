@@ -45,10 +45,10 @@ def test_ros1_generator() -> None:
             'v_size': ([], [('s_u8', (Nodetype.SEQUENCE, ((Nodetype.BASE, ('uint8', 0)), 0)))]),
         }
     )
-    generate_getsize_ros1(ALL_COMBINATIONS, store)
-    generate_deserialize_ros1(ALL_COMBINATIONS, store)
-    generate_serialize_ros1(ALL_COMBINATIONS, store)
+    _ = generate_getsize_ros1(ALL_COMBINATIONS, store)
+    _ = generate_deserialize_ros1(ALL_COMBINATIONS, store)
+    _ = generate_serialize_ros1(ALL_COMBINATIONS, store)
 
     for typename, copy in zip(('foo', 'std_msgs/msg/Header'), (True, False), strict=True):
-        generate_cdr_to_ros1(ALL_COMBINATIONS, typename, store, copy=copy)
-        generate_ros1_to_cdr(ALL_COMBINATIONS, typename, store, copy=copy)
+        _ = generate_cdr_to_ros1(ALL_COMBINATIONS, typename, store, copy=copy)
+        _ = generate_ros1_to_cdr(ALL_COMBINATIONS, typename, store, copy=copy)

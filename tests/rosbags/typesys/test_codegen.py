@@ -21,14 +21,14 @@ def test_generate_python_code() -> None:
     assert 'class foo:\n' in res
 
     res = generate_python_code(defs, 'empty')
-    assert 'from .empty import *' in res
+    assert 'from . import empty' in res
     assert 'class foo:\n' not in res
 
     res = generate_python_code(defs, 'empty', add=('foo',))
     assert 'class foo:\n' in res
 
     res = generate_python_code(defs, 'empty', change=('foo',))
-    assert 'class foo:  # type: ignore[no-redef]\n' in res
+    assert 'class foo:\n' in res
 
-    res = generate_python_code(defs, 'empty', remove=('bar',))
-    assert 'del bar\n' in res
+    res = generate_python_code(defs, 'empty', keep=('bar',))
+    assert 'bar = base.bar\n' in res

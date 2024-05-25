@@ -99,7 +99,7 @@ int8 data
 def test_msg_parser_raises_on_bad_definition() -> None:
     """Test msg parser raises on bad definition."""
     with pytest.raises(TypesysError, match='Could not parse'):
-        get_types_from_msg('invalid', 'test_msgs/msg/Foo')
+        _ = get_types_from_msg('invalid', 'test_msgs/msg/Foo')
 
 
 def test_msg_parser_accepts_empty_definition() -> None:

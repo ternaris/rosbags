@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from rosbags.typesys.msg import get_types_from_msg
 from rosbags.typesys.store import Typestore
@@ -41,11 +41,13 @@ class ReaderSqlite3:
         """Open rosbag2."""
         for path in self.paths:
             conn = sqlite3.connect(f'file:{path}?immutable=1', uri=True)
-            conn.row_factory = lambda _, x: x
+            conn.row_factory = lambda _, x: x  # pyright: ignore[reportUnknownLambdaType]
             cur = conn.cursor()
-            cur.execute(
-                'SELECT count(*) FROM sqlite_master '
-                'WHERE type="table" AND name IN ("messages", "topics")',
+            _ = cur.execute(
+                (
+                    'SELECT count(*) FROM sqlite_master '
+                    'WHERE type="table" AND name IN ("messages", "topics")'
+                ),
             )
             if cur.fetchone()[0] != 2:
                 msg = f'Cannot open database {path} or database missing tables.'
@@ -55,23 +57,32 @@ class ReaderSqlite3:
 
         cur = self.dbconns[-1].cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
+            schema: int
             (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone()
-        elif any(x[1] == 'offered_qos_profiles' for x in cur.execute('PRAGMA table_info(topics)')):
+        elif any(
+            x[1] == 'offered_qos_profiles'
+            for x in cast('Iterable[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
+        ):
             schema = 2
         else:
             schema = 1
 
         if schema >= 4:
-            msgtypes = [
+            msgtypes: list[dict[str, str]] = [
                 {
                     'name': x[0],
                     'encoding': x[1],
                     'msgdef': x[2],
                     'digest': x[3],
                 }
-                for x in cur.execute(
-                    'SELECT topic_type, encoding, encoded_message_definition, type_description_hash'
-                    ' FROM message_definitions ORDER BY id',
+                for x in cast(
+                    'Iterable[tuple[str, str, str, str]]',
+                    cur.execute(
+                        (
+                            'SELECT topic_type, encoding, encoded_message_definition,'
+                            ' type_description_hash FROM message_definitions ORDER BY id'
+                        ),
+                    ),
                 )
             ]
             for typ in msgtypes:
@@ -156,13 +167,12 @@ class ReaderSqlite3:
         querystr = ' '.join(query)
 
         for conn in self.dbconns:
-            cur = conn.cursor()
-            cur.execute('SELECT name,id FROM topics')
-            connmap: dict[int, Connection] = {
-                row[1]: next(x for x in self.connections if x.topic == row[0]) for row in cur
+            tcur = cast('Iterable[tuple[str, int]]', conn.execute('SELECT name,id FROM topics'))
+            connmap: dict[int, Connection] = {  # pragma: no branch
+                row[1]: next(x for x in self.connections if x.topic == row[0]) for row in tcur
             }
 
-            cur.execute(querystr, args)
+            cur = cast('Iterable[tuple[int, int, bytes]]', conn.execute(querystr, args))
 
             for cid, timestamp, data in cur:
                 yield connmap[cid], timestamp, data

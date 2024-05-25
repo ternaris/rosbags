@@ -4,8 +4,20 @@
 
 from __future__ import annotations
 
-from enum import IntEnum, auto
-from typing import NamedTuple
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Generic, NamedTuple, Protocol, TypeAlias, TypeVar
+
+from .typing import Nodetype as _Nodetype
+
+if TYPE_CHECKING:
+    from rosbags.interfaces.typing import Typesdict
+
+    from .typing import Fielddefs
+
+T = TypeVar('T')
+
+Nodetype = _Nodetype
 
 
 class ConnectionExtRosbag1(NamedTuple):
@@ -44,13 +56,42 @@ class TopicInfo(NamedTuple):
     connections: list[Connection]
 
 
-class Nodetype(IntEnum):
-    """Parse tree node types.
+class Typestore(Protocol):
+    """Type storage."""
 
-    The first four match the Valtypes of final message definitions.
-    """
+    fielddefs: Typesdict
 
-    BASE = auto()
-    NAME = auto()
-    ARRAY = auto()
-    SEQUENCE = auto()
+    def get_msgdef(self, typename: str) -> Msgdef[object]:
+        """Get message definition."""
+        raise NotImplementedError  # pragma: no cover
+
+
+Bitcvt: TypeAlias = Callable[[bytes | memoryview, int, memoryview, int, Typestore], tuple[int, int]]
+BitcvtSize: TypeAlias = Callable[[bytes | memoryview, int, None, int, Typestore], tuple[int, int]]
+
+CDRDeser: TypeAlias = Callable[[bytes | memoryview, int, type, Typestore], tuple[T, int]]
+CDRSer: TypeAlias = Callable[[memoryview, int, object, Typestore], int]
+CDRSerSize: TypeAlias = Callable[[int, object, Typestore], int]
+
+
+@dataclass(frozen=True)
+class Msgdef(Generic[T]):
+    """Metadata of a message."""
+
+    name: str
+    fields: Fielddefs
+    cls: type[object]
+    size_cdr: int
+    getsize_cdr: CDRSerSize
+    serialize_cdr_le: CDRSer
+    serialize_cdr_be: CDRSer
+    deserialize_cdr_le: CDRDeser[T]
+    deserialize_cdr_be: CDRDeser[T]
+    size_ros1: int
+    getsize_ros1: CDRSerSize
+    serialize_ros1: CDRSer
+    deserialize_ros1: CDRDeser[T]
+    getsize_ros1_to_cdr: BitcvtSize
+    ros1_to_cdr: Bitcvt
+    getsize_cdr_to_ros1: BitcvtSize
+    cdr_to_ros1: Bitcvt

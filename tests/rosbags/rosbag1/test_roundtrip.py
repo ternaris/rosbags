@@ -41,4 +41,4 @@ def test_roundtrip(tmp_path: Path, fmt: Writer.CompressionFormat | None) -> None
         msg = store.deserialize_ros1(raw, rconnection.msgtype)
         assert msg == float64
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)

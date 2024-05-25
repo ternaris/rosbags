@@ -22,16 +22,18 @@ from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
 if TYPE_CHECKING:
     from typing import TypeVar
 
-    from rosbags.interfaces.typing import (
+    from rosbags.interfaces import (
         Bitcvt,
         BitcvtSize,
         CDRDeser,
         CDRSer,
         CDRSerSize,
+        Typestore,
+    )
+    from rosbags.interfaces.typing import (
         Fielddefs,
         FieldDesc,
     )
-    from rosbags.typesys.store import Typestore
 
     T = TypeVar('T')
 
@@ -191,7 +193,7 @@ def generate_ros1_to_cdr(
             aligned = anext_before
 
     lines.append('  return ipos, opos')
-    return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
+    return cast('Bitcvt | BitcvtSize', getattr(compile_lines(lines), funcname))
 
 
 def generate_cdr_to_ros1(
@@ -345,7 +347,7 @@ def generate_cdr_to_ros1(
             aligned = anext_before
 
     lines.append('  return ipos, opos')
-    return getattr(compile_lines(lines), funcname)  # type: ignore[no-any-return]
+    return cast('Bitcvt | BitcvtSize', getattr(compile_lines(lines), funcname))
 
 
 def generate_getsize_ros1(fields: Fielddefs, typestore: Typestore) -> tuple[CDRSerSize, int]:
@@ -446,7 +448,8 @@ def generate_getsize_ros1(fields: Fielddefs, typestore: Typestore) -> tuple[CDRS
 
             is_stat = False
     lines.append('  return pos')
-    return compile_lines(lines).getsize_ros1, is_stat * size
+    funcname = 'getsize_ros1'
+    return cast('CDRSerSize', getattr(compile_lines(lines), funcname)), is_stat * size
 
 
 def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
@@ -561,7 +564,8 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
                 lines.append('    pos = func(rawdata, pos, item, typestore)')
 
     lines.append('  return pos')
-    return compile_lines(lines).serialize_ros1  # type: ignore[no-any-return]
+    funcname = 'serialize_ros1'
+    return cast('CDRSer', getattr(compile_lines(lines), funcname))
 
 
 def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDeser[T]:
@@ -637,8 +641,10 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                 else:
                     size = length * SIZEMAP[subdesc[1][0]]
                     lines.append(
-                        f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)',
+                        (
+                            f'  val = numpy.frombuffer(rawdata, '
+                            f'dtype=numpy.{ndtype(subdesc[1][0])}, count={length}, offset=pos)'
+                        ),
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
@@ -674,8 +680,10 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                 else:
                     lines.append(f'  length = size * {SIZEMAP[subdesc[1][0]]}')
                     lines.append(
-                        f'  val = numpy.frombuffer(rawdata, '
-                        f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)',
+                        (
+                            f'  val = numpy.frombuffer(rawdata, '
+                            f'dtype=numpy.{ndtype(subdesc[1][0])}, count=size, offset=pos)'
+                        ),
                     )
                     lines.append(f'  if val.dtype.byteorder in {be_syms}:')
                     lines.append('    val = val.byteswap()')
@@ -693,4 +701,5 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                 lines.append('  values.append(value)')
 
     lines.append('  return cls(*values), pos')
-    return compile_lines(lines).deserialize_ros1  # type: ignore[no-any-return]
+    funcname = 'deserialize_ros1'
+    return cast('CDRDeser[T]', getattr(compile_lines(lines), funcname))

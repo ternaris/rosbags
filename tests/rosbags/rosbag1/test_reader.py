@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 def ser(data: dict[str, bytes] | bytes) -> bytes:
     """Serialize record header."""
     if isinstance(data, dict):
-        fields = []
+        fields: list[bytes] = []
         for key, value in data.items():
             field = b'='.join([key.encode(), value])
             fields.append(pack('<L', len(field)) + field)
@@ -87,7 +87,7 @@ def write_bag(
     if chunks:
         for chunk in chunks:
             chunk_bytes = b''
-            start_time = 2**32 - 1
+            start_time: int = 2**32 - 1
             end_time = 0
             counts: dict[int, int] = defaultdict(int)
             index_count: dict[int, int] = {}
@@ -101,6 +101,8 @@ def write_bag(
                     chunk_bytes += add
                     connections += add
                 elif head.get('op') == b'\x02':
+                    time: int
+                    conn: int
                     (time,) = unpack('<Lxxxx', head['time'])
                     (conn,) = unpack('<L', head['conn'])
 
@@ -159,7 +161,7 @@ def write_bag(
     header_bytes = ser(header)
     header_bytes += b'\x20' * (4096 - len(header_bytes))
 
-    bag.write_bytes(b''.join([magic, header_bytes, chunks_bytes, connections, chunkinfos]))
+    _ = bag.write_bytes(b''.join([magic, header_bytes, chunks_bytes, connections, chunkinfos]))
 
 
 def test_indexdata() -> None:
@@ -282,7 +284,7 @@ def test_raises_if_user_error(tmp_path: Path) -> None:
 
     reader = Reader(bag)
     with pytest.raises(ReaderError, match='is not open'):
-        next(reader.messages())
+        _ = next(reader.messages())
 
 
 def test_failure_cases(tmp_path: Path) -> None:
@@ -291,7 +293,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     with pytest.raises(ReaderError, match='does not exist'):
         Reader(bag).open()
 
-    bag.write_text('')
+    _ = bag.write_text('')
     with (
         patch('pathlib.Path.open', side_effect=IOError),
         pytest.raises(ReaderError, match='not open'),
@@ -301,31 +303,31 @@ def test_failure_cases(tmp_path: Path) -> None:
     with pytest.raises(ReaderError, match='empty'):
         Reader(bag).open()
 
-    bag.write_text('#BADMAGIC')
+    _ = bag.write_text('#BADMAGIC')
     with pytest.raises(ReaderError, match='magic is invalid'):
         Reader(bag).open()
 
-    bag.write_text('#ROSBAG V3.0\n')
+    _ = bag.write_text('#ROSBAG V3.0\n')
     with pytest.raises(ReaderError, match='Bag version 300 is not supported.'):
         Reader(bag).open()
 
-    bag.write_bytes(b'#ROSBAG V2.0\x0a\x00')
+    _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x00')
     with pytest.raises(ReaderError, match='Header could not be read from file.'):
         Reader(bag).open()
 
-    bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00')
+    _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00')
     with pytest.raises(ReaderError, match='Header could not be read from file.'):
         Reader(bag).open()
 
-    bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00\x01')
+    _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00\x01')
     with pytest.raises(ReaderError, match='Header field size could not be read.'):
         Reader(bag).open()
 
-    bag.write_bytes(b'#ROSBAG V2.0\x0a\x04\x00\x00\x00\x01\x00\x00\x00')
+    _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x04\x00\x00\x00\x01\x00\x00\x00')
     with pytest.raises(ReaderError, match='Declared field size is too large for header.'):
         Reader(bag).open()
 
-    bag.write_bytes(b'#ROSBAG V2.0\x0a\x05\x00\x00\x00\x01\x00\x00\x00x')
+    _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x05\x00\x00\x00\x01\x00\x00\x00x')
     with pytest.raises(ReaderError, match='Header field could not be parsed.'):
         Reader(bag).open()
 
@@ -338,27 +340,27 @@ def test_failure_cases(tmp_path: Path) -> None:
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-    bag.write_bytes(bag.read_bytes().replace(b'none', b'COMP'))
+    _ = bag.write_bytes(bag.read_bytes().replace(b'none', b'COMP'))
     with pytest.raises(ReaderError, match="Compression 'COMP' is not supported."):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-    bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02'))
+    _ = bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02'))
     with pytest.raises(ReaderError, match='CHUNK_INFO version 2 is not supported.'):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-    bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02', 1))
+    _ = bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02', 1))
     with pytest.raises(ReaderError, match='IDXDATA version 2 is not supported.'):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-    bag.write_bytes(bag.read_bytes().replace(b'op=\x02', b'op=\x00', 1))
+    _ = bag.write_bytes(bag.read_bytes().replace(b'op=\x02', b'op=\x00', 1))
     with Reader(bag) as reader, pytest.raises(ReaderError, match='Expected to find message data.'):
-        next(reader.messages())
+        _ = next(reader.messages())
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-    bag.write_bytes(bag.read_bytes().replace(b'op=\x03', b'op=\x02', 1))
+    _ = bag.write_bytes(bag.read_bytes().replace(b'op=\x03', b'op=\x02', 1))
     with pytest.raises(ReaderError, match="Record of type 'MSGDATA' is unexpected."):
         Reader(bag).open()
 
@@ -375,15 +377,15 @@ def test_failure_cases(tmp_path: Path) -> None:
         ],
     )
     with Reader(bag) as reader, pytest.raises(ReaderError, match="field 'op'"):
-        next(reader.messages())
+        _ = next(reader.messages())
 
     # bad uint32, uint64, time field
     for name in ('conn_count', 'chunk_pos', 'time'):
         write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
-        bag.write_bytes(bag.read_bytes().replace(name.encode(), b'x' * len(name), 1))
+        _ = bag.write_bytes(bag.read_bytes().replace(name.encode(), b'x' * len(name), 1))
         if name == 'time':
             with pytest.raises(ReaderError, match=f"field '{name}'"), Reader(bag) as reader:
-                next(reader.messages())
+                _ = next(reader.messages())
         else:
             with pytest.raises(ReaderError, match=f"field '{name}'"):
                 Reader(bag).open()

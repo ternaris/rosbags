@@ -7,3 +7,5 @@ from __future__ import annotations
 
 class ReaderError(Exception):
     """Reader Error."""
+
+    args: tuple[str]

@@ -19,10 +19,11 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
+    from rosbags.interfaces import Msgdef, Typestore
     from rosbags.interfaces.typing import Basename, FieldDesc
-    from rosbags.typesys.store import Msgdef, Typestore
+    from rosbags.typesys.store import Msgarg
 
-    Array: TypeAlias = 'list[Msgdef[object]] | list[str] | NDArray[np.float64]'
+    Array: TypeAlias = 'list[object] | list[str] | NDArray[np.float64]'
     BasetypeMap: TypeAlias = 'dict[Basename, Struct]'
 
 BASETYPEMAP_LE: BasetypeMap = {
@@ -90,7 +91,7 @@ def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) -> tuple[str
 
     """
     pos = (pos + 4 - 1) & -4
-    length = bmap['int32'].unpack_from(rawdata, pos)[0]
+    length: int = bmap['int32'].unpack_from(rawdata, pos)[0]
     val = bytes(rawdata[pos + 4 : pos + 4 + length - 1])
     return val.decode(), pos + 4 + length
 
@@ -122,7 +123,7 @@ def deserialize_array(
     """
     if desc[0] == Nodetype.BASE:
         if desc[1][0] == 'string':
-            strs = []
+            strs: list[str] = []
             while (num := num - 1) >= 0:
                 val, pos = deserialize_string(rawdata, bmap, pos)
                 strs.append(val)
@@ -136,7 +137,7 @@ def deserialize_array(
         return ndarr, pos + num * SIZEMAP[desc[1][0]]
 
     if desc[0] == Nodetype.NAME:
-        msgs = []
+        msgs: list[object] = []
         while (num := num - 1) >= 0:
             rosmsg, pos = deserialize_message(
                 rawdata, bmap, pos, typestore.get_msgdef(desc[1]), typestore
@@ -154,7 +155,7 @@ def deserialize_message(
     pos: int,
     msgdef: Msgdef[object],
     typestore: Typestore,
-) -> tuple[Msgdef[object], int]:
+) -> tuple[object, int]:
     """Deserialize a message.
 
     Args:
@@ -210,7 +211,7 @@ def deserialize(rawdata: bytes, typename: str, typestore: Typestore) -> object:
         Deserialized message object.
 
     """
-    _, little_endian = unpack_from('BB', rawdata, 0)
+    _, little_endian = cast('tuple[int, int]', unpack_from('BB', rawdata, 0))
 
     msgdef = typestore.get_msgdef(typename)
     obj, _ = deserialize_message(
@@ -346,7 +347,7 @@ def serialize_message(
 
     """
     for fieldname, desc in msgdef.fields:
-        val = getattr(message, fieldname)
+        val: Msgarg = getattr(message, fieldname)
         if desc[0] == Nodetype.NAME:
             pos = serialize_message(
                 rawdata, bmap, pos, val, typestore.get_msgdef(desc[1]), typestore
@@ -354,17 +355,23 @@ def serialize_message(
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
+                assert isinstance(val, str)
                 pos = serialize_string(rawdata, bmap, pos, val)
             else:
+                assert isinstance(val, int | float)
                 pos = serialize_number(rawdata, bmap, pos, desc[1][0], val)
 
         elif desc[0] == Nodetype.ARRAY:
-            pos = serialize_array(rawdata, bmap, pos, desc[1][0], val, typestore)
+            assert isinstance(val, list | np.ndarray)
+            lval: list[str] = cast('list[str]', val)
+            pos = serialize_array(rawdata, bmap, pos, desc[1][0], lval, typestore)
 
         elif desc[0] == Nodetype.SEQUENCE:
-            size = len(val)
+            assert isinstance(val, list | np.ndarray)
+            lval = cast('list[str]', val)
+            size = len(lval)
             pos = serialize_number(rawdata, bmap, pos, 'int32', size)
-            pos = serialize_array(rawdata, bmap, pos, desc[1][0], val, typestore)
+            pos = serialize_array(rawdata, bmap, pos, desc[1][0], lval, typestore)
 
     return pos
 
@@ -423,12 +430,13 @@ def get_size(message: object, msgdef: Msgdef[object], typestore: Typestore, size
 
     """
     for fieldname, desc in msgdef.fields:
-        val = getattr(message, fieldname)
+        val: Msgarg = getattr(message, fieldname)
         if desc[0] == Nodetype.NAME:
             size = get_size(val, typestore.get_msgdef(desc[1]), typestore, size)
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
+                assert isinstance(val, str)
                 size = (size + 4 - 1) & -4
                 size += 4 + len(val.encode()) + 1
             else:
@@ -438,15 +446,19 @@ def get_size(message: object, msgdef: Msgdef[object], typestore: Typestore, size
 
         elif desc[0] == Nodetype.ARRAY:
             subdesc, length = desc[1]
-            if len(val) != length:
-                msg = f'Unexpected array length: {len(val)} != {length}.'
+            assert isinstance(val, list | np.ndarray)
+            lval: list[str] = cast('list[str]', val)
+            if len(lval) != length:
+                msg = f'Unexpected array length: {len(lval)} != {length}.'
                 raise SerdeError(msg)
-            size = get_array_size(subdesc, val, size, typestore)
+            size = get_array_size(subdesc, lval, size, typestore)
 
         elif desc[0] == Nodetype.SEQUENCE:
+            assert isinstance(val, list | np.ndarray)
+            lval = cast('list[str]', val)
             size = (size + 4 - 1) & -4
             size += 4
-            size = get_array_size(desc[1][0], val, size, typestore)
+            size = get_array_size(desc[1][0], lval, size, typestore)
 
     return size
 

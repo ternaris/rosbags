@@ -18,4 +18,4 @@ def test_deprecated_register_types() -> None:
 def test_deprecated_types_module() -> None:
     """Test register_types warns about deprecation."""
     with pytest.deprecated_call():
-        importlib.import_module('rosbags.typesys.types')
+        _ = importlib.import_module('rosbags.typesys.types')

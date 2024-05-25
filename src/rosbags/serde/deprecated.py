@@ -28,7 +28,11 @@ typestore.deserialize_cdr(data, typename)
 """.strip()
 
 
-def deserialize_cdr(rawdata: bytes, typename: str, typestore: Typestore | None = None) -> object:
+def deserialize_cdr(
+    rawdata: bytes | memoryview,
+    typename: str,
+    typestore: Typestore | None = None,
+) -> object:
     """DEPRECATED."""  # noqa: D401
     warnings.warn(depmsg, category=DeprecationWarning, stacklevel=2)
     if not typestore:
@@ -56,7 +60,11 @@ def serialize_cdr(
     return typestore.serialize_cdr(message, typename, little_endian=little_endian)
 
 
-def deserialize_ros1(rawdata: bytes, typename: str, typestore: Typestore | None = None) -> object:
+def deserialize_ros1(
+    rawdata: bytes | memoryview,
+    typename: str,
+    typestore: Typestore | None = None,
+) -> object:
     """DEPRECATED."""  # noqa: D401
     warnings.warn(depmsg, category=DeprecationWarning, stacklevel=2)
     if not typestore:
@@ -68,7 +76,9 @@ def deserialize_ros1(rawdata: bytes, typename: str, typestore: Typestore | None 
 
 
 def serialize_ros1(
-    message: object, typename: str, typestore: Typestore | None = None
+    message: object,
+    typename: str,
+    typestore: Typestore | None = None,
 ) -> memoryview:
     """DEPRECATED."""  # noqa: D401
     warnings.warn(depmsg, category=DeprecationWarning, stacklevel=2)
@@ -80,7 +90,11 @@ def serialize_ros1(
     return typestore.serialize_ros1(message, typename)
 
 
-def ros1_to_cdr(raw: bytes, typename: str, typestore: Typestore | None = None) -> memoryview:
+def ros1_to_cdr(
+    raw: bytes | memoryview,
+    typename: str,
+    typestore: Typestore | None = None,
+) -> memoryview:
     """DEPRECATED."""  # noqa: D401
     warnings.warn(depmsg, category=DeprecationWarning, stacklevel=2)
     if not typestore:
@@ -91,7 +105,11 @@ def ros1_to_cdr(raw: bytes, typename: str, typestore: Typestore | None = None) -
     return typestore.ros1_to_cdr(raw, typename)
 
 
-def cdr_to_ros1(raw: bytes, typename: str, typestore: Typestore | None = None) -> memoryview:
+def cdr_to_ros1(
+    raw: bytes | memoryview,
+    typename: str,
+    typestore: Typestore | None = None,
+) -> memoryview:
     """DEPRECATED."""  # noqa: D401
     warnings.warn(depmsg, category=DeprecationWarning, stacklevel=2)
     if not typestore:

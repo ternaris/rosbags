@@ -62,15 +62,15 @@ def test_serializer_errors() -> None:
         coef: np.ndarray[None, np.dtype[np.uint8]] = np.array([1, 2, 3, 4])
 
     msg = Foo()
-    store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
-    store.serialize_ros1(msg, 'shape_msgs/msg/Plane')
+    _ = store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
+    _ = store.serialize_ros1(msg, 'shape_msgs/msg/Plane')
 
     msg.coef = np.array([1, 2, 3, 4, 4])
     with pytest.raises(SerdeError, match='array length'):
-        store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
+        _ = store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
 
     with pytest.raises(SerdeError, match='array length'):
-        store.serialize_ros1(msg, 'shape_msgs/msg/Plane')
+        _ = store.serialize_ros1(msg, 'shape_msgs/msg/Plane')
 
 
 @pytest.mark.usefixtures('_comparable')

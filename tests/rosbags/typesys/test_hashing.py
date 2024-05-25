@@ -61,7 +61,7 @@ def test_generate_msgdef() -> None:
     assert res[0] == 'uint8 foo=42\ntime[3] times\n'
 
     with pytest.raises(TypesysError, match='is unknown'):
-        store.generate_msgdef('foo_msgs/msg/Badname')
+        _ = store.generate_msgdef('foo_msgs/msg/Badname')
 
 
 def test_ros1md5() -> None:

@@ -308,7 +308,7 @@ class VisitorIDL(Visitor):
                     consts[structname].append(
                         (
                             normalize_fieldname(varname),
-                            cast('Basename', csubitem[1][0][0]),
+                            csubitem[1][0][0],
                             csubitem[1][2],
                         ),
                     )
@@ -333,7 +333,7 @@ class VisitorIDL(Visitor):
             L,
             NameDesc,
             L,
-            tuple[tuple[Const | Struct | Module | None, L], ...],
+            tuple[tuple[Const | Struct | Module | None, L] | None, ...],
             L,
         ],
     ) -> Module:
@@ -343,8 +343,8 @@ class VisitorIDL(Visitor):
         name = children[2][1]
 
         definitions = children[4]
-        consts = []
-        structs = []
+        consts: list[Const] = []
+        structs: list[Struct] = []
         for item in definitions:
             if item is None:
                 continue
@@ -534,7 +534,7 @@ class VisitorIDL(Visitor):
             Nodetype.NAME,
         }:
             assert isinstance(children[1], str | bool | int | float)
-            return children
+            return cast('Expr', children)
 
         assert isinstance(children[0], tuple)
         if len(children) == 3:

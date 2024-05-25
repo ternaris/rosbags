@@ -54,6 +54,6 @@ def parse_message_definition(visitor: Visitor, text: str) -> Typesdict:
         npos, trees = rule.parse(text, pos)
         assert npos == len(text), f'Could not parse: {text!r}'
         return visitor.visit(trees)  # type: ignore[return-value]
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         msg = f'Could not parse: {text!r}'
         raise TypesysError(msg) from err

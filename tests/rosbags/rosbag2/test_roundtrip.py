@@ -40,4 +40,4 @@ def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
         msg = store.deserialize_cdr(raw, rconnection.msgtype)
         assert msg == float64
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)

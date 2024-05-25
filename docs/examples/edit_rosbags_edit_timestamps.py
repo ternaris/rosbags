@@ -40,6 +40,8 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
                 headstamp = head.stamp.sec * 10**9 + head.stamp.nanosec + offset
                 head.stamp.sec = headstamp // 10**9
                 head.stamp.nanosec = headstamp % 10**9
-                outdata = typestore.serialize_cdr(msg, conn.msgtype)
+                outdata: memoryview | bytes = typestore.serialize_cdr(msg, conn.msgtype)
+            else:
+                outdata = data
 
             writer.write(conn_map[conn.id], timestamp + offset, outdata)

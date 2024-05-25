@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag Converter Tests."""
 
+# pyright: strict, reportAny=false
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -33,6 +36,24 @@ from rosbags.typesys.stores import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from rosbags.typesys.stores.ros1_noetic import (
+        sensor_msgs__msg__CameraInfo as CameraInfo1,
+        shape_msgs__msg__MeshTriangle as MeshTriangle1,
+        std_msgs__msg__Duration as Duration1,
+        std_msgs__msg__Int8 as Int8,
+        std_msgs__msg__Int8MultiArray as Int8MultiArray1,
+        visualization_msgs__msg__InteractiveMarkerUpdate as InteractiveMarkerUpdate1,
+        visualization_msgs__msg__Marker as Marker1,
+    )
+    from rosbags.typesys.stores.ros2_iron import (
+        sensor_msgs__msg__CameraInfo as CameraInfo2,
+        shape_msgs__msg__MeshTriangle as MeshTriangle2,
+        std_msgs__msg__Int16MultiArray as Int16MultiArray2,
+        std_msgs__msg__String as String2,
+        visualization_msgs__msg__InteractiveMarkerUpdate as InteractiveMarkerUpdate2,
+        visualization_msgs__msg__Marker as Marker2,
+    )
 
 
 def test_convert_reader_errors(tmp_path: Path) -> None:
@@ -135,7 +156,10 @@ def test_convert_applies_transforms(tmp_path: Path) -> None:
         rctx = reader.return_value.__enter__.return_value
         rctx.connections = [conn]
         rctx.messages.return_value = [(conn, 1, 2)]
-        ccc.return_value = [{(42, 'own'): 666}, {'bar': lambda x: x * 2}]
+        ccc.return_value = [
+            {(42, 'own'): 666},
+            {'bar': lambda x: x * 2},  # pyright: ignore[reportUnknownLambdaType]
+        ]
 
         convert([], tmp_path, None, None, (), (), (), ())
 
@@ -168,7 +192,7 @@ def test_destination_typestore_gets_created() -> None:
     writer = MagicMock(spec=Writer1)
     writer.connections = []
 
-    create_connections_converters(connections, None, reader, writer)
+    _ = create_connections_converters(connections, None, reader, writer)
     writer.add_connection.assert_called_with(
         '/t1',
         'std_msgs/msg/Int8',
@@ -184,7 +208,7 @@ def test_destination_typestore_gets_created() -> None:
     writer = MagicMock(spec=Writer1)
     writer.connections = []
 
-    create_connections_converters(connections, None, reader, writer)
+    _ = create_connections_converters(connections, None, reader, writer)
     writer.add_connection.assert_called_with(
         '/t1',
         'std_msgs/msg/Int8',
@@ -201,7 +225,7 @@ def test_destination_typestore_gets_created() -> None:
     writer = MagicMock(spec=Writer2)
     writer.connections = []
 
-    create_connections_converters(connections, None, reader, writer)
+    _ = create_connections_converters(connections, None, reader, writer)
     writer.add_connection.assert_called_with(
         '/t1',
         'std_msgs/msg/Int8',
@@ -218,7 +242,7 @@ def test_destination_typestore_gets_created() -> None:
     writer = MagicMock(spec=Writer2)
     writer.connections = []
 
-    create_connections_converters(connections, None, reader, writer)
+    _ = create_connections_converters(connections, None, reader, writer)
     writer.add_connection.assert_called_with(
         '/t1',
         'std_msgs/msg/Int8',
@@ -235,7 +259,7 @@ def test_destination_typestore_gets_created() -> None:
     writer.connections = []
 
     empty = get_typestore(Stores.EMPTY)
-    create_connections_converters(connections, empty, reader, writer)
+    _ = create_connections_converters(connections, empty, reader, writer)
     writer.add_connection.assert_called_with(
         '/t1',
         'std_msgs/msg/Int8',
@@ -303,19 +327,18 @@ def test_connection_deduplication() -> None:
         name: str, typ: str, *, typestore: object, callerid: str, latching: bool
     ) -> Connection:
         _ = typestore
-        writer.connections.append(
-            Connection(
-                len(writer.connections),
-                name,
-                typ,
-                '',
-                '',
-                0,
-                ConnectionExtRosbag1(callerid, latching),
-                None,
-            ),
+        res = Connection(
+            len(writer.connections),
+            name,
+            typ,
+            '',
+            '',
+            0,
+            ConnectionExtRosbag1(callerid, latching),
+            None,
         )
-        return writer.connections[-1]  # type: ignore[no-any-return]
+        writer.connections.append(res)
+        return res
 
     writer.add_connection = add_connection1
 
@@ -344,19 +367,18 @@ def test_connection_deduplication() -> None:
         offered_qos_profiles: str,
     ) -> Connection:
         _ = typestore
-        writer.connections.append(
-            Connection(
-                len(writer.connections),
-                name,
-                typ,
-                '',
-                '',
-                0,
-                ConnectionExtRosbag2(serialization_format, offered_qos_profiles),
-                None,
-            ),
+        res = Connection(
+            len(writer.connections),
+            name,
+            typ,
+            '',
+            '',
+            0,
+            ConnectionExtRosbag2(serialization_format, offered_qos_profiles),
+            None,
         )
-        return writer.connections[-1]  # type: ignore[no-any-return]
+        writer.connections.append(res)
+        return res
 
     writer.add_connection = add_connection2
 
@@ -532,19 +554,22 @@ def test_migrate_message() -> None:
     dstts = get_typestore(Stores.ROS2_IRON)
     cache1: dict[str, object] = {}
 
-    msg = default_message(srcts, 'visualization_msgs/msg/Marker')
-    res = migrate_message(
-        srcts,
-        dstts,
-        'visualization_msgs/msg/Marker',
-        'visualization_msgs/msg/Marker',
-        cache1,
-        msg,
+    msg = cast('Marker1', default_message(srcts, 'visualization_msgs/msg/Marker'))
+    res = cast(
+        'Marker2',
+        migrate_message(
+            srcts,
+            dstts,
+            'visualization_msgs/msg/Marker',
+            'visualization_msgs/msg/Marker',
+            cache1,
+            msg,
+        ),
     )
-    assert res.texture_resource == ''  # type: ignore[attr-defined]
-    assert isinstance(res.texture, dstts.types['sensor_msgs/msg/CompressedImage'])  # type: ignore[attr-defined]
-    assert res.uv_coordinates == []  # type: ignore[attr-defined]
-    assert isinstance(res.mesh_file, dstts.types['visualization_msgs/msg/MeshFile'])  # type: ignore[attr-defined]
+    assert res.texture_resource == ''
+    assert isinstance(res.texture, dstts.types['sensor_msgs/msg/CompressedImage'])
+    assert res.uv_coordinates == []
+    assert isinstance(res.mesh_file, dstts.types['visualization_msgs/msg/MeshFile'])
 
     cache2: dict[str, object] = {}
     assert (
@@ -559,182 +584,259 @@ def test_migrate_message() -> None:
         == msg
     )
 
-    msg = default_message(
-        srcts,
-        'visualization_msgs/msg/InteractiveMarkerUpdate',
+    msg2 = cast(
+        'InteractiveMarkerUpdate1',
+        default_message(
+            srcts,
+            'visualization_msgs/msg/InteractiveMarkerUpdate',
+        ),
     )
-    msg.erases.append('foo')  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'visualization_msgs/msg/InteractiveMarkerUpdate',
-        'visualization_msgs/msg/InteractiveMarkerUpdate',
-        cache1,
-        msg,
+    msg2.erases.append('foo')
+    res2 = cast(
+        'InteractiveMarkerUpdate2',
+        migrate_message(
+            srcts,
+            dstts,
+            'visualization_msgs/msg/InteractiveMarkerUpdate',
+            'visualization_msgs/msg/InteractiveMarkerUpdate',
+            cache1,
+            msg2,
+        ),
     )
-    assert res.erases == ['foo']  # type: ignore[attr-defined]
+    assert res2.erases == ['foo']
 
     # Type change.
-    msg = default_message(
-        srcts,
-        'std_msgs/msg/Int8',
+    msg3 = cast(
+        'Int8',
+        default_message(
+            srcts,
+            'std_msgs/msg/Int8',
+        ),
     )
-    msg.data = 42  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'std_msgs/msg/Int8',
-        'std_msgs/msg/String',
-        cache1,
-        msg,
+    msg3.data = 42
+    res3 = cast(
+        'String2',
+        migrate_message(
+            srcts,
+            dstts,
+            'std_msgs/msg/Int8',
+            'std_msgs/msg/String',
+            cache1,
+            msg3,
+        ),
     )
-    assert res.data == ''  # type: ignore[attr-defined]
+    assert res3.data == ''
 
     # Dtype change.
-    msg = default_message(
-        srcts,
-        'std_msgs/msg/Int8MultiArray',
+    msg4 = cast(
+        'Int8MultiArray1',
+        default_message(
+            srcts,
+            'std_msgs/msg/Int8MultiArray',
+        ),
     )
-    msg.data.resize(4, refcheck=False)  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'std_msgs/msg/Int8MultiArray',
-        'std_msgs/msg/Int16MultiArray',
-        cache1,
-        msg,
+    msg4.data.resize(4, refcheck=False)
+    res4 = cast(
+        'Int16MultiArray2',
+        migrate_message(
+            srcts,
+            dstts,
+            'std_msgs/msg/Int8MultiArray',
+            'std_msgs/msg/Int16MultiArray',
+            cache1,
+            msg4,
+        ),
     )
-    assert len(res.data) == 4  # type: ignore[attr-defined]
-    assert res.data.dtype.name == 'int16'  # type: ignore[attr-defined]
+    assert len(res4.data) == 4
+    assert res4.data.dtype.name == 'int16'
 
-    msg = default_message(
-        srcts,
-        'std_msgs/msg/Int8',
+    msg5 = cast(
+        'Int8',
+        default_message(
+            srcts,
+            'std_msgs/msg/Int8',
+        ),
     )
-    msg.data = 42  # type: ignore[attr-defined]
-    res = migrate_message(
-        dstts,
-        srcts,
-        'std_msgs/msg/Int8',
-        'std_msgs/msg/Duration',
-        cache2,
-        msg,
+    msg5.data = 42
+    res5 = cast(
+        'Duration1',
+        migrate_message(
+            dstts,
+            srcts,
+            'std_msgs/msg/Int8',
+            'std_msgs/msg/Duration',
+            cache2,
+            msg5,
+        ),
     )
-    assert res.data.sec == 0  # type: ignore[attr-defined]
+    assert res5.data.sec == 0
 
-    msg = default_message(
-        srcts,
-        'sensor_msgs/msg/CameraInfo',
+    msg6 = cast(
+        'CameraInfo1',
+        default_message(
+            srcts,
+            'sensor_msgs/msg/CameraInfo',
+        ),
     )
-    msg.K[:] = 10  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'sensor_msgs/msg/CameraInfo',
-        'sensor_msgs/msg/CameraInfo',
-        cache1,
-        msg,
+    msg6.K[:] = 10
+    res6 = cast(
+        'CameraInfo2',
+        migrate_message(
+            srcts,
+            dstts,
+            'sensor_msgs/msg/CameraInfo',
+            'sensor_msgs/msg/CameraInfo',
+            cache1,
+            msg6,
+        ),
     )
-    assert (res.k == 10).all()  # type: ignore[attr-defined]
+    assert (res6.k == 10).all()
 
-    msg = default_message(
-        srcts,
-        'shape_msgs/msg/MeshTriangle',
+    msg7 = cast(
+        'MeshTriangle1',
+        default_message(
+            srcts,
+            'shape_msgs/msg/MeshTriangle',
+        ),
     )
-    msg.vertex_indices.resize(10, refcheck=False)  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'shape_msgs/msg/MeshTriangle',
-        'shape_msgs/msg/MeshTriangle',
-        cache1,
-        msg,
+    msg7.vertex_indices.resize(10, refcheck=False)
+    res7 = cast(
+        'MeshTriangle2',
+        migrate_message(
+            srcts,
+            dstts,
+            'shape_msgs/msg/MeshTriangle',
+            'shape_msgs/msg/MeshTriangle',
+            cache1,
+            msg7,
+        ),
     )
-    assert len(res.vertex_indices) == 3  # type: ignore[attr-defined]
+    assert len(res7.vertex_indices) == 3
 
-    msg = default_message(
-        srcts,
-        'shape_msgs/msg/MeshTriangle',
+    msg7 = cast(
+        'MeshTriangle1',
+        default_message(
+            srcts,
+            'shape_msgs/msg/MeshTriangle',
+        ),
     )
-    msg.vertex_indices.resize(1, refcheck=False)  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'shape_msgs/msg/MeshTriangle',
-        'shape_msgs/msg/MeshTriangle',
-        cache1,
-        msg,
+    msg7.vertex_indices.resize(1, refcheck=False)
+    res7 = cast(
+        'MeshTriangle2',
+        migrate_message(
+            srcts,
+            dstts,
+            'shape_msgs/msg/MeshTriangle',
+            'shape_msgs/msg/MeshTriangle',
+            cache1,
+            msg7,
+        ),
     )
-    assert len(res.vertex_indices) == 3  # type: ignore[attr-defined]
+    assert len(res7.vertex_indices) == 3
+
+    @dataclass
+    class Strarr:
+        data: list[Int8]
+
+    @dataclass
+    class Addrem:
+        value: int
 
     typs = get_types_from_msg('string[4] data', 'x/msg/strarr')
     srcts.register(typs)
     typs = get_types_from_msg('string[2] data', 'x/msg/strarr')
     dstts.register(typs)
-    msg = default_message(
-        srcts,
-        'x/msg/strarr',
+    msg8 = cast(
+        'Strarr',
+        default_message(
+            srcts,
+            'x/msg/strarr',
+        ),
     )
-    assert len(msg.data) == 4  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'x/msg/strarr',
-        'x/msg/strarr',
-        cache1,
-        msg,
+    assert len(msg8.data) == 4
+    res8 = cast(
+        'Strarr',
+        migrate_message(
+            srcts,
+            dstts,
+            'x/msg/strarr',
+            'x/msg/strarr',
+            cache1,
+            msg8,
+        ),
     )
-    assert len(res.data) == 2  # type: ignore[attr-defined]
+    assert len(res8.data) == 2
 
-    msg = default_message(
-        dstts,
-        'x/msg/strarr',
+    msg8 = cast(
+        'Strarr',
+        default_message(
+            dstts,
+            'x/msg/strarr',
+        ),
     )
-    assert len(msg.data) == 2  # type: ignore[attr-defined]
-    res = migrate_message(
-        dstts,
-        srcts,
-        'x/msg/strarr',
-        'x/msg/strarr',
-        cache1,
-        msg,
+    assert len(msg8.data) == 2
+    res8 = cast(
+        'Strarr',
+        migrate_message(
+            dstts,
+            srcts,
+            'x/msg/strarr',
+            'x/msg/strarr',
+            cache1,
+            msg8,
+        ),
     )
-    assert len(res.data) == 4  # type: ignore[attr-defined]
+    assert len(res8.data) == 4
 
     typs = get_types_from_msg('std_msgs/msg/Int8[2] data', 'x/msg/msgarr')
     dstts.register(typs)
-    msg = default_message(
-        srcts,
-        'x/msg/strarr',
+    msg9 = cast(
+        'Strarr',
+        default_message(
+            srcts,
+            'x/msg/strarr',
+        ),
     )
-    assert len(msg.data) == 4  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'x/msg/strarr',
-        'x/msg/msgarr',
-        cache1,
-        msg,
+    assert len(msg9.data) == 4
+    res9 = cast(
+        'Strarr',
+        migrate_message(
+            srcts,
+            dstts,
+            'x/msg/strarr',
+            'x/msg/msgarr',
+            cache1,
+            msg9,
+        ),
     )
-    msg = default_message(
-        dstts,
-        'std_msgs/msg/Int8',
+    msg5 = cast(
+        'Int8',
+        default_message(
+            dstts,
+            'std_msgs/msg/Int8',
+        ),
     )
-    assert res.data == [msg, msg]  # type: ignore[attr-defined]
+    assert res9.data == [msg5, msg5]
 
     typs = get_types_from_msg('uint8 value', 'x/msg/addrem')
     dstts.register(typs)
-    msg = default_message(
-        srcts,
-        'std_msgs/msg/Int8',
+    msg10 = cast(
+        'Int8',
+        default_message(
+            srcts,
+            'std_msgs/msg/Int8',
+        ),
     )
-    msg.data = 42  # type: ignore[attr-defined]
-    res = migrate_message(
-        srcts,
-        dstts,
-        'std_msgs/msg/Int8',
-        'x/msg/addrem',
-        cache1,
-        msg,
+    msg10.data = 42
+    res10 = cast(
+        'Addrem',
+        migrate_message(
+            srcts,
+            dstts,
+            'std_msgs/msg/Int8',
+            'x/msg/addrem',
+            cache1,
+            msg10,
+        ),
     )
-    assert res.value == 0  # type: ignore[attr-defined]
+    assert res10.value == 0

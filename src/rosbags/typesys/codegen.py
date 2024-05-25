@@ -61,6 +61,7 @@ def generate_python_code(
     remove: Sequence[str] = (),
     add: Sequence[str] = (),
     change: Sequence[str] = (),
+    keep: Sequence[str] = (),
 ) -> str:
     """Generate python code from types dictionary.
 
@@ -70,58 +71,65 @@ def generate_python_code(
         remove: Types to remove.
         add: Types to add.
         change: Types to change.
+        keep: Types to keep.
 
     Returns:
         Code for importable python module.
 
     """
+    _ = remove
+    if not base:
+        add = list(typs.keys())
     lines = [
         '# Copyright 2020 - 2024 Ternaris',
-        '# SPDX-License-Identifier:' ' Apache-2.0',
+        ('# SPDX-License-Identifier:' ' Apache-2.0'),
         '#',
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""Message type definitions."""',
         '',
-        '# ruff: noqa: E501,F401,F403,F405,F821,N801,N814,TCH004',
+        '# ruff: noqa: N801,N814,N816,TCH004',
         '',
         'from __future__ import annotations',
         '',
-        'from dataclasses import dataclass',
+    ]
+    if add or change:
+        lines += ['from dataclasses import dataclass']
+    lines += [
         'from typing import TYPE_CHECKING',
         '',
-        'from rosbags.interfaces import Nodetype as T',
-        '',
     ]
+    if add or change:
+        lines += [
+            'from rosbags.interfaces import Nodetype as T',
+            '',
+        ]
     if base:
         lines += [
-            f'from .{base} import *',
+            f'from . import {base} as base',
             '',
         ]
 
     lines += [
         'if TYPE_CHECKING:',
-        '    from typing import ClassVar',
-        '',
+    ]
+    if add or change:
+        lines += [
+            '    from typing import ClassVar',
+            '',
+        ]
+    lines += [
         '    import numpy as np',
         '',
+        '    from rosbags.interfaces.typing import Typesdict',
+        '',
     ]
-    if not base:
-        lines += [
-            '    from rosbags.interfaces.typing import Typesdict',
-            '',
-        ]
     lines += ['']
-    if remove:
-        lines += [
-            'FIELDDEFS = FIELDDEFS.copy()',
-            *[f'del FIELDDEFS[{x!r}]' for x in remove],
-            *[f'del {x.replace("/", "__")}' for x in remove],
-            '',
-            '',
-        ]
 
-    if not base:
-        add = list(typs.keys())
+    if keep:
+        for name in keep:
+            pyname = name.replace('/', '__')
+            lines += [f'{pyname} = base.{pyname}']
+        lines += ['', '']
 
     for name, (consts, fields) in typs.items():
         if name not in add and name not in change:
@@ -129,7 +137,7 @@ def generate_python_code(
         pyname = name.replace('/', '__')
         lines += [
             '@dataclass',
-            f'class {pyname}:{"  # type: ignore[no-redef]" if name in change else ""}',
+            f'class {pyname}:',
             f'    """Class for {name}."""',
             '',
             *[
@@ -160,9 +168,11 @@ def generate_python_code(
 
     if base:
         lines += [
-            'FIELDDEFS = {',
-            '    **FIELDDEFS,',
+            'FIELDDEFS: Typesdict = {',
+            # '    **base.FIELDDEFS,',
         ]
+        for typ in keep:
+            lines += [f'    {typ!r}: base.FIELDDEFS[{typ!r}],']
     else:
         lines += ['FIELDDEFS: Typesdict = {']
     for name, (consts, fields) in typs.items():
@@ -196,4 +206,8 @@ def generate_python_code(
         '}',
         '',
     ]
+    if not any('np.ndarray' in x for x in lines):
+        idx = lines.index('    import numpy as np')
+        _ = lines.pop(idx)
+        _ = lines.pop(idx)
     return '\n'.join(lines)

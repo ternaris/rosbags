@@ -53,7 +53,7 @@ def test_ros1_deserializer() -> None:
 
     msg_ros1 = ros1_store.deserialize_ros1(ros2_store.cdr_to_ros1(*MSG_MAGN[:2]), MSG_MAGN[1])
     assert isinstance(msg_ros1, MagneticField)
-    msg_ros1_dct = asdict(msg_ros1)
+    msg_ros1_dct: dict[str, dict[str, str | int]] = asdict(msg_ros1)
     assert msg_ros1_dct['header'].pop('seq') == 0
     assert msg_ros1_dct == asdict(MAGN)
 

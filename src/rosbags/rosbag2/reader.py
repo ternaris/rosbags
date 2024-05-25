@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag2 reader."""
 
+# pyright: strict, reportUnreachable=false
+
 from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import zstandard
 from ruamel.yaml import YAML
@@ -100,7 +102,10 @@ class Reader:
         self.path = path
         try:
             yaml = YAML(typ='safe')
-            dct = yaml.load(yamlpath.read_text())
+            dct = cast(
+                'dict[str, Metadata]',
+                yaml.load(yamlpath.read_text()),  # pyright: ignore[reportUnknownMemberType]
+            )
         except OSError as err:
             msg = f'Could not read metadata at {yamlpath}: {err}.'
             raise ReaderError(msg) from None
@@ -206,7 +211,7 @@ class Reader:
 
     def open(self) -> None:
         """Open rosbag2."""
-        storage_paths = []
+        storage_paths: list[Path] = []
         if self.compression_mode == 'file':
             self.tmpdir = TemporaryDirectory()
             tmpdir = self.tmpdir.name
@@ -214,7 +219,7 @@ class Reader:
             for path in self.paths:
                 storage_file = Path(tmpdir, path.stem)
                 with path.open('rb') as infile, storage_file.open('wb') as outfile:
-                    decomp.copy_stream(infile, outfile)
+                    _ = decomp.copy_stream(infile, outfile)
                 storage_paths.append(storage_file)
         else:
             storage_paths = self.paths[:]

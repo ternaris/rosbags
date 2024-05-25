@@ -108,7 +108,7 @@ module test_msgs {
 def test_idl_parser_raises_on_bad_definition() -> None:
     """Test idl parser raises on bad definition."""
     with pytest.raises(TypesysError, match='Could not parse'):
-        get_types_from_idl('module test_msgs {}')
+        _ = get_types_from_idl('module test_msgs {}')
 
 
 def test_idl_parser_accepts_literals_and_expressions() -> None:

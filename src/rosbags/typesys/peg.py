@@ -11,10 +11,17 @@ definition formats.
 from __future__ import annotations
 
 import re
+import sys
 from typing import TYPE_CHECKING
 
+if sys.version_info >= (3, 12):  # pragma: no cover
+    from typing import override
+else:  # pragma: no cover
+    from typing_extensions import override
+
+
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
     from re import Pattern
     from typing import TypeAlias, TypedDict
 
@@ -91,6 +98,7 @@ class RuleLiteral(Rule):
         super().__init__(value, rules, whitespace, name)
         self.value = value[1:-1].replace("\\'", "'")
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         value = self.value
@@ -126,6 +134,7 @@ class RuleRegex(Rule):
         super().__init__(value, rules, whitespace, name)
         self.value = re.compile(value[2:-1], re.M | re.S)
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         match = self.value.match(text, pos)
@@ -140,6 +149,7 @@ class RuleToken(Rule):
 
     value: str
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         token = self.rules[self.value]
@@ -154,6 +164,7 @@ class RuleOneof(Rule):
 
     value: list[Rule]
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         for value in self.value:
@@ -168,9 +179,10 @@ class RuleSequence(Rule):
 
     value: list[Rule]
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
-        data = []
+        data: list[Tree] = []
         npos = pos
         for value in self.value:
             npos, node = value.parse(text, npos)
@@ -185,6 +197,7 @@ class RuleZeroPlus(Rule):
 
     value: Rule
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         data: list[Tree] = []
@@ -202,6 +215,7 @@ class RuleOnePlus(Rule):
 
     value: Rule
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         npos, node = self.value.parse(text, pos)
@@ -222,12 +236,18 @@ class RuleZeroOne(Rule):
 
     value: Rule
 
+    @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
         """Apply rule at position."""
         npos, node = self.value.parse(text, pos)
         if npos == -1:
             return pos, self.make_node(())
         return npos, self.make_node((node,))
+
+
+def identity(value: Tree) -> Tree:
+    """Identity Transform."""
+    return value
 
 
 class Visitor:
@@ -250,8 +270,8 @@ class Visitor:
         assert list(tree.keys()) == ['node', 'data'], tree.keys()
 
         tree['data'] = self.visit(tree['data'])
-        func = getattr(self, f'visit_{tree["node"]}', lambda x: x)
-        return func(tree['data'])  # type: ignore[no-any-return]
+        func: Callable[[Tree], Tree] = getattr(self, f'visit_{tree["node"]}', identity)
+        return func(tree['data'])
 
 
 def split_token(tok: str) -> list[str]:
@@ -277,9 +297,12 @@ def collapse_tokens(
     return RuleOneof(value, rules, whitespace) if len(value) > 1 else value[0]
 
 
+RXWS = re.compile(r'\s+', re.M | re.S)
+
+
 def parse_grammar(
     grammar: str,
-    whitespace: Pattern[str] = re.compile(r'\s+', re.M | re.S),
+    whitespace: Pattern[str] = RXWS,
 ) -> dict[str, Rule]:
     """Parse grammar into rule dictionary."""
     rules: dict[str, Rule] = {}
@@ -289,7 +312,7 @@ def parse_grammar(
         items = [z for x in defs for y in x.split(' ') if y for z in split_token(y) if z]
         assert items
         assert items[0] == '='
-        items.pop(0)
+        _ = items.pop(0)
         stack: list[Rule | None] = []
         parens: list[int] = []
         while items:

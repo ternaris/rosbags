@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
 
-    from rosbags.typesys.store import Typestore
+    from rosbags.typesys.store import Msg, Msgarg, Typestore
 
 
 LATCH = """
@@ -70,8 +70,8 @@ def is_same_wireformat(
     """Check if wireformat of messages is identical."""
     if src_msgtype == 'std_msgs/msg/Header':
         return True
-    src_fields = src_typestore.FIELDDEFS[src_msgtype][1]
-    dst_fields = dst_typestore.FIELDDEFS[dst_msgtype][1]
+    src_fields = src_typestore.fielddefs[src_msgtype][1]
+    dst_fields = dst_typestore.fielddefs[dst_msgtype][1]
 
     if len(src_fields) != len(dst_fields):
         return False
@@ -95,13 +95,13 @@ def default_message(
     msgtype: str,
 ) -> object:
     """Create default message."""
-    values: list[object] = []
+    values: list[Msgarg] = []
 
-    for _, typ in typestore.FIELDDEFS[msgtype][1]:
+    for _, typ in typestore.fielddefs[msgtype][1]:
         if typ[0] == Nodetype.BASE:
             values.append('' if typ[1][0] == 'string' else 0)
         elif typ[0] == Nodetype.NAME:
-            values.append(default_message(typestore, typ[1]))
+            values.append(cast('Msg', default_message(typestore, typ[1])))
         else:
             assert typ[0] in {Nodetype.SEQUENCE, Nodetype.ARRAY}
             subtyp = typ[1][0]
@@ -113,7 +113,7 @@ def default_message(
                     dtype = 'uint8' if subtyp[1][0] == 'char' else subtyp[1][0]
                     values.append(np.zeros(size, dtype=np.dtype(dtype)))
             else:
-                values.append([default_message(typestore, subtyp[1])] * size)
+                values.append([cast('Msg', default_message(typestore, subtyp[1]))] * size)
 
     return typestore.types[msgtype](*values)
 
@@ -127,10 +127,10 @@ def migrate_message(
     src_msg: object,
 ) -> object:
     """Migrate message."""
-    values: list[object] = []
+    values: list[Msgarg] = []
 
-    src_def = src_typestore.FIELDDEFS[src_msgtype][1]
-    dst_def = dst_typestore.FIELDDEFS[dst_msgtype][1]
+    src_def = src_typestore.fielddefs[src_msgtype][1]
+    dst_def = dst_typestore.fielddefs[dst_msgtype][1]
 
     src_map = dict(src_def)
     dst_map = dict(dst_def)
@@ -155,7 +155,7 @@ def migrate_message(
     for dst_name, dst_type in dst_map.items():
         src_name = dst_src[dst_name]
         if src_name == '__missing__':
-            values.append(getattr(def_msg, dst_name))
+            values.append(cast('Msgarg', getattr(def_msg, dst_name)))
             continue
 
         src_type = src_map[src_name]
@@ -164,47 +164,57 @@ def migrate_message(
             if src_type[0] == Nodetype.BASE and (dst_type[1][0] == 'string') == (
                 src_type[1][0] == 'string'
             ):
-                values.append(getattr(src_msg, src_name))
+                values.append(cast('Msgarg', getattr(src_msg, src_name)))
             else:
-                values.append(getattr(def_msg, src_name))
+                values.append(cast('Msgarg', getattr(def_msg, src_name)))
         elif dst_type[0] == Nodetype.NAME:
             if src_type[0] == Nodetype.NAME:
                 values.append(
-                    migrate_message(
-                        src_typestore,
-                        dst_typestore,
-                        src_type[1],
-                        dst_type[1],
-                        cache,
-                        getattr(src_msg, src_name),
+                    cast(
+                        'Msg',
+                        migrate_message(
+                            src_typestore,
+                            dst_typestore,
+                            src_type[1],
+                            dst_type[1],
+                            cache,
+                            cast('Msgarg', getattr(src_msg, src_name)),
+                        ),
                     ),
                 )
             else:
-                values.append(getattr(def_msg, src_name))
+                values.append(cast('Msgarg', getattr(def_msg, src_name)))
         else:
             assert dst_type[0] in {Nodetype.SEQUENCE, Nodetype.ARRAY}
             src_sub = src_type[1][0]
             dst_sub = dst_type[1][0]
             if src_sub[0] != dst_sub[0]:
-                values.append(getattr(def_msg, src_name))
+                values.append(cast('Msgarg', getattr(def_msg, src_name)))
             else:
                 size = dst_type[1][1]
-                src_value = getattr(src_msg, src_name)
+                src_value = cast(
+                    'list[str] | list[Msg] | np.ndarray[None, np.dtype[np.uint8]]',
+                    getattr(src_msg, src_name),
+                )
                 if size and size < len(src_value):
                     src_value = src_value[:size]
                 if dst_sub[0] == Nodetype.BASE and dst_sub[1][0] != 'string':
                     dtype = 'uint8' if dst_sub[1][0] == 'char' else dst_sub[1][0]
+                    assert not isinstance(src_value, list)
                     src_value = src_value.astype(dtype)
                 elif dst_sub[0] == Nodetype.NAME:
                     assert isinstance(src_sub[1], str)
                     src_value = [
-                        migrate_message(
-                            src_typestore,
-                            dst_typestore,
-                            src_sub[1],
-                            dst_sub[1],
-                            cache,
-                            x,
+                        cast(
+                            'Msg',
+                            migrate_message(
+                                src_typestore,
+                                dst_typestore,
+                                src_sub[1],
+                                dst_sub[1],
+                                cache,
+                                x,
+                            ),
                         )
                         for x in src_value
                     ]
@@ -226,11 +236,11 @@ def migrate_bytes(
     src_msgtype: str,
     dst_msgtype: str,
     cache: dict[str, object],
-    data: bytes,
+    data: bytes | memoryview,
     *,
     src_is2: bool,
     dst_is2: bool,
-) -> bytes:
+) -> memoryview:
     """Migrate message."""
     src_msg = (
         src_typestore.deserialize_cdr(data, src_msgtype)
@@ -263,11 +273,11 @@ def generate_message_converter(
     *,
     src_is2: bool,
     dst_is2: bool,
-) -> Callable[[bytes], bytes]:
+) -> Callable[[bytes | memoryview], memoryview]:
     """Generate message converter."""
     if is_same_wireformat(src_typestore, dst_typestore, src_msgtype, dst_msgtype):
         if src_is2 == dst_is2:
-            return lambda x: x
+            return lambda x: memoryview(x)
         if src_is2:
             return partial(src_typestore.cdr_to_ros1, typename=src_msgtype)
         return partial(dst_typestore.ros1_to_cdr, typename=dst_msgtype)
@@ -290,12 +300,15 @@ def create_connections_converters(
     typestore: Typestore | None,
     reader: AnyReader,
     writer: Writer1 | Writer2,
-) -> tuple[dict[tuple[int, object], Connection], dict[str, Callable[[bytes], bytes]]]:
+) -> tuple[
+    dict[tuple[int, object], Connection],
+    dict[str, Callable[[bytes | memoryview], memoryview]],
+]:
     """Create writer connections and return mapping."""
     is2 = isinstance(writer, Writer2)
 
     connmap: dict[tuple[int, object], Connection] = {}
-    convmap: dict[str, Callable[[bytes], bytes]] = {}
+    convmap: dict[str, Callable[[bytes | memoryview], memoryview]] = {}
 
     cache: dict[str, object] = {}
 
@@ -303,13 +316,13 @@ def create_connections_converters(
         if reader.is2 == is2:
             typestore = reader.typestore
         else:
-            header = get_typestore(Stores.ROS2_FOXY if is2 else Stores.ROS1_NOETIC).FIELDDEFS[
+            header = get_typestore(Stores.ROS2_FOXY if is2 else Stores.ROS1_NOETIC).fielddefs[
                 'std_msgs/msg/Header'
             ]
             typestore = get_typestore(Stores.EMPTY)
             typestore.register(
                 {
-                    **reader.typestore.FIELDDEFS,
+                    **reader.typestore.fielddefs,
                     'std_msgs/msg/Header': header,
                 },
             )
@@ -319,7 +332,7 @@ def create_connections_converters(
         msgtype = STATIC_MSGTYPE_RENAMES.get(rconn.msgtype, rconn.msgtype)
 
         if msgtype not in convmap:
-            if msgtype not in typestore.FIELDDEFS:
+            if msgtype not in typestore.fielddefs:
                 echo(f'Missing msgtype in destination, copying from source: {msgtype!r}')
                 typs = get_types_from_msg(
                     reader.typestore.generate_msgdef(
@@ -328,7 +341,7 @@ def create_connections_converters(
                     )[0],
                     msgtype,
                 )
-                typs.pop('std_msgs/msg/Header', None)
+                _ = typs.pop('std_msgs/msg/Header', None)
                 typestore.register(typs)
             convmap[msgtype] = generate_message_converter(
                 reader.typestore,
@@ -409,12 +422,12 @@ def convert(
 
     """
     is2 = dst.suffix != '.bag'
-    writercls = Writer2 if is2 else Writer1
+    writercls: type[Writer1 | Writer2] = Writer2 if is2 else Writer1
 
     try:
         with (
             AnyReader(srcs, default_typestore=default_typestore) as reader,
-            cast('type[Writer1 | Writer2]', writercls)(dst) as writer,
+            writercls(dst) as writer,
         ):
             connections = [
                 x
@@ -453,6 +466,6 @@ def convert(
     except (WriterError1, WriterError2) as err:
         msg = f'Writing destination bag: {err}'
         raise ConverterError(msg) from err
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         msg = f'Converting rosbag: {err!r}'
         raise ConverterError(msg) from err

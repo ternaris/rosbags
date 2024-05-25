@@ -123,7 +123,7 @@ def test_detects_schema_version(tmp_path: Path) -> None:
     ):
         dbpath = tmp_path / 'db.db3'
         con = sqlite3.connect(dbpath)
-        con.executescript(version)
+        _ = con.executescript(version)
         con.close()
         reader = ReaderSqlite3([dbpath], [])
         reader.open()
@@ -136,11 +136,13 @@ def test_type_definitions_are_read(tmp_path: Path) -> None:
     """Test type definitions are read."""
     dbpath = tmp_path / 'db.db3'
     con = sqlite3.connect(dbpath)
-    con.executescript(SQLITE_SCHEMA_V4)
+    _ = con.executescript(SQLITE_SCHEMA_V4)
     with con:
-        con.execute(
-            'INSERT INTO message_definitions(topic_type, encoding,'
-            ' encoded_message_definition, type_description_hash) VALUES (?, ?, ?, ?);',
+        _ = con.execute(
+            (
+                'INSERT INTO message_definitions(topic_type, encoding,'
+                ' encoded_message_definition, type_description_hash) VALUES (?, ?, ?, ?);'
+            ),
             (
                 'std_msgs/msg/Empty',
                 'ros2msg',
@@ -159,13 +161,13 @@ def test_raises_on_closed_reader(tmp_path: Path) -> None:
     """Test methods raise on closed reader."""
     dbpath = tmp_path / 'db.db3'
     con = sqlite3.connect(dbpath)
-    con.executescript(SQLITE_SCHEMA_V4)
+    _ = con.executescript(SQLITE_SCHEMA_V4)
     con.close()
 
     reader = ReaderSqlite3([dbpath], [])
 
     with pytest.raises(ReaderError):
-        reader.get_definitions()
+        _ = reader.get_definitions()
 
     with pytest.raises(ReaderError):
-        next(reader.messages())
+        _ = next(reader.messages())

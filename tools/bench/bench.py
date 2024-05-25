@@ -8,7 +8,7 @@ import sys
 from math import isnan
 from pathlib import Path
 from timeit import timeit
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from rclpy.serialization import deserialize_message  # type: ignore[import-not-found]
@@ -55,7 +55,7 @@ class ReaderPy:
 def deserialize_py(data: bytes, msgtype: str) -> NativeMSG:
     """Deserialization helper for rosidl_runtime_py + rclpy."""
     pytype = get_message(msgtype)
-    return deserialize_message(data, pytype)  # type: ignore[no-any-return]
+    return cast('NativeMSG', deserialize_message(data, pytype))
 
 
 def compare_msg(lite: object, native: NativeMSG) -> None:

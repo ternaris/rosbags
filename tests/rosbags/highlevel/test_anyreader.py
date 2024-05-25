@@ -5,13 +5,13 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager, nullcontext
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 import pytest
 
 from rosbags.highlevel import AnyReader, AnyReaderError
-from rosbags.interfaces import Connection
+from rosbags.interfaces import Connection, ConnectionExtRosbag2
 from rosbags.rosbag1 import Writer as Writer1
 from rosbags.rosbag2 import Writer as Writer2
 from rosbags.typesys import Stores, get_typestore
@@ -19,6 +19,9 @@ from rosbags.typesys import Stores, get_typestore
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
+
+    from rosbags.rosbag1 import Reader as Reader1
+    from rosbags.typesys.stores.ros1_noetic import std_msgs__msg__Int8 as Int8
 
 HEADER = b'\x00\x01\x00\x00'
 
@@ -75,7 +78,7 @@ def bags2(tmp_path: Path) -> list[Path]:
         writer.write(topic3, 4, HEADER + b'\x01\x00\x00\x00')
 
     paths[2].mkdir()
-    (paths[2] / 'metadata.yaml').write_text(':')
+    _ = (paths[2] / 'metadata.yaml').write_text(':')
 
     return paths
 
@@ -83,22 +86,22 @@ def bags2(tmp_path: Path) -> list[Path]:
 def test_anyreader1(bags1: Sequence[Path]) -> None:
     """Test AnyReader on rosbag1."""
     with pytest.raises(AnyReaderError, match='at least one'):
-        AnyReader([])
+        _ = AnyReader([])
 
     with pytest.raises(AnyReaderError, match='missing'):
-        AnyReader([bags1[0] / 'badname'])
+        _ = AnyReader([bags1[0] / 'badname'])
 
     reader = AnyReader(bags1)
     with pytest.raises(AssertionError):
         assert reader.topics
 
     with pytest.raises(AssertionError):
-        next(reader.messages())
+        _ = next(reader.messages())
 
     reader = AnyReader(bags1)
     with pytest.raises(AnyReaderError, match='seems to be empty'):
         reader.open()
-    assert all(not x.bio for x in reader.readers)  # type: ignore[union-attr]
+    assert all(not x.bio for x in cast('list[Reader1]', reader.readers))
 
     with AnyReader(bags1[:3]) as reader:
         assert reader.duration == 15
@@ -116,30 +119,32 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (1, b'\x01')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 1  # type: ignore[attr-defined]
+
+        msg: Int8
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 1
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (2, b'\x02\x00')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 2  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 2
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (5, b'\x05')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 5  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 5
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (9, b'\x09')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 9  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 9
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (15, b'\x15\x00')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 21  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 21
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(connections=reader.topics['/topic1'].connections)
         nxt = next(gen)
@@ -149,22 +154,25 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 @pytest.mark.parametrize('strip_types', [False, True])
 def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
     """Test AnyReader on rosbag2."""
     with pytest.raises(AnyReaderError, match='YAML'):
-        AnyReader([bags2[2]])
+        _ = AnyReader([bags2[2]])
 
-    ctx: AbstractContextManager[None] = (
-        patch(  # type: ignore[assignment]
-            'rosbags.rosbag2.storage_sqlite3.ReaderSqlite3.get_definitions',
-            return_value={},
-        )
-        if strip_types
-        else nullcontext()
+    ctx = cast(
+        'AbstractContextManager[None]',
+        (
+            patch(
+                'rosbags.rosbag2.storage_sqlite3.ReaderSqlite3.get_definitions',
+                return_value={},
+            )
+            if strip_types
+            else nullcontext()
+        ),
     )
     typestore = get_typestore(Stores.LATEST)
     with ctx, AnyReader(bags2[:2], default_typestore=typestore) as reader:
@@ -185,35 +193,37 @@ def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (1, HEADER + b'\x01')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 1  # type: ignore[attr-defined]
+
+        msg: Int8
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 1
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (2, HEADER + b'\x02\x00')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 2  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 2
         nxt = next(gen)
         assert nxt[0].topic == '/topic3'
         assert nxt[1:] == (4, HEADER + b'\x01\x00\x00\x00')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 1  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 1
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (5, HEADER + b'\x05')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 5  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 5
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         assert nxt[1:] == (9, HEADER + b'\x09')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 9  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 9
         nxt = next(gen)
         assert nxt[0].topic == '/topic2'
         assert nxt[1:] == (15, HEADER + b'\x15\x00')
-        msg = reader.deserialize(nxt[2], nxt[0].msgtype)
-        assert msg.data == 21  # type: ignore[attr-defined]
+        msg = cast('Int8', reader.deserialize(nxt[2], nxt[0].msgtype))
+        assert msg.data == 21
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(connections=reader.topics['/topic1'].connections)
         nxt = next(gen)
@@ -223,7 +233,7 @@ def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
         nxt = next(gen)
         assert nxt[0].topic == '/topic1'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 def test_anyreader2_autoregister(bags2: list[Path]) -> None:
@@ -244,18 +254,20 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     'string foo',
                     'msg',
                     0,
-                    None,  # type: ignore[arg-type]
+                    ConnectionExtRosbag2('', ''),
                     self,
                 ),
                 Connection(
                     2,
                     '/bar',
                     'test_msg/msg/Bar',
-                    f'{"=" * 80}\nIDL: test_msg/msg/Bar\n'
-                    'module test_msgs { module msg { struct Bar {string bar;}; }; };',
+                    (
+                        f'{"=" * 80}\nIDL: test_msg/msg/Bar\n'
+                        'module test_msgs { module msg { struct Bar {string bar;}; }; };'
+                    ),
                     'idl',
                     0,
-                    None,  # type: ignore[arg-type]
+                    ConnectionExtRosbag2('', ''),
                     self,
                 ),
                 Connection(
@@ -265,7 +277,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     '',
                     '',
                     0,
-                    None,  # type: ignore[arg-type]
+                    ConnectionExtRosbag2('', ''),
                     self,
                 ),
             ]
@@ -279,7 +291,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
     ):
         AnyReader([bags2[0]]).open()
     mock_register_types.assert_called_once()
-    assert mock_register_types.call_args[0][0] == {
+    assert mock_register_types.call_args[0][0] == {  # pyright: ignore[reportAny]
         'test_msg/msg/Foo': ([], [('foo', (1, ('string', 0)))]),
         'test_msgs/msg/Bar': ([], [('bar', (1, ('string', 0)))]),
     }
@@ -302,7 +314,7 @@ def test_deprecations(bags2: list[Path]) -> None:
                     '',
                     '',
                     0,
-                    None,  # type: ignore[arg-type]
+                    ConnectionExtRosbag2('', ''),
                     self,
                 ),
             ]

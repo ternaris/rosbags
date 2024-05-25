@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 writer."""
 
+# pyright: strict, reportUnreachable=false
+
 from __future__ import annotations
 
 import struct
@@ -14,7 +16,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lz4.frame import compress as lz4_compress
+from lz4.frame import compress as lz4_compress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag1
 from rosbags.typesys import Stores, get_typestore
@@ -50,6 +52,8 @@ class WriteChunk:
     end: int
     connections: dict[int, list[tuple[int, int]]]
 
+
+MAXSIZE: int = 2**63 - 1
 
 serialize_uint8 = struct.Struct('<B').pack
 serialize_uint32 = struct.Struct('<L').pack
@@ -135,7 +139,7 @@ class Header(dict[str, bytes]):
             data += serialize_uint32(len(keqv)) + keqv
 
         size = len(data)
-        dst.write(serialize_uint32(size) + data)
+        _ = dst.write(serialize_uint32(size) + data)
         return size + 4
 
 
@@ -172,7 +176,7 @@ class Writer:
         self.compressor: Callable[[bytes], bytes] = lambda x: x
         self.compression_format = 'none'
         self.connections: list[Connection] = []
-        self.chunks: list[WriteChunk] = [WriteChunk(BytesIO(), -1, 2**64, 0, defaultdict(list))]
+        self.chunks: list[WriteChunk] = [WriteChunk(BytesIO(), -1, MAXSIZE, 0, defaultdict(list))]
         self.chunk_threshold = 1 * (1 << 20)
 
     def set_compression(self, fmt: Writer.CompressionFormat) -> None:
@@ -210,14 +214,14 @@ class Writer:
             raise WriterError(msg) from None
 
         assert self.bio
-        self.bio.write(b'#ROSBAG V2.0\n')
+        _ = self.bio.write(b'#ROSBAG V2.0\n')
         header = Header()
         header.set_uint64('index_pos', 0)
         header.set_uint32('conn_count', 0)
         header.set_uint32('chunk_count', 0)
         size = header.write(self.bio, RecordType.BAGHEADER)
         padsize = 4096 - 4 - size
-        self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
+        _ = self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
 
     def add_connection(
         self,
@@ -287,7 +291,7 @@ class Writer:
         self.connections.append(connection)
         return connection
 
-    def write(self, connection: Connection, timestamp: int, data: bytes) -> None:
+    def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
         """Write message to rosbag1.
 
         Args:
@@ -320,9 +324,9 @@ class Writer:
         header.set_uint32('conn', connection.id)
         header.set_time('time', timestamp)
 
-        header.write(chunk.data, RecordType.MSGDATA)
-        chunk.data.write(serialize_uint32(len(data)))
-        chunk.data.write(data)
+        _ = header.write(chunk.data, RecordType.MSGDATA)
+        _ = chunk.data.write(serialize_uint32(len(data)))
+        _ = chunk.data.write(data)
         if chunk.data.tell() > self.chunk_threshold:
             self.write_chunk(chunk)
 
@@ -332,7 +336,7 @@ class Writer:
         header = Header()
         header.set_uint32('conn', connection.id)
         header.set_string('topic', connection.topic)
-        header.write(bio, RecordType.CONNECTION)
+        _ = header.write(bio, RecordType.CONNECTION)
 
         header = Header()
         header.set_string('topic', connection.topic)
@@ -344,7 +348,7 @@ class Writer:
             header.set_string('callerid', connection.ext.callerid)
         if connection.ext.latching is not None:
             header.set_string('latching', str(connection.ext.latching))
-        header.write(bio)
+        _ = header.write(bio)
 
     def write_chunk(self, chunk: WriteChunk) -> None:
         """Write open chunk to file."""
@@ -356,23 +360,23 @@ class Writer:
             header = Header()
             header.set_string('compression', self.compression_format)
             header.set_uint32('size', size)
-            header.write(self.bio, RecordType.CHUNK)
+            _ = header.write(self.bio, RecordType.CHUNK)
             data = self.compressor(chunk.data.getvalue())
-            self.bio.write(serialize_uint32(len(data)))
-            self.bio.write(data)
+            _ = self.bio.write(serialize_uint32(len(data)))
+            _ = self.bio.write(data)
 
             for cid, items in chunk.connections.items():
                 header = Header()
                 header.set_uint32('ver', 1)
                 header.set_uint32('conn', cid)
                 header.set_uint32('count', len(items))
-                header.write(self.bio, RecordType.IDXDATA)
-                self.bio.write(serialize_uint32(len(items) * 12))
+                _ = header.write(self.bio, RecordType.IDXDATA)
+                _ = self.bio.write(serialize_uint32(len(items) * 12))
                 for time, offset in items:
-                    self.bio.write(serialize_time(time) + serialize_uint32(offset))
+                    _ = self.bio.write(serialize_time(time) + serialize_uint32(offset))
 
             chunk.data.close()
-            self.chunks.append(WriteChunk(BytesIO(), -1, 2**64, 0, defaultdict(list)))
+            self.chunks.append(WriteChunk(BytesIO(), -1, MAXSIZE, 0, defaultdict(list)))
 
     def close(self) -> None:
         """Close rosbag1 after writing.
@@ -396,22 +400,22 @@ class Writer:
             header = Header()
             header.set_uint32('ver', 1)
             header.set_uint64('chunk_pos', chunk.pos)
-            header.set_time('start_time', 0 if chunk.start == 2**64 else chunk.start)
+            header.set_time('start_time', 0 if chunk.start == MAXSIZE else chunk.start)
             header.set_time('end_time', chunk.end)
             header.set_uint32('count', len(chunk.connections))
-            header.write(self.bio, RecordType.CHUNK_INFO)
-            self.bio.write(serialize_uint32(len(chunk.connections) * 8))
+            _ = header.write(self.bio, RecordType.CHUNK_INFO)
+            _ = self.bio.write(serialize_uint32(len(chunk.connections) * 8))
             for cid, items in chunk.connections.items():
-                self.bio.write(serialize_uint32(cid) + serialize_uint32(len(items)))
+                _ = self.bio.write(serialize_uint32(cid) + serialize_uint32(len(items)))
 
-        self.bio.seek(13)
+        _ = self.bio.seek(13)
         header = Header()
         header.set_uint64('index_pos', index_pos)
         header.set_uint32('conn_count', len(self.connections))
         header.set_uint32('chunk_count', len([x for x in self.chunks if x.pos != -1]))
         size = header.write(self.bio, RecordType.BAGHEADER)
         padsize = 4096 - 4 - size
-        self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
+        _ = self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
 
         self.bio.close()
 

@@ -85,21 +85,25 @@ def main(base: str, target: str, pathstr: str) -> None:  # pragma: no cover
     newstore = Typestore()
     newstore.register(typs)
 
-    remove = sorted(typestore.FIELDDEFS.keys() - newstore.FIELDDEFS.keys())
-    add = sorted(newstore.FIELDDEFS.keys() - typestore.FIELDDEFS.keys())
-    change = sorted(newstore.FIELDDEFS.keys() & typestore.FIELDDEFS.keys())
+    remove = sorted(typestore.fielddefs.keys() - newstore.fielddefs.keys())
+    add = sorted(newstore.fielddefs.keys() - typestore.fielddefs.keys())
+    change = sorted(newstore.fielddefs.keys() & typestore.fielddefs.keys())
+    keep: list[str] = []
 
     for typ in change.copy():
-        if typestore.FIELDDEFS[typ] == newstore.FIELDDEFS[typ]:
+        if typestore.fielddefs[typ] == newstore.fielddefs[typ]:
+            keep.append(typ)
             change.remove(typ)
 
     Typestore().register(typs)
-    (selfdir / 'stores' / target).with_suffix('.py').write_text(
-        generate_python_code(typs, base, remove, add, change)
+    _ = (
+        (selfdir / 'stores' / target)
+        .with_suffix('.py')
+        .write_text(generate_python_code(typs, base, remove, add, change, keep))
     )
     docsdir = selfdir.parent.parent.parent / 'docs'
-    (docsdir / 'api' / 'stores' / f'{target}.rst').write_text(generate_api(target))
-    (docsdir / 'topics' / f'typesys-types-{target}.rst').write_text(generate_docs(target, typs))
+    _ = (docsdir / 'api' / 'stores' / f'{target}.rst').write_text(generate_api(target))
+    _ = (docsdir / 'topics' / f'typesys-types-{target}.rst').write_text(generate_docs(target, typs))
 
 
 if __name__ == '__main__':

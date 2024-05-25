@@ -9,13 +9,15 @@ import struct
 from io import BytesIO
 from itertools import groupby
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 import pytest
 import zstandard
+from ruamel.yaml import YAML
 
 from rosbags.rosbag2 import Reader, ReaderError, Writer
+from rosbags.rosbag2.metadata import Metadata
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -88,21 +90,22 @@ rosbag2_bagfile_information:
 @pytest.fixture()
 def empty_bag(tmp_path: Path) -> Path:
     """Manually contruct empty bag."""
-    (tmp_path / 'metadata.yaml').write_text(METADATA_EMPTY)
+    _ = (tmp_path / 'metadata.yaml').write_text(METADATA_EMPTY)
     dbpath = tmp_path / 'db.db3'
     dbh = sqlite3.connect(dbpath)
-    dbh.executescript(Writer.SQLITE_SCHEMA)
+    _ = dbh.executescript(Writer.SQLITE_SCHEMA)
     return tmp_path
 
 
 @pytest.fixture(params=['none', 'file', 'message'])
 def bag_sqlite3(request: SubRequest, tmp_path: Path) -> Path:
     """Manually contruct sqlite3 bag."""
-    (tmp_path / 'metadata.yaml').write_text(
+    param: str = request.param  # pyright: ignore[reportAny]
+    _ = (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
-            extension='' if request.param != 'file' else '.zstd',
-            compression_format='""' if request.param == 'none' else 'zstd',
-            compression_mode='""' if request.param == 'none' else request.param.upper(),
+            extension='' if param != 'file' else '.zstd',
+            compression_format='""' if param == 'none' else 'zstd',
+            compression_mode='""' if param == 'none' else param.upper(),
         ),
     )
 
@@ -110,65 +113,75 @@ def bag_sqlite3(request: SubRequest, tmp_path: Path) -> Path:
 
     dbpath = tmp_path / 'db.db3'
     dbh = sqlite3.connect(dbpath)
-    dbh.executescript(Writer.SQLITE_SCHEMA)
+    _ = dbh.executescript(Writer.SQLITE_SCHEMA)
 
     cur = dbh.cursor()
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)',
         (1, '/poly', 'geometry_msgs/msg/Polygon', 'cdr', '', ''),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)',
         (2, '/magn', 'sensor_msgs/msg/MagneticField', 'cdr', '', ''),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)',
         (3, '/joint', 'trajectory_msgs/msg/JointTrajectory', 'cdr', '', ''),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
         (
             1,
             1,
             666,
-            b'poly message' if request.param != 'message' else comp.compress(b'poly message'),
+            b'poly message' if param != 'message' else comp.compress(b'poly message'),
         ),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
         (
             2,
             2,
             708,
-            b'magn message' if request.param != 'message' else comp.compress(b'magn message'),
+            b'magn message' if param != 'message' else comp.compress(b'magn message'),
         ),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
         (
             3,
             2,
             708,
-            b'magn message' if request.param != 'message' else comp.compress(b'magn message'),
+            b'magn message' if param != 'message' else comp.compress(b'magn message'),
         ),
     )
-    cur.execute(
+    _ = cur.execute(
         'INSERT INTO messages VALUES(?, ?, ?, ?)',
         (
             4,
             3,
             708,
-            b'joint message' if request.param != 'message' else comp.compress(b'joint message'),
+            b'joint message' if param != 'message' else comp.compress(b'joint message'),
         ),
     )
     dbh.commit()
 
-    if request.param == 'file':
+    if param == 'file':
         with dbpath.open('rb') as ifh, (tmp_path / 'db.db3.zstd').open('wb') as ofh:
-            comp.copy_stream(ifh, ofh)
+            _ = comp.copy_stream(ifh, ofh)
         dbpath.unlink()
 
     return tmp_path
+
+
+def test_metadata() -> None:
+    """Test empty metadata conforms to spec."""
+    yaml = YAML(typ='safe')
+    dct = cast(
+        'dict[str, Metadata]',
+        yaml.load(METADATA_EMPTY),  # pyright: ignore[reportUnknownMemberType]
+    )
+    assert dct['rosbag2_bagfile_information'].keys() == Metadata.__annotations__.keys()
 
 
 def test_empty_bag(empty_bag: Path) -> None:
@@ -215,7 +228,7 @@ def test_reader_sqlite3(bag_sqlite3: Path) -> None:
         assert connection.msgtype == 'trajectory_msgs/msg/JointTrajectory'
 
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 def test_message_filters(bag_sqlite3: Path) -> None:
@@ -228,7 +241,7 @@ def test_message_filters(bag_sqlite3: Path) -> None:
         connection, _, _ = next(gen)
         assert connection.topic == '/magn'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(start=667)
         connection, _, _ = next(gen)
@@ -238,53 +251,53 @@ def test_message_filters(bag_sqlite3: Path) -> None:
         connection, _, _ = next(gen)
         assert connection.topic == '/joint'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(stop=667)
         connection, _, _ = next(gen)
         assert connection.topic == '/poly'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(connections=magn_connections, stop=667)
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(start=666, stop=666)
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 def test_raises_if_reader_closed(bag_sqlite3: Path) -> None:
     """Test reader raises if methods called on closed."""
     reader = Reader(bag_sqlite3)
     with pytest.raises(ReaderError, match='Rosbag is not open'):
-        next(reader.messages())
+        _ = next(reader.messages())
 
 
 def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
     """Test reader raises if fs layout is broken."""
     with pytest.raises(ReaderError, match='not read metadata'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
     metadata = tmp_path / 'metadata.yaml'
 
-    metadata.write_text('')
+    _ = metadata.write_text('')
     with (
         pytest.raises(ReaderError, match='not read'),
         mock.patch.object(Path, 'read_text', side_effect=PermissionError),
     ):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text('  invalid:\nthis is not yaml')
+    _ = metadata.write_text('  invalid:\nthis is not yaml')
     with pytest.raises(ReaderError, match='not load YAML from'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text('foo:')
+    _ = metadata.write_text('foo:')
     with pytest.raises(ReaderError, match='key is missing'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='""',
@@ -292,9 +305,9 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ).replace('version: 4', 'version: 999'),
     )
     with pytest.raises(ReaderError, match='version 999'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='""',
@@ -302,9 +315,9 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ).replace('sqlite3', 'hdf5'),
     )
     with pytest.raises(ReaderError, match='Storage plugin'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='""',
@@ -312,11 +325,11 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ),
     )
     with pytest.raises(ReaderError, match='files are missing'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    (tmp_path / 'db.db3').write_text('')
+    _ = (tmp_path / 'db.db3').write_text('')
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='""',
@@ -324,9 +337,9 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ).replace('cdr', 'bson'),
     )
     with pytest.raises(ReaderError, match='Serialization format'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='"gz"',
@@ -334,9 +347,9 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ),
     )
     with pytest.raises(ReaderError, match='Compression format'):
-        Reader(tmp_path)
+        _ = Reader(tmp_path)
 
-    metadata.write_text(
+    _ = metadata.write_text(
         METADATA.format(
             extension='',
             compression_format='""',
@@ -344,13 +357,13 @@ def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
         ),
     )
     with pytest.raises(ReaderError, match='not open database'), Reader(tmp_path) as reader:
-        next(reader.messages())
+        _ = next(reader.messages())
 
 
-def write_record(bio: BinaryIO, opcode: int, records: Iterable[bytes]) -> None:
+def write_record(bio: BinaryIO, opcode: int, records: Iterable[bytes | memoryview]) -> None:
     """Write record."""
     data = b''.join(records)
-    bio.write(bytes([opcode]) + struct.pack('<Q', len(data)) + data)
+    _ = bio.write(bytes([opcode]) + struct.pack('<Q', len(data)) + data)
 
 
 def make_string(text: str) -> bytes:
@@ -430,7 +443,8 @@ CHANNELS = [
 )
 def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
     """Manually contruct mcap bag."""
-    (tmp_path / 'metadata.yaml').write_text(
+    param: str = request.param  # pyright: ignore[reportAny]
+    _ = (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='.mcap',
             compression_format='""',
@@ -441,13 +455,13 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
     path = tmp_path / 'db.db3.mcap'
     bio: BinaryIO
     messages: list[tuple[int, int, int]] = []
-    chunks = []
+    chunks: list[list[bytes]] = []
     with path.open('wb') as realbio:
         bio = realbio
-        bio.write(MCAP_HEADER)
+        _ = bio.write(MCAP_HEADER)
         write_record(bio, 0x01, (make_string('ros2'), make_string('test_mcap')))
 
-        if request.param.startswith('chunked'):
+        if param.startswith('chunked'):
             bio = BytesIO()
             messages = []
 
@@ -466,7 +480,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
             ),
         )
 
-        if request.param.startswith('chunked'):
+        if param.startswith('chunked'):
             assert isinstance(bio, BytesIO)
             chunk_start = realbio.tell()
             compression = make_string('')
@@ -485,7 +499,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                     bio.getbuffer(),
                 ),
             )
-            message_index_offsets = []
+            message_index_offsets: list[tuple[int, int]] = []
             message_index_start = realbio.tell()
             for channel_id, group in groupby(messages, key=lambda x: x[0]):
                 message_index_offsets.append((channel_id, realbio.tell()))
@@ -557,7 +571,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
             ),
         )
 
-        if request.param.startswith('chunked'):
+        if param.startswith('chunked'):
             assert isinstance(bio, BytesIO)
             chunk_start = realbio.tell()
             compression = make_string('')
@@ -606,14 +620,14 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
             bio = realbio
             messages = []
 
-        if request.param in {'indexed', 'partially_indexed', 'chunked_indexed'}:
+        if param in {'indexed', 'partially_indexed', 'chunked_indexed'}:
             summary_start = bio.tell()
             for schema in SCHEMAS:
                 write_record(bio, *schema)
-            if request.param != 'partially_indexed':
+            if param != 'partially_indexed':
                 for channel in CHANNELS:
                     write_record(bio, *channel)
-            if request.param == 'chunked_indexed':
+            if param == 'chunked_indexed':
                 for chunk in chunks:
                     write_record(bio, 0x08, chunk)
 
@@ -628,7 +642,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                     struct.pack('<I', 3),
                     struct.pack('<I', 0),
                     struct.pack('<I', 0),
-                    struct.pack('<I', 0 if request.param == 'indexed' else 1),
+                    struct.pack('<I', 0 if param == 'indexed' else 1),
                     struct.pack('<Q', 666),
                     struct.pack('<Q', 708),
                     struct.pack('<I', 0),
@@ -649,7 +663,7 @@ def bag_mcap(request: SubRequest, tmp_path: Path) -> Path:
                 struct.pack('<I', 0),
             ),
         )
-        bio.write(MCAP_HEADER)
+        _ = bio.write(MCAP_HEADER)
 
     return tmp_path
 
@@ -685,7 +699,7 @@ def test_reader_mcap(bag_mcap: Path) -> None:
         assert connection.msgtype == 'trajectory_msgs/msg/JointTrajectory'
 
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 def test_message_filters_mcap(bag_mcap: Path) -> None:
@@ -698,7 +712,7 @@ def test_message_filters_mcap(bag_mcap: Path) -> None:
         connection, _, _ = next(gen)
         assert connection.topic == '/magn'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(start=667)
         connection, _, _ = next(gen)
@@ -708,26 +722,26 @@ def test_message_filters_mcap(bag_mcap: Path) -> None:
         connection, _, _ = next(gen)
         assert connection.topic == '/joint'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(stop=667)
         connection, _, _ = next(gen)
         assert connection.topic == '/poly'
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(connections=magn_connections, stop=667)
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
         gen = reader.messages(start=666, stop=666)
         with pytest.raises(StopIteration):
-            next(gen)
+            _ = next(gen)
 
 
 def test_bag_mcap_files(tmp_path: Path) -> None:
     """Test reader raises if mcap files are bad."""
-    (tmp_path / 'metadata.yaml').write_text(
+    _ = (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='.mcap',
             compression_format='""',
@@ -746,22 +760,22 @@ def test_bag_mcap_files(tmp_path: Path) -> None:
     with pytest.raises(ReaderError, match='seems to be empty'):
         Reader(tmp_path).open()
 
-    path.write_bytes(b'xxxxxxxx')
+    _ = path.write_bytes(b'xxxxxxxx')
     with pytest.raises(ReaderError, match='magic is invalid'):
         Reader(tmp_path).open()
 
-    path.write_bytes(b'\x89MCAP0\r\n\xff')
+    _ = path.write_bytes(b'\x89MCAP0\r\n\xff')
     with pytest.raises(ReaderError, match='Unexpected record'):
         Reader(tmp_path).open()
 
     with path.open('wb') as bio:
-        bio.write(b'\x89MCAP0\r\n')
+        _ = bio.write(b'\x89MCAP0\r\n')
         write_record(bio, 0x01, (make_string('ros1'), make_string('test_mcap')))
     with pytest.raises(ReaderError, match='Profile is not'):
         Reader(tmp_path).open()
 
     with path.open('wb') as bio:
-        bio.write(b'\x89MCAP0\r\n')
+        _ = bio.write(b'\x89MCAP0\r\n')
         write_record(bio, 0x01, (make_string('ros2'), make_string('test_mcap')))
     with pytest.raises(ReaderError, match='File end magic is invalid'):
         Reader(tmp_path).open()

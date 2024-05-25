@@ -89,7 +89,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     store = get_typestore(Stores.LATEST)
 
     with pytest.raises(WriterError, match='exists'):
-        Writer(tmp_path)
+        _ = Writer(tmp_path)
 
     bag = Writer(tmp_path / 'race')
     (tmp_path / 'race').mkdir()
@@ -103,7 +103,7 @@ def test_failure_cases(tmp_path: Path) -> None:
 
     bag = Writer(tmp_path / 'topic')
     with pytest.raises(WriterError, match='was not opened'):
-        bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage')
+        _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage')
 
     bag = Writer(tmp_path / 'write')
     with pytest.raises(WriterError, match='was not opened'):
@@ -124,15 +124,15 @@ def test_failure_cases(tmp_path: Path) -> None:
 
     bag = Writer(tmp_path / 'topic')
     bag.open()
-    bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
-    bag.add_connection(
+    _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
+    _ = bag.add_connection(
         '/tf',
         'tf2_msgs/msg/TFMessage',
         typestore=store,
         serialization_format='ros1',
     )
     with pytest.raises(WriterError, match='only be added once'):
-        bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
+        _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
 
     bag = Writer(tmp_path / 'notopic')
     bag.open()
@@ -154,4 +154,4 @@ def test_deprecations(tmp_path: Path) -> None:
     """Test writer deprecations."""
     bag = Writer(tmp_path / 'bag')
     with bag, pytest.deprecated_call():
-        bag.add_connection('/foo', 'std_msgs/msg/Empty')
+        _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')

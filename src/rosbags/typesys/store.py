@@ -6,14 +6,13 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
 from hashlib import md5, sha256
 from importlib.util import module_from_spec, spec_from_loader
 from itertools import starmap
 from struct import pack_into
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
-from rosbags.interfaces import Nodetype
+from rosbags.interfaces import Msgdef, Nodetype
 from rosbags.serde.cdr import generate_deserialize_cdr, generate_getsize_cdr, generate_serialize_cdr
 from rosbags.serde.ros1 import (
     generate_cdr_to_ros1,
@@ -29,15 +28,12 @@ from .msg import denormalize_msgtype
 
 if TYPE_CHECKING:
     from types import ModuleType
-    from typing import TypedDict
+    from typing import ClassVar, TypeAlias, TypedDict
 
+    from numpy.typing import ArrayLike
+
+    from rosbags.interfaces import Bitcvt, BitcvtSize
     from rosbags.interfaces.typing import (
-        Bitcvt,
-        BitcvtSize,
-        CDRDeser,
-        CDRSer,
-        CDRSerSize,
-        Fielddefs,
         FieldDesc,
         Typesdict,
     )
@@ -61,6 +57,22 @@ if TYPE_CHECKING:
 
         type_name: str
         fields: list[Field]
+
+    class MsgType(Protocol):
+        """AnyInit."""
+
+        __msgtype__: ClassVar[str]
+
+        def __init__(self, *args: Msgarg, **kwargs: Msgarg) -> None:
+            """Accept any args."""
+            raise NotImplementedError
+
+    class Msg(Protocol):
+        """AnyInit."""
+
+        __msgtype__: ClassVar[str]
+
+    Msgarg: TypeAlias = Msg | list[Msg] | bool | int | float | str | list[str] | ArrayLike
 
 
 T = TypeVar('T')
@@ -90,45 +102,23 @@ TIDMAP = {
 }
 
 
-@dataclass(frozen=True)
-class Msgdef(Generic[T]):
-    """Metadata of a message."""
-
-    name: str
-    fields: Fielddefs
-    cls: type
-    size_cdr: int
-    getsize_cdr: CDRSerSize
-    serialize_cdr_le: CDRSer
-    serialize_cdr_be: CDRSer
-    deserialize_cdr_le: CDRDeser[T]
-    deserialize_cdr_be: CDRDeser[T]
-    size_ros1: int
-    getsize_ros1: CDRSerSize
-    serialize_ros1: CDRSer
-    deserialize_ros1: CDRDeser[T]
-    getsize_ros1_to_cdr: BitcvtSize
-    ros1_to_cdr: Bitcvt
-    getsize_cdr_to_ros1: BitcvtSize
-    cdr_to_ros1: Bitcvt
-
-
 class Typestore:
     """Type store."""
 
-    types: dict[str, type]
-    FIELDDEFS: Typesdict
+    types: dict[str, type[MsgType]]
+    fielddefs: Typesdict
 
     def __init__(self, base: ModuleType | None = None) -> None:
         """Initialize."""
         self.cache: dict[str, Msgdef[object]] = {}
         self.types = {}
-        self.FIELDDEFS = {}
+        self.fielddefs = {}
         if base:
-            self.FIELDDEFS.update(base.FIELDDEFS)
-            self.types.update({k: getattr(base, k.replace('/', '__')) for k in base.FIELDDEFS})
+            fielddefs: Typesdict = base.FIELDDEFS  # pyright: ignore[reportAny]
+            self.fielddefs.update(fielddefs)
+            self.types.update({k: getattr(base, k.replace('/', '__')) for k in fielddefs})
 
-    def deserialize_cdr(self, rawdata: bytes, typename: str) -> object:
+    def deserialize_cdr(self, rawdata: bytes | memoryview, typename: str) -> object:
         """Deserialize raw data into a message object.
 
         Args:
@@ -177,7 +167,7 @@ class Typestore:
         assert pos + 4 == size
         return rawdata.toreadonly()
 
-    def deserialize_ros1(self, rawdata: bytes, typename: str) -> object:
+    def deserialize_ros1(self, rawdata: bytes | memoryview, typename: str) -> object:
         """Deserialize raw data into a message object.
 
         Args:
@@ -215,7 +205,7 @@ class Typestore:
         assert pos == size
         return rawdata.toreadonly()
 
-    def ros1_to_cdr(self, raw: bytes, typename: str) -> memoryview:
+    def ros1_to_cdr(self, raw: bytes | memoryview, typename: str) -> memoryview:
         """Convert serialized ROS1 message directly to CDR.
 
         This should be reasonably fast as conversions happen on a byte-level
@@ -235,7 +225,6 @@ class Typestore:
         ipos, opos = msgdef.getsize_ros1_to_cdr(raw, 0, None, 0, self)
         assert ipos == len(raw)
 
-        raw = memoryview(raw)
         size = 4 + opos
         rawdata = memoryview(bytearray(size))
         pack_into('BB', rawdata, 0, 0, 1)
@@ -245,7 +234,7 @@ class Typestore:
         assert opos + 4 == size
         return rawdata.toreadonly()
 
-    def cdr_to_ros1(self, raw: bytes, typename: str) -> memoryview:
+    def cdr_to_ros1(self, raw: bytes | memoryview, typename: str) -> memoryview:
         """Convert serialized CDR message directly to ROS1.
 
         This should be reasonably fast as conversions happen on a byte-level
@@ -267,7 +256,6 @@ class Typestore:
         ipos, opos = msgdef.getsize_cdr_to_ros1(raw[4:], 0, None, 0, self)
         assert ipos + 4 + 3 >= len(raw)
 
-        raw = memoryview(raw)
         size = opos
         rawdata = memoryview(bytearray(size))
 
@@ -293,10 +281,10 @@ class Typestore:
         module = module_from_spec(spec)
         sys.modules[name] = module
         exec(code, module.__dict__)  # noqa: S102
-        fielddefs: Typesdict = module.FIELDDEFS
+        fielddefs: Typesdict = module.FIELDDEFS  # pyright: ignore[reportAny]
 
         for name, (_, fields) in fielddefs.items():
-            if have := self.FIELDDEFS.get(name):
+            if have := self.fielddefs.get(name):
                 _, have_fields = have
                 have_fields = [(x[0].lower(), x[1]) for x in have_fields]
                 new_fields = [(x[0].lower(), x[1]) for x in fields]
@@ -304,8 +292,8 @@ class Typestore:
                     msg = f'Type {name!r} is already present with different definition.'
                     raise TypesysError(msg)
 
-        for name in fielddefs.keys() - self.FIELDDEFS.keys():
-            self.FIELDDEFS[name] = fielddefs[name][:2]
+        for name in fielddefs.keys() - self.fielddefs.keys():
+            self.fielddefs[name] = fielddefs[name][:2]
             self.types[name] = getattr(module, name.replace('/', '__'))
 
     def get_msgdef(self, typename: str) -> Msgdef[object]:
@@ -322,12 +310,12 @@ class Typestore:
 
         """
         if typename not in self.cache:
-            entries = self.FIELDDEFS[typename][1]
+            entries = self.fielddefs[typename][1]
 
             getsize_cdr, size_cdr = generate_getsize_cdr(entries, self)
             getsize_ros1, size_ros1 = generate_getsize_ros1(entries, self)
 
-            self.cache[typename] = Msgdef(
+            self.cache[typename] = Msgdef(  # pyright: ignore[reportArgumentType]
                 typename,
                 entries,
                 self.types[typename],
@@ -341,10 +329,10 @@ class Typestore:
                 getsize_ros1,
                 generate_serialize_ros1(entries, self),
                 generate_deserialize_ros1(entries, self),
-                generate_ros1_to_cdr(entries, typename, self, copy=False),  # type: ignore[arg-type]
-                generate_ros1_to_cdr(entries, typename, self, copy=True),  # type: ignore[arg-type]
-                generate_cdr_to_ros1(entries, typename, self, copy=False),  # type: ignore[arg-type]
-                generate_cdr_to_ros1(entries, typename, self, copy=True),  # type: ignore[arg-type]
+                cast('BitcvtSize', generate_ros1_to_cdr(entries, typename, self, copy=False)),
+                cast('Bitcvt', generate_ros1_to_cdr(entries, typename, self, copy=True)),
+                cast('BitcvtSize', generate_cdr_to_ros1(entries, typename, self, copy=False)),
+                cast('Bitcvt', generate_cdr_to_ros1(entries, typename, self, copy=True)),
             )
         return self.cache[typename]
 
@@ -378,23 +366,24 @@ class Typestore:
 
         deftext: list[str] = []
         hashtext: list[str] = []
-        if typename not in self.FIELDDEFS:
+        if typename not in self.fielddefs:
             msg = f'Type {typename!r} is unknown.'
             raise TypesysError(msg)
 
-        for name, typ, value in self.FIELDDEFS[typename][0]:
+        for name, typ, value in self.fielddefs[typename][0]:
             stripped_name = name.rstrip('_')
             deftext.append(f'{typ} {stripped_name}={value}')
             hashtext.append(f'{typ} {stripped_name}={value}')
 
-        for name, desc in self.FIELDDEFS[typename][1]:
+        for name, desc in self.fielddefs[typename][1]:
             if name == 'structure_needs_at_least_one_member':
                 continue
             stripped_name = name.rstrip('_')
             if desc[0] == Nodetype.BASE:
+                argname: str
                 argname, arglimit = desc[1]
                 if argname == 'string':
-                    argname = f'string<={arglimit}' if arglimit else 'string'  # type: ignore[assignment]
+                    argname = f'string<={arglimit}' if arglimit else 'string'
                 deftext.append(f'{argname} {stripped_name}')
                 hashtext.append(f'{argname} {stripped_name}')
             elif desc[0] == int(Nodetype.NAME):
@@ -414,13 +403,14 @@ class Typestore:
                 assert desc[0] in {Nodetype.ARRAY, Nodetype.SEQUENCE}
                 assert isinstance(desc[1], tuple)
                 subdesc, num = desc[1]
+                isubname: tuple[str, int] | str
                 isubtype, isubname = subdesc
                 count = (
                     '' if num == 0 else str(num) if desc[0] == int(Nodetype.ARRAY) else f'<={num}'
                 )
                 if isubtype == int(Nodetype.BASE):
                     if isubname[0] == 'string':
-                        isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)  # type: ignore[assignment]
+                        isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)
                     deftext.append(f'{isubname[0]}[{count}] {stripped_name}')
                     hashtext.append(f'{isubname[0]}[{count}] {stripped_name}')
                 elif isubname in typemap:
@@ -501,7 +491,7 @@ class Typestore:
                 tid = increment + 1
                 assert isinstance(rest, str)
                 subtype = rest
-                get_struct(subtype)
+                _ = get_struct(subtype)
             elif rest[0] == 'string' and rest[1]:
                 assert isinstance(rest[1], int)
                 string_capacity = rest[1]
@@ -529,7 +519,7 @@ class Typestore:
                     'fields': list(
                         starmap(
                             get_field,
-                            self.FIELDDEFS[typ][1]
+                            self.fielddefs[typ][1]
                             or [
                                 (
                                     'structure_needs_at_least_one_member',

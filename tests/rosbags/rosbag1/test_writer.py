@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 def test_no_overwrite(tmp_path: Path) -> None:
     """Test writer does not touch existing files."""
     path = tmp_path / 'test.bag'
-    path.write_text('foo')
+    _ = path.write_text('foo')
     with pytest.raises(WriterError, match='exists'):
         Writer(path).open()
     path.unlink()
 
     writer = Writer(path)
-    path.write_text('foo')
+    _ = path.write_text('foo')
     with pytest.raises(WriterError, match='exists'):
         writer.open()
 
@@ -47,7 +47,7 @@ def test_add_connection(tmp_path: Path) -> None:
     path = tmp_path / 'test.bag'
 
     with pytest.raises(WriterError, match='not opened'):
-        Writer(path).add_connection(
+        _ = Writer(path).add_connection(
             '/foo',
             'test_msgs/msg/Test',
             msgdef='MESSAGE_DEFINITION',
@@ -76,14 +76,14 @@ def test_add_connection(tmp_path: Path) -> None:
     path.unlink()
 
     with Writer(path) as writer:
-        writer.add_connection(
+        _ = writer.add_connection(
             '/foo',
             'test_msgs/msg/Test',
             msgdef='MESSAGE_DEFINITION',
             md5sum='HASH',
         )
         with pytest.raises(WriterError, match='can only be added once'):
-            writer.add_connection(
+            _ = writer.add_connection(
                 '/foo',
                 'test_msgs/msg/Test',
                 msgdef='MESSAGE_DEFINITION',
@@ -152,7 +152,12 @@ def test_write_simple(tmp_path: Path) -> None:
             md5sum='HASH',
             callerid='src',
         )
-        writer.add_connection('/baz', 'test_msgs/msg/Baz', msgdef='NEVER_WRITTEN', md5sum='HASH')
+        _ = writer.add_connection(
+            '/baz',
+            'test_msgs/msg/Baz',
+            msgdef='NEVER_WRITTEN',
+            md5sum='HASH',
+        )
 
         writer.write(conn_foo, 42, b'DEADBEEF')
         writer.write(conn_latching, 42, b'DEADBEEF')
@@ -194,7 +199,9 @@ def test_write_simple(tmp_path: Path) -> None:
             md5sum='HASH',
             callerid='src',
         )
-        writer.add_connection('/baz', 'test_msgs/msg/Baz', msgdef='NEVER_WRITTEN', md5sum='HASH')
+        _ = writer.add_connection(
+            '/baz', 'test_msgs/msg/Baz', msgdef='NEVER_WRITTEN', md5sum='HASH'
+        )
 
         writer.write(conn_foo, 42, b'DEADBEEF')
         writer.write(conn_latching, 42, b'DEADBEEF')
@@ -267,4 +274,4 @@ def test_deprecations(tmp_path: Path) -> None:
     """Test writer deprecations."""
     bag = Writer(tmp_path / 'bag')
     with bag, pytest.deprecated_call():
-        bag.add_connection('/foo', 'std_msgs/msg/Empty')
+        _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')

@@ -14,16 +14,16 @@ from rosbags.typesys.store import Typestore
 def test_raw_typestore_is_empty() -> None:
     """Test typestore is empty."""
     store = Typestore()
-    assert not store.FIELDDEFS
+    assert not store.fielddefs
 
 
 def test_register_with_new_type() -> None:
     """Test typestore registers new types."""
     store = get_typestore(Stores.LATEST)
 
-    assert 'foo' not in store.FIELDDEFS
-    store.register({'foo': [[], [('b', (1, ('bool', 0)))]]})  # type: ignore[dict-item]
-    assert 'foo' in store.FIELDDEFS
+    assert 'foo' not in store.fielddefs
+    store.register({'foo': ([], [('b', (Nodetype.BASE, ('bool', 0)))])})
+    assert 'foo' in store.fielddefs
 
 
 def test_register_with_same_as_existing_type() -> None:
@@ -32,7 +32,7 @@ def test_register_with_same_as_existing_type() -> None:
 
     typename = 'builtin_interfaces/msg/Time'
 
-    assert typename in store.FIELDDEFS
+    assert typename in store.fielddefs
     store.register(
         {
             typename: (
@@ -52,7 +52,7 @@ def test_register_with_different_from_existing_type() -> None:
 
     typename = 'builtin_interfaces/msg/Time'
 
-    assert typename in store.FIELDDEFS
+    assert typename in store.fielddefs
     with pytest.raises(TypesysError, match='different definition'):
         store.register(
             {

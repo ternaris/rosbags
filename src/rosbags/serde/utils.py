@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from types import ModuleType
     from typing import TypeVar
 
+    from rosbags.interfaces import Typestore
     from rosbags.interfaces.typing import Basename, FieldDesc
-    from rosbags.typesys.store import Typestore
 
     T = TypeVar('T')
 

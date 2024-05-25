@@ -2,29 +2,35 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 v2.0 reader."""
 
+# pyright: strict, reportUnreachable=false
+
 from __future__ import annotations
 
 import heapq
 import os
 import re
 import struct
+import sys
 from bz2 import decompress as bz2_decompress
 from collections import defaultdict
 from enum import Enum, IntEnum
 from functools import reduce
 from io import BytesIO
 from itertools import groupby
-from operator import add
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, cast
 
-from lz4.frame import decompress as lz4_decompress
+if sys.version_info >= (3, 12):  # pragma: no cover
+    from typing import override
+else:  # pragma: no cover
+    from typing_extensions import override
+
+from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag1, TopicInfo
 from rosbags.typesys.msg import normalize_msgtype
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Callable, Generator, Iterable
     from types import TracebackType
     from typing import BinaryIO, Literal
@@ -40,6 +46,8 @@ if TYPE_CHECKING:
 
 class ReaderError(Exception):
     """Reader Error."""
+
+    args: tuple[str]
 
 
 class Compression(Enum):
@@ -85,34 +93,46 @@ class IndexData(NamedTuple):
     chunk_pos: int
     offset: int
 
+    @override
     def __lt__(self, other: tuple[int, ...]) -> bool:
         """Compare by time only."""
         return self.time < other[0]
 
+    @override
     def __le__(self, other: tuple[int, ...]) -> bool:
         """Compare by time only."""
         return self.time <= other[0]
 
+    @override
     def __eq__(self, other: object) -> bool:
         """Compare by time only."""
         if isinstance(other, IndexData):
             return self.time == other[0]
         return NotImplemented  # pragma: no cover
 
+    @override
     def __ge__(self, other: tuple[int, ...]) -> bool:
         """Compare by time only."""
         return self.time >= other[0]
 
+    @override
     def __gt__(self, other: tuple[int, ...]) -> bool:
         """Compare by time only."""
         return self.time > other[0]
 
+    @override
     def __ne__(self, other: object) -> bool:
         """Compare by time only."""
         if isinstance(other, IndexData):
             return self.time != other[0]
         return NotImplemented  # pragma: no cover
 
+
+decompressors: dict[str, Callable[[bytes], bytes]] = {
+    Compression.NONE.value: lambda x: x,
+    Compression.BZ2.value: bz2_decompress,
+    Compression.LZ4.value: cast('Callable[[bytes], bytes]', lz4_decompress),
+}
 
 deserialize_uint8: Unpack = struct.Struct('<B').unpack
 deserialize_uint32: UnpackFrom = struct.Struct('<L').unpack_from
@@ -415,7 +435,7 @@ class Reader:
             if chunk_count == 0:
                 return
 
-            self.bio.seek(index_pos)
+            _ = self.bio.seek(index_pos)
             try:
                 self.connections = [self.read_connection() for _ in range(conn_count)]
                 self.chunk_infos = [self.read_chunk_info() for _ in range(chunk_count)]
@@ -426,7 +446,7 @@ class Reader:
             self.chunks = {}
             indexes: dict[int, list[IndexData]] = defaultdict(list)
             for chunk_info in self.chunk_infos:
-                self.bio.seek(chunk_info.pos)
+                _ = self.bio.seek(chunk_info.pos)
                 self.chunks[chunk_info.pos] = self.read_chunk()
 
                 for _ in range(len(chunk_info.connection_counts)):
@@ -466,20 +486,21 @@ class Reader:
     @property
     def message_count(self) -> int:
         """Total message count."""
-        return reduce(add, (x.msgcount for x in self.topics.values()), 0)
+        return reduce(lambda x, y: x + y, (x.msgcount for x in self.topics.values()), 0)
 
     @property
     def topics(self) -> dict[str, TopicInfo]:
         """Topic information."""
-        topics = {}
+        topics: dict[str, TopicInfo] = {}
         for topic, group in groupby(
             sorted(self.connections, key=lambda x: x.topic),
             key=lambda x: x.topic,
         ):
             connections = list(group)
             msgcount = reduce(
-                add,
+                lambda x, y: x + y,
                 (y.connection_counts.get(x.id, 0) for x in connections for y in self.chunk_infos),
+                0,
             )
 
             topics[topic] = TopicInfo(
@@ -531,7 +552,7 @@ class Reader:
         start_time = header.get_time('start_time') if count else 2**63 - 1
         end_time = header.get_time('end_time') + 1 if count else 0
 
-        self.bio.seek(4, os.SEEK_CUR)
+        _ = self.bio.seek(4, os.SEEK_CUR)
 
         return ChunkInfo(
             chunk_pos,
@@ -547,13 +568,9 @@ class Reader:
         compression = header.get_string('compression')
         datasize = read_uint32(self.bio)
         datapos = self.bio.tell()
-        self.bio.seek(datasize, os.SEEK_CUR)
+        _ = self.bio.seek(datasize, os.SEEK_CUR)
         try:
-            decompressor = {
-                Compression.NONE.value: lambda x: x,
-                Compression.BZ2.value: bz2_decompress,
-                Compression.LZ4.value: lz4_decompress,
-            }[compression]
+            decompressor = decompressors[compression]
         except KeyError:
             msg = f'Compression {compression!r} is not supported.'
             raise ReaderError(msg) from None
@@ -658,19 +675,19 @@ class Reader:
                 self.current_chunk[1].close()
 
                 chunk_header = self.chunks[entry.chunk_pos]
-                self.bio.seek(chunk_header.datapos)
+                _ = self.bio.seek(chunk_header.datapos)
                 rawbytes = chunk_header.decompressor(read_bytes(self.bio, chunk_header.datasize))
                 self.current_chunk = (entry.chunk_pos, BytesIO(rawbytes))
 
             chunk = self.current_chunk[1]
-            chunk.seek(entry.offset)
+            _ = chunk.seek(entry.offset)
 
             while True:
                 header = Header.read(chunk)
                 have = header.get_uint8('op')
                 if have != RecordType.CONNECTION:
                     break
-                chunk.seek(read_uint32(chunk), os.SEEK_CUR)
+                _ = chunk.seek(read_uint32(chunk), os.SEEK_CUR)
 
             if have != RecordType.MSGDATA:
                 msg = 'Expected to find message data.'

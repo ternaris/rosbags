@@ -79,7 +79,7 @@ def test_cdr_generator() -> None:
             ),
         }
     )
-    generate_getsize_cdr(ALL_COMBINATIONS, store)
+    _ = generate_getsize_cdr(ALL_COMBINATIONS, store)
     for endianess in ('le', 'be'):
-        generate_deserialize_cdr(ALL_COMBINATIONS, store, endianess)
-        generate_serialize_cdr(ALL_COMBINATIONS, store, endianess)
+        _ = generate_deserialize_cdr(ALL_COMBINATIONS, store, endianess)
+        _ = generate_serialize_cdr(ALL_COMBINATIONS, store, endianess)

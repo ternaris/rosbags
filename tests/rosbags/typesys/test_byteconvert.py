@@ -23,7 +23,7 @@ def test_ros1_to_cdr() -> None:
 
     msgtype = 'test_msgs/msg/static_16_64'
     store.register(dict(get_types_from_msg(STATIC_16_64, msgtype)))
-    msg_ros = b'\x01\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
+    msg_ros = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00'
         b'\x01\x00'
@@ -35,7 +35,7 @@ def test_ros1_to_cdr() -> None:
 
     msgtype = 'test_msgs/msg/dynamic_s_64'
     store.register(dict(get_types_from_msg(DYNAMIC_S_64, msgtype)))
-    msg_ros = b'\x01\x00\x00\x00X' b'\x00\x00\x00\x00\x00\x00\x00\x02'
+    msg_ros = b'\x01\x00\x00\x00X\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00' b'\x02\x00\x00\x00X\x00' b'\x00\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     )
@@ -49,7 +49,7 @@ def test_cdr_to_ros1() -> None:
 
     msgtype = 'test_msgs/msg/static_16_64'
     store.register(dict(get_types_from_msg(STATIC_16_64, msgtype)))
-    msg_ros = b'\x01\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
+    msg_ros = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00'
         b'\x01\x00'
@@ -61,7 +61,7 @@ def test_cdr_to_ros1() -> None:
 
     msgtype = 'test_msgs/msg/dynamic_s_64'
     store.register(dict(get_types_from_msg(DYNAMIC_S_64, msgtype)))
-    msg_ros = b'\x01\x00\x00\x00X' b'\x00\x00\x00\x00\x00\x00\x00\x02'
+    msg_ros = b'\x01\x00\x00\x00X\x00\x00\x00\x00\x00\x00\x00\x02'
     msg_cdr = (
         b'\x00\x01\x00\x00' b'\x02\x00\x00\x00X\x00' b'\x00\x00' b'\x00\x00\x00\x00\x00\x00\x00\x02'
     )

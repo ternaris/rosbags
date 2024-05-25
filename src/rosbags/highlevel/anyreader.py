@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tools for reading all rosbag versions with unified api."""
 
+# pyright: strict, reportUnreachable=false
+
 from __future__ import annotations
 
 import functools
@@ -107,7 +109,7 @@ class AnyReader:
     def open(self) -> None:
         """Open rosbags."""
         assert not self.isopen
-        rollback = []
+        rollback: list[Reader1 | Reader2] = []
         try:
             for reader in self.readers:
                 reader.open()
@@ -133,16 +135,18 @@ class AnyReader:
                     typs.update(get_types_from_msg(connection.msgdef, connection.msgtype))
 
         elif self.default_typestore:
-            typs.update(self.default_typestore.FIELDDEFS)
+            typs.update(self.default_typestore.fielddefs)
         else:
             warnings.warn(
-                'AnyReader should be instantiated with an explicit typestore when reading '
-                'old Rosbag2 files without embedded message type definions. Using `foxy` '
-                'types as a workaround.',
+                (
+                    'AnyReader should be instantiated with an explicit typestore when reading '
+                    'old Rosbag2 files without embedded message type definions. Using `foxy` '
+                    'types as a workaround.'
+                ),
                 category=DeprecationWarning,
                 stacklevel=2,
             )
-            typs.update(get_typestore(Stores.ROS2_FOXY).FIELDDEFS)
+            typs.update(get_typestore(Stores.ROS2_FOXY).fielddefs)
         self.typestore.register(typs)
         self.isopen = True
 

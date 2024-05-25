@@ -91,11 +91,6 @@ mypy_path = "src"
 strict = true
 
 
-[[tool.mypy.overrides]]
-module = "lz4.frame"
-ignore_missing_imports = true
-
-
 [tool.pytest.ini_options]
 addopts = ["--verbose"]
 

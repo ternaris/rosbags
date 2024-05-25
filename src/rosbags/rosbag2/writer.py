@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag2 writer."""
 
+# pyright: strict, reportUnreachable=false
+
 from __future__ import annotations
 
 import sqlite3
@@ -150,7 +152,7 @@ class Writer:
             WriterError: If value has incorrect type.
 
         """
-        if not isinstance(value, str):
+        if not isinstance(value, str):  # pyright:ignore[reportUnnecessaryIsInstance]
             msg = f'Cannot set non-string value {value!r} in custom_data.'
             raise WriterError(msg)
         self.custom_data[key] = value
@@ -168,7 +170,7 @@ class Writer:
             raise WriterError(msg) from None
 
         self.conn = sqlite3.connect(f'file:{self.dbpath}', uri=True)
-        self.conn.executescript(self.SQLITE_SCHEMA)
+        _ = self.conn.executescript(self.SQLITE_SCHEMA)
         self.cursor = self.conn.cursor()
 
     def add_connection(
@@ -220,9 +222,11 @@ class Writer:
         assert rihs01
 
         if msgtype not in self.added_types:
-            self.cursor.execute(
-                'INSERT INTO message_definitions (topic_type, encoding, encoded_message_definition,'
-                ' type_description_hash) VALUES(?, ?, ?, ?)',
+            _ = self.cursor.execute(
+                (
+                    'INSERT INTO message_definitions (topic_type, encoding,'
+                    ' encoded_message_definition, type_description_hash) VALUES(?, ?, ?, ?)'
+                ),
                 (msgtype, 'ros2msg', msgdef, rihs01),
             )
             self.added_types.append(msgtype)
@@ -252,10 +256,10 @@ class Writer:
         self.connections.append(connection)
         self.counts[connection.id] = 0
         meta = (connection.id, topic, msgtype, serialization_format, offered_qos_profiles, rihs01)
-        self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
+        _ = self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
         return connection
 
-    def write(self, connection: Connection, timestamp: int, data: bytes) -> None:
+    def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
         """Write message to rosbag2.
 
         Args:
@@ -278,7 +282,7 @@ class Writer:
             assert self.compressor
             data = self.compressor.compress(data)
 
-        self.cursor.execute(
+        _ = self.cursor.execute(
             'INSERT INTO messages (topic_id, timestamp, data) VALUES(?, ?, ?)',
             (connection.id, timestamp, data),
         )
@@ -295,12 +299,15 @@ class Writer:
         self.cursor.close()
         self.cursor = None
 
+        duration: int
+        start: int
+        count: int
         duration, start, count = self.conn.execute(
             'SELECT max(timestamp) - min(timestamp), min(timestamp), count(*) FROM messages',
         ).fetchone()
 
         self.conn.commit()
-        self.conn.execute('PRAGMA optimize')
+        _ = self.conn.execute('PRAGMA optimize')
         self.conn.close()
 
         if self.compression_mode == 'file':
@@ -308,7 +315,7 @@ class Writer:
             src = self.dbpath
             self.dbpath = src.with_suffix(f'.db3.{self.compression_format}')
             with src.open('rb') as infile, self.dbpath.open('wb') as outfile:
-                self.compressor.copy_stream(infile, outfile)
+                _ = self.compressor.copy_stream(infile, outfile)
             src.unlink()
 
         metadata: dict[str, Metadata] = {
@@ -350,7 +357,7 @@ class Writer:
         with self.metapath.open('w') as metafile:
             yaml = YAML(typ='safe')
             yaml.default_flow_style = False
-            yaml.dump(metadata, metafile)
+            yaml.dump(metadata, metafile)  # pyright: ignore[reportUnknownMemberType]
 
     def __enter__(self) -> Self:
         """Open rosbag2 when entering contextmanager."""

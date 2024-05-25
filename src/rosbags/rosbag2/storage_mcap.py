@@ -1,16 +1,17 @@
-# Copyright 2020 - 2024 Ternaris
+# Copyright 2020 - 2024 Ternarisstorage
 # SPDX-License-Identifier: Apache-2.0
 """Mcap storage."""
 
 from __future__ import annotations
 
 import heapq
+import struct
 from io import BytesIO
 from struct import iter_unpack, unpack_from
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 import zstandard
-from lz4.frame import decompress as lz4_decompress
+from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from .errors import ReaderError
 
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
     from typing import BinaryIO
 
     from rosbags.interfaces import Connection
+
+    Unpack = Callable[[bytes], 'tuple[int]']
+    Unpack2 = Callable[[bytes], 'tuple[int, int]']
+    Unpack4 = Callable[[bytes], 'tuple[int, int, int, int]']
+    Unpack5 = Callable[[bytes], 'tuple[int, int, int, int, int]']
 
 
 class Schema(NamedTuple):
@@ -90,29 +96,42 @@ class Msg(NamedTuple):
     data: bytes | None
 
 
+MAXSIZE: int = 2**63 - 1
+
+deserialize_uint16: Unpack = struct.Struct('<H').unpack
+deserialize_uint32: Unpack = struct.Struct('<I').unpack
+deserialize_uint64: Unpack = struct.Struct('<Q').unpack
+
+deserialize_qq: Unpack2 = struct.Struct('<QQ').unpack
+deserialize_qqqi: Unpack4 = struct.Struct('<QQQI').unpack
+deserialize_qqqq: Unpack4 = struct.Struct('<QQQQ').unpack
+deserialize_hiqq: Unpack4 = struct.Struct('<HIQQ').unpack
+deserialize_qhiqq: Unpack5 = struct.Struct('<QHIQQ').unpack
+
+
 def read_sized(bio: BinaryIO) -> bytes:
     """Read one record."""
-    return bio.read(unpack_from('<Q', bio.read(8))[0])
+    return bio.read(deserialize_uint64(bio.read(8))[0])
 
 
 def skip_sized(bio: BinaryIO) -> None:
     """Read one record."""
-    bio.seek(unpack_from('<Q', bio.read(8))[0], 1)
+    _ = bio.seek(deserialize_uint64(bio.read(8))[0], 1)
 
 
 def read_bytes(bio: BinaryIO) -> bytes:
     """Read string."""
-    return bio.read(unpack_from('<I', bio.read(4))[0])
+    return bio.read(deserialize_uint32(bio.read(4))[0])
 
 
 def read_string(bio: BinaryIO) -> str:
     """Read string."""
-    return bio.read(unpack_from('<I', bio.read(4))[0]).decode()
+    return bio.read(deserialize_uint32(bio.read(4))[0]).decode()
 
 
 DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
     '': lambda x, _: x,
-    'lz4': lambda x, _: lz4_decompress(x),
+    'lz4': lambda x, _: cast('Callable[[bytes], bytes]', lz4_decompress)(x),
     'zstd': zstandard.ZstdDecompressor().decompress,
 }
 
@@ -127,16 +146,16 @@ def msgsrc(
     """Yield messages from chunk in time order."""
     yield Msg(chunk.message_start_time, 0, None, None)
 
-    bio.seek(chunk.chunk_start_offset + 9 + 40 + len(chunk.compression))
+    _ = bio.seek(chunk.chunk_start_offset + 9 + 40 + len(chunk.compression))
     compressed_data = bio.read(chunk.compressed_size)
     subio = BytesIO(DECOMPRESSORS[chunk.compression](compressed_data, chunk.uncompressed_size))
 
-    messages = []
+    messages: list[Msg] = []
     while (offset := subio.tell()) < chunk.uncompressed_size:
         op_ = ord(subio.read(1))
         if op_ == 0x05:
             recio = BytesIO(read_sized(subio))
-            channel_id, _, log_time, _ = unpack_from('<HIQQ', recio.read(22))
+            channel_id, _, log_time, _ = deserialize_hiqq(recio.read(22))
             if start <= log_time < stop and channel_id in channel_map:
                 messages.append(
                     Msg(
@@ -195,7 +214,7 @@ class MCAPFile:
             raise ReaderError(msg)
         self.data_start = self.bio.tell()
 
-        self.bio.seek(-37, 2)
+        _ = self.bio.seek(-37, 2)
         footer_start = self.bio.tell()
         data = self.bio.read()
         magic = data[-8:]
@@ -206,7 +225,7 @@ class MCAPFile:
         assert len(data) == 37
         assert data[0:9] == b'\x02\x14\x00\x00\x00\x00\x00\x00\x00', data[0:9]
 
-        (summary_start,) = unpack_from('<Q', data, 9)
+        (summary_start,) = deserialize_uint64(data[9:17])
         if summary_start:
             self.data_end = summary_start
             self.read_index()
@@ -222,7 +241,7 @@ class MCAPFile:
         channels = self.channels
         chunks = self.chunks
 
-        bio.seek(self.data_end)
+        _ = bio.seek(self.data_end)
         while True:
             op_ = ord(bio.read(1))
 
@@ -230,14 +249,14 @@ class MCAPFile:
                 break
 
             if op_ == 0x03:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
                 schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
 
             elif op_ == 0x04:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
-                schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
+                schema_name = schemas[deserialize_uint16(bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
                     schema_name,
@@ -247,16 +266,19 @@ class MCAPFile:
                 )
 
             elif op_ == 0x08:
-                bio.seek(8, 1)
-                chunk = ChunkInfo(  # type: ignore[call-arg]
-                    *unpack_from('<QQQQ', bio.read(32), 0),
+                _ = bio.seek(8, 1)
+                chunk = ChunkInfo(
+                    *deserialize_qqqq(bio.read(32)),
                     {
                         x[0]: x[1]
-                        for x in iter_unpack('<HQ', bio.read(unpack_from('<I', bio.read(4))[0]))
+                        for x in cast(
+                            'Iterable[tuple[int, int]]',
+                            iter_unpack('<HQ', bio.read(deserialize_uint32(bio.read(4))[0])),
+                        )
                     },
-                    *unpack_from('<Q', bio.read(8), 0),
+                    *deserialize_uint64(bio.read(8)),
                     read_string(bio),
-                    *unpack_from('<QQ', bio.read(16), 0),
+                    *deserialize_qq(bio.read(16)),
                     {},
                 )
                 offset_channel = sorted((v, k) for k, v in chunk.message_index_offsets.items())
@@ -277,10 +299,13 @@ class MCAPFile:
                 skip_sized(bio)
 
             elif op_ == 0x0B:
-                bio.seek(8, 1)
+                _ = bio.seek(8, 1)
                 self.statistics = Statistics(
-                    *unpack_from('<QHIIIIQQ', bio.read(42), 0),
-                    read_bytes(bio),  # type: ignore[call-arg]
+                    *cast(
+                        'tuple[int, int, int, int, int, int, int ,int]',
+                        unpack_from('<QHIIIIQQ', bio.read(42), 0),
+                    ),
+                    read_bytes(bio),
                 )
 
             elif op_ == 0x0D:
@@ -300,7 +325,7 @@ class MCAPFile:
         assert self.bio
         bio = self.bio
         bio_size = self.data_end
-        bio.seek(self.data_start)
+        _ = bio.seek(self.data_start)
 
         schemas = self.schemas
         channels = self.channels
@@ -309,12 +334,12 @@ class MCAPFile:
             op_ = ord(bio.read(1))
 
             if op_ == 0x03:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
                 schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
             elif op_ == 0x04:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
                 schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
@@ -324,10 +349,10 @@ class MCAPFile:
                     read_bytes(bio),
                 )
             elif op_ == 0x06:
-                bio.seek(8, 1)
-                _, _, uncompressed_size, _ = unpack_from('<QQQI', bio.read(28))
+                _ = bio.seek(8, 1)
+                _, _, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
                 compression = read_string(bio)
-                (compressed_size,) = unpack_from('<Q', bio.read(8))
+                (compressed_size,) = deserialize_uint64(bio.read(8))
                 bio = BytesIO(
                     DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
                 )
@@ -355,14 +380,14 @@ class MCAPFile:
         assert self.bio
         bio = self.bio
         bio_size = self.data_end
-        bio.seek(self.data_start)
+        _ = bio.seek(self.data_start)
 
         schemas = self.schemas.copy()
         channels = self.channels.copy()
 
         if channels:
             read_meta = False
-            channel_map = {
+            channel_map = {  # pragma: no branch
                 cid: conn
                 for conn in connections
                 if (
@@ -383,18 +408,18 @@ class MCAPFile:
         if start is None:
             start = 0
         if stop is None:
-            stop = 2**63 - 1
+            stop = MAXSIZE
 
         while bio.tell() < bio_size:
             op_ = ord(bio.read(1))
 
             if op_ == 0x03 and read_meta:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
                 schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
             elif op_ == 0x04 and read_meta:
-                bio.seek(8, 1)
-                (key,) = unpack_from('<H', bio.read(2))
+                _ = bio.seek(8, 1)
+                (key,) = deserialize_uint16(bio.read(2))
                 schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
                 channels[key] = Channel(
                     key,
@@ -414,22 +439,22 @@ class MCAPFile:
                 if conn:
                     channel_map[key] = conn
             elif op_ == 0x05:
-                size, channel_id, _, timestamp, _ = unpack_from('<QHIQQ', bio.read(30))
+                size, channel_id, _, timestamp, _ = deserialize_qhiqq(bio.read(30))
                 data = bio.read(size - 22)
                 if start <= timestamp < stop and channel_id in channel_map:
                     yield channel_map[channel_id], timestamp, data
             elif op_ == 0x06:
-                (size,) = unpack_from('<Q', bio.read(8))
-                start_time, end_time, uncompressed_size, _ = unpack_from('<QQQI', bio.read(28))
+                (size,) = deserialize_uint64(bio.read(8))
+                start_time, end_time, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
                 if read_meta or (start < end_time and start_time < stop):
                     compression = read_string(bio)
-                    (compressed_size,) = unpack_from('<Q', bio.read(8))
+                    (compressed_size,) = deserialize_uint64(bio.read(8))
                     bio = BytesIO(
                         DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
                     )
                     bio_size = uncompressed_size
                 else:
-                    bio.seek(size - 28, 1)
+                    _ = bio.seek(size - 28, 1)
             else:
                 skip_sized(bio)
 
@@ -460,7 +485,7 @@ class MCAPFile:
             yield from self.messages_scan(connections, start, stop)
             return
 
-        channel_map = {
+        channel_map = {  # pragma: no branch
             cid: conn
             for conn in connections
             if (
@@ -528,7 +553,7 @@ class ReaderMcap:
 
     def get_definitions(self) -> dict[str, tuple[str, str]]:
         """Get message definitions."""
-        res = {}
+        res: dict[str, tuple[str, str]] = {}
         for reader in self.readers:
             res.update(reader.get_schema_definitions())
         return res
