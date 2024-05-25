@@ -4,7 +4,7 @@
 # THIS FILE IS GENERATED, DO NOT EDIT
 """Message type definitions."""
 
-# ruff: noqa: E501,F401,F403,F405,F821,N801,N814,TCH004
+# ruff: noqa: N801,N814,N816,TCH004
 
 from __future__ import annotations
 
@@ -15,8 +15,6 @@ from rosbags.interfaces import Nodetype as T
 
 if TYPE_CHECKING:
     from typing import ClassVar
-
-    import numpy as np
 
     from rosbags.interfaces.typing import Typesdict
 

@@ -4,7 +4,7 @@
 # THIS FILE IS GENERATED, DO NOT EDIT
 """Message type definitions."""
 
-# ruff: noqa: E501,F401,F403,F405,F821,N801,N814,TCH004
+# ruff: noqa: N801,N814,N816,TCH004
 
 from __future__ import annotations
 
@@ -13,12 +13,18 @@ from typing import TYPE_CHECKING
 
 from rosbags.interfaces import Nodetype as T
 
-from .empty import *
+from . import empty as base
 
 if TYPE_CHECKING:
     from typing import ClassVar
 
     import numpy as np
+
+    from rosbags.interfaces.typing import Typesdict
+
+
+builtin_interfaces__msg__Duration = base.builtin_interfaces__msg__Duration
+builtin_interfaces__msg__Time = base.builtin_interfaces__msg__Time
 
 
 @dataclass
@@ -1640,8 +1646,9 @@ class visualization_msgs__msg__MenuEntry:
     __msgtype__: ClassVar[str] = 'visualization_msgs/msg/MenuEntry'
 
 
-FIELDDEFS = {
-    **FIELDDEFS,
+FIELDDEFS: Typesdict = {
+    'builtin_interfaces/msg/Duration': base.FIELDDEFS['builtin_interfaces/msg/Duration'],
+    'builtin_interfaces/msg/Time': base.FIELDDEFS['builtin_interfaces/msg/Time'],
     'action_msgs/msg/GoalInfo': (
         [],
         [
