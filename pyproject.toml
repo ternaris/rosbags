@@ -24,6 +24,7 @@ dependencies = [
   "lz4",
   "numpy",
   "ruamel.yaml",
+  "typing_extensions",
   "zstandard",
 ]
 dynamic = ["version"]
