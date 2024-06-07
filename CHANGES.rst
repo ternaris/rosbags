@@ -3,6 +3,15 @@
 Changes
 =======
 
+0.10.3 - 2024-06-07
+-------------------
+
+- Improve rosbags-convert help strings
+- Support rosbag2 up to version 9 `#92`_
+
+.. _#92: https://gitlab.com/ternaris/rosbags/issues/92
+
+
 0.10.2 - 2024-05-25
 -------------------
 
