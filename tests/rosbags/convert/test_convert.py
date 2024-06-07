@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 import pytest
 
@@ -22,7 +22,7 @@ from rosbags.convert.converter import (
     migrate_message,
 )
 from rosbags.highlevel import AnyReaderError
-from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2
+from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2, Qos
 from rosbags.rosbag1 import (
     Writer as Writer1,
     WriterError as WriterError1,
@@ -62,7 +62,7 @@ def test_convert_reader_errors(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.AnyReader', side_effect=AnyReaderError('exc')),
         pytest.raises(ConverterError, match='Reading source bag: exc'),
     ):
-        convert([], tmp_path, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, (), (), (), ())
 
 
 def test_convert_writer_errors(tmp_path: Path) -> None:
@@ -72,14 +72,14 @@ def test_convert_writer_errors(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.Writer2', side_effect=WriterError2('exc')),
         pytest.raises(ConverterError, match='Writing destination bag: exc'),
     ):
-        convert([], tmp_path, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, (), (), (), ())
 
     with (
         patch('rosbags.convert.converter.AnyReader'),
         patch('rosbags.convert.converter.Writer1', side_effect=WriterError1('exc')),
         pytest.raises(ConverterError, match='Writing destination bag: exc'),
     ):
-        convert([], tmp_path / 'foo.bag', None, None, (), (), (), ())
+        convert([], tmp_path / 'foo.bag', None, None, None, (), (), (), ())
 
 
 def test_convert_forwards_exceptions(tmp_path: Path) -> None:
@@ -88,7 +88,7 @@ def test_convert_forwards_exceptions(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.AnyReader', side_effect=KeyError('exc')),
         pytest.raises(ConverterError, match="Converting rosbag: KeyError\\('exc'\\)"),
     ):
-        convert([], tmp_path, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, (), (), (), ())
 
 
 def test_convert_connection_filtering(tmp_path: Path) -> None:
@@ -99,7 +99,7 @@ def test_convert_connection_filtering(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.create_connections_converters') as ccc,
     ):
         reader.return_value.__enter__.return_value.connections = []
-        convert([], tmp_path, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, (), (), (), ())
     ccc.assert_not_called()
 
     with (
@@ -115,27 +115,27 @@ def test_convert_connection_filtering(tmp_path: Path) -> None:
         conn.msgtype = 'bar'
         reader.return_value.__enter__.return_value.connections = [conn]
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, (), (), (), ())
+            convert([], tmp_path, None, None, None, (), (), (), ())
         ccc.reset_mock()
 
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, (), ('foo'), (), ('unknown'))
+            convert([], tmp_path, None, None, None, (), ('foo'), (), ('unknown'))
         ccc.reset_mock()
 
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, (), ('unknown'), (), ('bar'))
+            convert([], tmp_path, None, None, None, (), ('unknown'), (), ('bar'))
         ccc.reset_mock()
 
-        convert([], tmp_path, None, None, ('foo'), (), (), ())
+        convert([], tmp_path, None, None, None, ('foo'), (), (), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, (), (), ('bar'), ())
+        convert([], tmp_path, None, None, None, (), (), ('bar'), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, (), ('unknown'), (), ())
+        convert([], tmp_path, None, None, None, (), ('unknown'), (), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, (), (), (), ('unknown'))
+        convert([], tmp_path, None, None, None, (), (), (), ('unknown'))
         ccc.assert_not_called()
 
 
@@ -161,10 +161,157 @@ def test_convert_applies_transforms(tmp_path: Path) -> None:
             {'bar': lambda x: x * 2},  # pyright: ignore[reportUnknownLambdaType]
         ]
 
-        convert([], tmp_path, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, (), (), (), ())
 
         wctx = writer.return_value.__enter__.return_value
         wctx.write.assert_called_with(666, 1, 4)
+
+
+def test_connection_params_are_converted() -> None:
+    """Test connection params are converted."""
+    connections = [
+        Connection(
+            1,
+            '/t1',
+            'std_msgs/msg/Int8',
+            '',
+            '',
+            0,
+            ConnectionExtRosbag1(None, latching=1),
+            None,
+        ),
+        Connection(
+            2,
+            '/t2',
+            'std_msgs/msg/Int8',
+            '',
+            '',
+            0,
+            ConnectionExtRosbag1('caller', latching=0),
+            None,
+        ),
+    ]
+
+    reader = MagicMock()
+    reader.is2 = False
+    reader.typestore = get_typestore(Stores.ROS1_NOETIC)
+
+    writer = MagicMock(spec=Writer1)
+    writer.connections = []
+
+    _ = create_connections_converters(connections, None, reader, writer)
+    writer.add_connection.assert_has_calls(
+        [
+            call(
+                '/t1',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                callerid=None,
+                latching=1,
+            ),
+            call(
+                '/t2',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                callerid='caller',
+                latching=0,
+            ),
+        ]
+    )
+
+    writer = MagicMock(spec=Writer2)
+    writer.connections = []
+    _ = create_connections_converters(connections, None, reader, writer)
+    writer.add_connection.assert_has_calls(
+        [
+            call(
+                '/t1',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                serialization_format='cdr',
+                offered_qos_profiles=LATCH,
+            ),
+            call(
+                '/t2',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                serialization_format='cdr',
+                offered_qos_profiles=[],
+            ),
+        ]
+    )
+
+    connections = [
+        Connection(
+            1,
+            '/t1',
+            'std_msgs/msg/Int8',
+            '',
+            '',
+            0,
+            ConnectionExtRosbag2('cdr', LATCH),
+            None,
+        ),
+        Connection(
+            2,
+            '/t2',
+            'std_msgs/msg/Int8',
+            '',
+            '',
+            0,
+            ConnectionExtRosbag2('cdr', []),
+            None,
+        ),
+    ]
+
+    reader = MagicMock()
+    reader.is2 = True
+    reader.typestore = get_typestore(Stores.ROS2_FOXY)
+
+    writer = MagicMock(spec=Writer1)
+    writer.connections = []
+
+    _ = create_connections_converters(connections, None, reader, writer)
+    writer.add_connection.assert_has_calls(
+        [
+            call(
+                '/t1',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                callerid=None,
+                latching=1,
+            ),
+            call(
+                '/t2',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                callerid=None,
+                latching=0,
+            ),
+        ]
+    )
+
+    writer = MagicMock(spec=Writer2)
+    writer.connections = []
+    _ = create_connections_converters(connections, None, reader, writer)
+    writer.add_connection.assert_has_calls(
+        [
+            call(
+                '/t1',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                serialization_format='cdr',
+                offered_qos_profiles=LATCH,
+            ),
+            call(
+                '/t2',
+                'std_msgs/msg/Int8',
+                typestore=ANY,
+                serialization_format='cdr',
+                offered_qos_profiles=[],
+            ),
+        ]
+    )
 
 
 def test_destination_typestore_gets_created() -> None:
@@ -364,7 +511,7 @@ def test_connection_deduplication() -> None:
         *,
         typestore: object,
         serialization_format: str,
-        offered_qos_profiles: str,
+        offered_qos_profiles: list[Qos],
     ) -> Connection:
         _ = typestore
         res = Connection(

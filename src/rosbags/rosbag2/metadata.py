@@ -4,7 +4,46 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from io import StringIO
+from typing import TYPE_CHECKING, TypedDict
+
+from ruamel.yaml import YAML
+
+from rosbags.interfaces import (
+    Qos,
+    QosDurability,
+    QosHistory,
+    QosLiveliness,
+    QosReliability,
+    QosTime,
+)
+
+if TYPE_CHECKING:
+
+    class QosTimeDict(TypedDict):
+        """Time in seconds and nanoseconds."""
+
+        sec: int
+        nsec: int
+
+    class QosDict(TypedDict):
+        """QoS parameters."""
+
+        history: str | int
+        depth: int
+        reliability: str | int
+        durability: str | int
+        deadline: QosTimeDict
+        lifespan: QosTimeDict
+        liveliness: str | int
+        liveliness_lease_duration: QosTimeDict
+        avoid_ros_namespace_conventions: bool
+
+
+class Duration(TypedDict):
+    """Bag duration."""
+
+    nanoseconds: int
 
 
 class StartingTime(TypedDict):
@@ -13,19 +52,13 @@ class StartingTime(TypedDict):
     nanoseconds_since_epoch: int
 
 
-class Duration(TypedDict):
-    """Bag starting time."""
-
-    nanoseconds: int
-
-
 class TopicMetadata(TypedDict):
     """Topic metadata."""
 
     name: str
     type: str
     serialization_format: str
-    offered_qos_profiles: str
+    offered_qos_profiles: list[QosDict] | str
     type_description_hash: str
 
 
@@ -60,3 +93,109 @@ class Metadata(TypedDict):
     files: list[FileInformation]
     custom_data: dict[str, str]
     ros_distro: str
+
+
+def parse_qos(dcts: list[QosDict] | str) -> list[Qos]:
+    """Parse and normalize QoS parameters."""
+    if not dcts:
+        return []
+    items: list[QosDict] = YAML(typ='safe').load(dcts) if isinstance(dcts, str) else dcts
+
+    res: list[Qos] = []
+    for item in items:
+        try:
+            if isinstance((value := item['history']), int):
+                history = QosHistory(value)
+            else:
+                history = QosHistory.__members__[value.upper()]
+        except (KeyError, ValueError):
+            history = QosHistory(QosHistory.UNKNOWN)
+
+        try:
+            if isinstance((value := item['reliability']), int):
+                reliability = QosReliability(value)
+            else:
+                reliability = QosReliability.__members__[value.upper()]
+        except (KeyError, ValueError):
+            reliability = QosReliability(QosReliability.UNKNOWN)
+
+        try:
+            if isinstance((value := item['durability']), int):
+                durability = QosDurability(value)
+            else:
+                durability = QosDurability.__members__[value.upper()]
+        except (KeyError, ValueError):
+            durability = QosDurability(QosDurability.UNKNOWN)
+
+        try:
+            if isinstance((value := item['liveliness']), int):
+                liveliness = QosLiveliness(value)
+            else:
+                liveliness = QosLiveliness.__members__[value.upper()]
+        except (KeyError, ValueError):
+            liveliness = QosLiveliness(QosLiveliness.UNKNOWN)
+
+        res.append(
+            Qos(
+                history,
+                item['depth'],
+                reliability,
+                durability,
+                QosTime(item['deadline']['sec'], item['deadline']['nsec']),
+                QosTime(item['lifespan']['sec'], item['lifespan']['nsec']),
+                liveliness,
+                QosTime(
+                    item['liveliness_lease_duration']['sec'],
+                    item['liveliness_lease_duration']['nsec'],
+                ),
+                item['avoid_ros_namespace_conventions'],
+            ),
+        )
+
+    return res
+
+
+def dump_qos_v8(qos: list[Qos]) -> str:
+    """Dump qos for v8 metadata."""
+    dcts: list[QosDict] = [
+        {
+            'history': x.history.value,
+            'depth': x.depth,
+            'reliability': x.reliability.value,
+            'durability': x.durability.value,
+            'deadline': {'sec': x.deadline.sec, 'nsec': x.deadline.nsec},
+            'lifespan': {'sec': x.lifespan.sec, 'nsec': x.lifespan.nsec},
+            'liveliness': x.liveliness.value,
+            'liveliness_lease_duration': {
+                'sec': x.liveliness_lease_duration.sec,
+                'nsec': x.liveliness_lease_duration.nsec,
+            },
+            'avoid_ros_namespace_conventions': x.avoid_ros_namespace_conventions,
+        }
+        for x in qos
+    ]
+
+    stream = StringIO()
+    YAML(typ='safe').dump(dcts, stream)
+    return stream.getvalue()
+
+
+def dump_qos_v9(qos: list[Qos]) -> list[QosDict]:
+    """Dump qos for v9 metadata."""
+    return [
+        {
+            'history': x.history.name.lower(),
+            'depth': x.depth,
+            'reliability': x.reliability.name.lower(),
+            'durability': x.durability.name.lower(),
+            'deadline': {'sec': x.deadline.sec, 'nsec': x.deadline.nsec},
+            'lifespan': {'sec': x.lifespan.sec, 'nsec': x.lifespan.nsec},
+            'liveliness': x.liveliness.name.lower(),
+            'liveliness_lease_duration': {
+                'sec': x.liveliness_lease_duration.sec,
+                'nsec': x.liveliness_lease_duration.nsec,
+            },
+            'avoid_ros_namespace_conventions': x.avoid_ros_namespace_conventions,
+        }
+        for x in qos
+    ]

@@ -45,12 +45,12 @@ def test_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out)
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[2].fielddefs == FOXY_FIELDDEFS
+    assert cvrt.call_args.args[3].fielddefs == FOXY_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out, src_typestore='ros1_noetic')
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[2].fielddefs == NOETIC_FIELDDEFS
+    assert cvrt.call_args.args[3].fielddefs == NOETIC_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         assert command([bag1, bag2], out, src_typestore_ref=NOTYPESTORE_REF) == 1
@@ -60,17 +60,17 @@ def test_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         with patch('rosbags.convert.commands.convert') as cvrt:
             _ = command([bag1, bag2], out, src_typestore_ref=ref)
         cvrt.assert_called_once()
-        assert cvrt.call_args.args[2].fielddefs == NOETIC_FIELDDEFS
+        assert cvrt.call_args.args[3].fielddefs == NOETIC_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out)
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[3] is None
+    assert cvrt.call_args.args[4] is None
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out, dst_typestore='ros1_noetic')
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[3].fielddefs == NOETIC_FIELDDEFS
+    assert cvrt.call_args.args[4].fielddefs == NOETIC_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         assert command([bag1, bag2], out, dst_typestore_ref=NOTYPESTORE_REF) == 1
@@ -79,12 +79,12 @@ def test_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out, dst_typestore_ref=TYPESTORE_REF)
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[3].fielddefs == NOETIC_FIELDDEFS
+    assert cvrt.call_args.args[4].fielddefs == NOETIC_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out, dst_typestore_ref=TYPESTORE_REF)
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[3].fielddefs == NOETIC_FIELDDEFS
+    assert cvrt.call_args.args[4].fielddefs == NOETIC_FIELDDEFS
 
     with patch('rosbags.convert.commands.convert', side_effect=ConverterError('exc')):
         assert command([bag1, bag2], out) == 1

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Generic, NamedTuple, Protocol, TypeAlias, TypeVar
 
 from .typing import Nodetype as _Nodetype
@@ -31,7 +32,7 @@ class ConnectionExtRosbag2(NamedTuple):
     """Rosbag2 specific connection extensions."""
 
     serialization_format: str
-    offered_qos_profiles: str
+    offered_qos_profiles: list[Qos]
 
 
 class Connection(NamedTuple):
@@ -45,6 +46,67 @@ class Connection(NamedTuple):
     msgcount: int
     ext: ConnectionExtRosbag1 | ConnectionExtRosbag2
     owner: object
+
+
+class QosDurability(Enum):
+    """QoS durability parameter."""
+
+    SYSTEM_DEFAULT = 0
+    TRANSIENT_LOCAL = 1
+    VOLATILE = 2
+    UNKNOWN = 3
+    BEST_AVAILABLE = 4
+
+
+class QosHistory(Enum):
+    """QoS history parameter."""
+
+    SYSTEM_DEFAULT = 0
+    KEEP_LAST = 1
+    KEEP_ALL = 2
+    UNKNOWN = 3
+
+
+class QosLiveliness(Enum):
+    """QoS liveliness parameter."""
+
+    SYSTEM_DEFAULT = 0
+    AUTOMATIC = 1
+    MANUAL_BY_NODE = 2
+    MANUAL_BY_TOPIC = 3
+    UNKNOWN = 4
+    BEST_AVAILABLE = 5
+
+
+class QosReliability(Enum):
+    """QoS reliability parameter."""
+
+    SYSTEM_DEFAULT = 0
+    RELIABLE = 1
+    BEST_EFFORT = 2
+    UNKNOWN = 3
+    BEST_AVAILABLE = 4
+
+
+class QosTime(NamedTuple):
+    """Time in seconds and nanoseconds."""
+
+    sec: int
+    nsec: int
+
+
+class Qos(NamedTuple):
+    """QoS parameters."""
+
+    history: QosHistory
+    depth: int
+    reliability: QosReliability
+    durability: QosDurability
+    deadline: QosTime
+    lifespan: QosTime
+    liveliness: QosLiveliness
+    liveliness_lease_duration: QosTime
+    avoid_ros_namespace_conventions: bool
 
 
 class TopicInfo(NamedTuple):

@@ -10,7 +10,18 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from rosbags.highlevel.anyreader import AnyReader, AnyReaderError
-from rosbags.interfaces import Connection, ConnectionExtRosbag1, ConnectionExtRosbag2, Nodetype
+from rosbags.interfaces import (
+    Connection,
+    ConnectionExtRosbag1,
+    ConnectionExtRosbag2,
+    Nodetype,
+    Qos,
+    QosDurability,
+    QosHistory,
+    QosLiveliness,
+    QosReliability,
+    QosTime,
+)
 from rosbags.rosbag1 import (
     Writer as Writer1,
     WriterError as WriterError1,
@@ -24,27 +35,24 @@ from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
+    from typing import Literal
 
     from rosbags.typesys.store import Msg, Msgarg, Typestore
 
 
-LATCH = """
-- history: 3
-  depth: 0
-  reliability: 1
-  durability: 1
-  deadline:
-    sec: 2147483647
-    nsec: 4294967295
-  lifespan:
-    sec: 2147483647
-    nsec: 4294967295
-  liveliness: 1
-  liveliness_lease_duration:
-    sec: 2147483647
-    nsec: 4294967295
-  avoid_ros_namespace_conventions: false
-""".strip()
+LATCH = [
+    Qos(
+        QosHistory.UNKNOWN,
+        0,
+        QosReliability.RELIABLE,
+        QosDurability.TRANSIENT_LOCAL,
+        QosTime(2147483647, 4294967295),
+        QosTime(2147483647, 4294967295),
+        QosLiveliness.AUTOMATIC,
+        QosTime(2147483647, 4294967295),
+        avoid_ros_namespace_conventions=False,
+    )
+]
 
 # Legacy message types that will always be renamed
 STATIC_MSGTYPE_RENAMES = {
@@ -357,7 +365,7 @@ def create_connections_converters(
             ext2 = (
                 rconn.ext
                 if isinstance(rconn.ext, ConnectionExtRosbag2)
-                else ConnectionExtRosbag2('cdr', LATCH if rconn.ext.latching else '')
+                else ConnectionExtRosbag2('cdr', LATCH if rconn.ext.latching else [])
             )
             for conn in writer.connections:
                 if topic == conn.topic and msgtype == conn.msgtype and conn.ext == ext2:
@@ -376,7 +384,7 @@ def create_connections_converters(
                 if isinstance(rconn.ext, ConnectionExtRosbag1)
                 else ConnectionExtRosbag1(
                     None,
-                    int('durability: 1' in rconn.ext.offered_qos_profiles),
+                    int(any(x.durability.value == 1 for x in rconn.ext.offered_qos_profiles)),
                 )
             )
             for conn in writer.connections:
@@ -398,6 +406,7 @@ def create_connections_converters(
 def convert(
     srcs: Sequence[Path],
     dst: Path,
+    dst_version: int | None,
     default_typestore: Typestore | None,
     typestore: Typestore | None,
     exclude_topics: Sequence[str],
@@ -410,6 +419,7 @@ def convert(
     Args:
         srcs: Rosbag files to read from.
         dst: Destination path to write rosbag to.
+        dst_version: Destination file format version.
         default_typestore: Default typestore if source files have not message definitions.
         typestore: Convert messages to this destination typestore.
         exclude_topics: Topics to exclude from conversion, even if included explicitly.
@@ -422,12 +432,16 @@ def convert(
 
     """
     is2 = dst.suffix != '.bag'
-    writercls: type[Writer1 | Writer2] = Writer2 if is2 else Writer1
+    writercls: Callable[[], Writer1] | Callable[[], Writer2] = (
+        partial(Writer2, dst, version=cast('Literal[8, 9]', dst_version or 8))
+        if is2
+        else partial(Writer1, dst)  # type: ignore[arg-type]
+    )
 
     try:
         with (
             AnyReader(srcs, default_typestore=default_typestore) as reader,
-            writercls(dst) as writer,
+            writercls() as writer,
         ):
             connections = [
                 x

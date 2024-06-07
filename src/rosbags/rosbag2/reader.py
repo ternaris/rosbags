@@ -15,6 +15,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
 from rosbags.interfaces import Connection, ConnectionExtRosbag2, TopicInfo
+from rosbags.rosbag2.metadata import parse_qos
 
 from .errors import ReaderError
 from .storage_mcap import ReaderMcap
@@ -79,6 +80,7 @@ class Reader:
         - Version 6: Added custom_data dict to metadata.
         - Version 7: Added type_description_hash to topic metadata.
         - Version 8: Added ros_distro to metadata.
+        - Version 9: Changed QoS metadata serialization and enums.
 
     """
 
@@ -115,7 +117,7 @@ class Reader:
 
         try:
             self.metadata: Metadata = dct['rosbag2_bagfile_information']
-            if (ver := self.metadata['version']) > 8:
+            if (ver := self.metadata['version']) > 9:
                 msg = f'Rosbag2 version {ver} not supported; please report issue.'
                 raise ReaderError(msg)
             if (storageid := self.metadata['storage_identifier']) not in self.STORAGE_PLUGINS:
@@ -137,7 +139,9 @@ class Reader:
                     msgcount=x['message_count'],
                     ext=ConnectionExtRosbag2(
                         serialization_format=x['topic_metadata']['serialization_format'],
-                        offered_qos_profiles=x['topic_metadata'].get('offered_qos_profiles', ''),
+                        offered_qos_profiles=parse_qos(
+                            x['topic_metadata'].get('offered_qos_profiles', []),
+                        ),
                     ),
                     owner=self,
                 )

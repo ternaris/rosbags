@@ -133,6 +133,12 @@ PARSER.add_argument(
     required=True,
     type=Path,
 )
+PARSER.add_argument(
+    '--dst-version',
+    help='Destination file format version. (default=8)',
+    dest='dst_version',
+    type=int,
+)
 PARSER_srcstore.add_argument(
     '--src-typestore',
     choices=['empty', 'latest', 'ros1_noetic', 'ros2_dashing', 'ros2_eloquent', 'ros2_foxy', 'ros2_galactic', 'ros2_humble', 'ros2_iron'],
@@ -441,6 +447,7 @@ def main() -> NoReturn:  # pragma: no cover
         if k in {
             'srcs',
             'dst',
+            'dst_version',
             'src_typestore',
             'src_typestore_ref',
             'dst_typestore',

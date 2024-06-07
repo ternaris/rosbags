@@ -9,17 +9,20 @@ from __future__ import annotations
 import sqlite3
 import warnings
 from enum import IntEnum, auto
+from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import zstandard
 from ruamel.yaml import YAML
 
-from rosbags.interfaces import Connection, ConnectionExtRosbag2
+from rosbags.interfaces import Connection, ConnectionExtRosbag2, Qos
+from rosbags.rosbag2.metadata import dump_qos_v8, dump_qos_v9, parse_qos
 from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Sequence
     from types import TracebackType
     from typing import Literal
 
@@ -92,11 +95,14 @@ class Writer:
 
         ZSTD = auto()
 
-    def __init__(self, path: Path | str) -> None:
+    VERSION_LATEST: Literal[9] = 9
+
+    def __init__(self, path: Path | str, *, version: Literal[8, 9] | None = None) -> None:
         """Initialize writer.
 
         Args:
             path: Filesystem path to bag.
+            version: Rosbag2 file format version.
 
         Raises:
             WriterError: Target path exisits already, Writer can only create new rosbags.
@@ -118,6 +124,14 @@ class Writer:
         self.cursor: sqlite3.Cursor | None = None
         self.custom_data: dict[str, str] = {}
         self.added_types: list[str] = []
+        if not version:
+            warnings.warn(
+                'Writer should be called with an explicit version number (8 or 9).',
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            version = 8
+        self.version = version
 
     def set_compression(self, mode: Writer.CompressionMode, fmt: Writer.CompressionFormat) -> None:
         """Enable compression on bag.
@@ -182,7 +196,7 @@ class Writer:
         msgdef: str | None = None,
         rihs01: str | None = None,
         serialization_format: str = 'cdr',
-        offered_qos_profiles: str = '',
+        offered_qos_profiles: Sequence[Qos] | str = (),
     ) -> Connection:
         """Add a connection.
 
@@ -231,6 +245,16 @@ class Writer:
             )
             self.added_types.append(msgtype)
 
+        if isinstance(offered_qos_profiles, str):
+            warnings.warn(
+                'Writer.add_connection should be called with instantiated QoS profiles.',
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            qos_profiles = parse_qos(offered_qos_profiles)
+        else:
+            qos_profiles = list(offered_qos_profiles)
+
         connection = Connection(
             id=len(self.connections) + 1,
             topic=topic,
@@ -240,7 +264,7 @@ class Writer:
             msgcount=0,
             ext=ConnectionExtRosbag2(
                 serialization_format=serialization_format,
-                offered_qos_profiles=offered_qos_profiles,
+                offered_qos_profiles=qos_profiles,
             ),
             owner=self,
         )
@@ -255,7 +279,20 @@ class Writer:
 
         self.connections.append(connection)
         self.counts[connection.id] = 0
-        meta = (connection.id, topic, msgtype, serialization_format, offered_qos_profiles, rihs01)
+
+        dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
+        stream = StringIO()
+        yaml = YAML(typ='safe')
+        yaml.default_flow_style = False
+        yaml.dump(dump_qos(qos_profiles), stream)  # pyright: ignore[reportUnknownMemberType]
+        meta = (
+            connection.id,
+            topic,
+            msgtype,
+            serialization_format,
+            stream.getvalue(),
+            rihs01,
+        )
         _ = self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
         return connection
 
@@ -318,9 +355,11 @@ class Writer:
                 _ = self.compressor.copy_stream(infile, outfile)
             src.unlink()
 
+        dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
+
         metadata: dict[str, Metadata] = {
             'rosbag2_bagfile_information': {
-                'version': 8,
+                'version': self.version,
                 'storage_identifier': 'sqlite3',
                 'relative_file_paths': [self.dbpath.name],
                 'duration': {'nanoseconds': duration},
@@ -332,7 +371,7 @@ class Writer:
                             'name': x.topic,
                             'type': x.msgtype,
                             'serialization_format': x.ext.serialization_format,
-                            'offered_qos_profiles': x.ext.offered_qos_profiles,
+                            'offered_qos_profiles': dump_qos(x.ext.offered_qos_profiles),  # type: ignore[typeddict-item]
                             'type_description_hash': x.digest,
                         },
                         'message_count': self.counts[x.id],

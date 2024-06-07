@@ -20,7 +20,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     """Test writer writes storage file and metadata."""
     store = get_typestore(Stores.LATEST)
     path = tmp_path / 'rosbag2'
-    with Writer(path) as bag:
+    with Writer(path, version=Writer.VERSION_LATEST) as bag:
         connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
         bag.write(connection, 42, b'\x00')
         bag.write(connection, 666, b'\x01' * 4096)
@@ -30,7 +30,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     size = (path / 'rosbag2.db3').stat().st_size
 
     path = tmp_path / 'compress_none'
-    bag = Writer(path)
+    bag = Writer(path, version=Writer.VERSION_LATEST)
     bag.set_compression(bag.CompressionMode.NONE, bag.CompressionFormat.ZSTD)
     with bag:
         connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
@@ -41,7 +41,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     assert size == (path / 'compress_none.db3').stat().st_size
 
     path = tmp_path / 'compress_file'
-    bag = Writer(path)
+    bag = Writer(path, version=Writer.VERSION_LATEST)
     bag.set_compression(bag.CompressionMode.FILE, bag.CompressionFormat.ZSTD)
     with bag:
         connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
@@ -52,7 +52,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     assert (path / 'compress_file.db3.zstd').exists()
 
     path = tmp_path / 'compress_message'
-    bag = Writer(path)
+    bag = Writer(path, version=Writer.VERSION_LATEST)
     bag.set_compression(bag.CompressionMode.MESSAGE, bag.CompressionFormat.ZSTD)
     with bag:
         connection = bag.add_connection('/test', 'std_msgs/msg/Int8', typestore=store)
@@ -63,7 +63,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     assert size > (path / 'compress_message.db3').stat().st_size
 
     path = tmp_path / 'with_custom_data'
-    bag = Writer(path)
+    bag = Writer(path, version=Writer.VERSION_LATEST)
     bag.open()
     bag.set_custom_data('key1', 'value1')
     with pytest.raises(WriterError, match='non-string value'):
@@ -72,7 +72,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     assert b'key1: value1' in (path / 'metadata.yaml').read_bytes()
 
     path = tmp_path / 'with_external_types'
-    bag = Writer(path)
+    bag = Writer(path, version=Writer.VERSION_LATEST)
     with bag:
         connection = bag.add_connection(
             '/test',
@@ -89,23 +89,23 @@ def test_failure_cases(tmp_path: Path) -> None:
     store = get_typestore(Stores.LATEST)
 
     with pytest.raises(WriterError, match='exists'):
-        _ = Writer(tmp_path)
+        _ = Writer(tmp_path, version=Writer.VERSION_LATEST)
 
-    bag = Writer(tmp_path / 'race')
+    bag = Writer(tmp_path / 'race', version=Writer.VERSION_LATEST)
     (tmp_path / 'race').mkdir()
     with pytest.raises(WriterError, match='exists'):
         bag.open()
 
-    bag = Writer(tmp_path / 'compress_after_open')
+    bag = Writer(tmp_path / 'compress_after_open', version=Writer.VERSION_LATEST)
     bag.open()
     with pytest.raises(WriterError, match='already open'):
         bag.set_compression(bag.CompressionMode.FILE, bag.CompressionFormat.ZSTD)
 
-    bag = Writer(tmp_path / 'topic')
+    bag = Writer(tmp_path / 'topic', version=Writer.VERSION_LATEST)
     with pytest.raises(WriterError, match='was not opened'):
         _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage')
 
-    bag = Writer(tmp_path / 'write')
+    bag = Writer(tmp_path / 'write', version=Writer.VERSION_LATEST)
     with pytest.raises(WriterError, match='was not opened'):
         bag.write(
             Connection(
@@ -115,14 +115,14 @@ def test_failure_cases(tmp_path: Path) -> None:
                 '',
                 '',
                 0,
-                ConnectionExtRosbag2('cdr', ''),
+                ConnectionExtRosbag2('cdr', []),
                 None,
             ),
             0,
             b'',
         )
 
-    bag = Writer(tmp_path / 'topic')
+    bag = Writer(tmp_path / 'topic', version=Writer.VERSION_LATEST)
     bag.open()
     _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
     _ = bag.add_connection(
@@ -134,7 +134,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     with pytest.raises(WriterError, match='only be added once'):
         _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
 
-    bag = Writer(tmp_path / 'notopic')
+    bag = Writer(tmp_path / 'notopic', version=Writer.VERSION_LATEST)
     bag.open()
     connection = Connection(
         1,
@@ -143,7 +143,7 @@ def test_failure_cases(tmp_path: Path) -> None:
         '',
         '',
         0,
-        ConnectionExtRosbag2('cdr', ''),
+        ConnectionExtRosbag2('cdr', []),
         None,
     )
     with pytest.raises(WriterError, match='unknown connection'):
@@ -152,6 +152,19 @@ def test_failure_cases(tmp_path: Path) -> None:
 
 def test_deprecations(tmp_path: Path) -> None:
     """Test writer deprecations."""
-    bag = Writer(tmp_path / 'bag')
+    with pytest.deprecated_call():
+        _ = Writer(tmp_path / 'bag')
+
+    bag = Writer(tmp_path / 'bag', version=Writer.VERSION_LATEST)
     with bag, pytest.deprecated_call():
         _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')
+
+    bag = Writer(tmp_path / 'bag2', version=Writer.VERSION_LATEST)
+    typestore = get_typestore(Stores.ROS2_FOXY)
+    with bag, pytest.deprecated_call():
+        _ = bag.add_connection(
+            '/foo',
+            'std_msgs/msg/Empty',
+            typestore=typestore,
+            offered_qos_profiles='',
+        )

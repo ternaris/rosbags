@@ -63,7 +63,7 @@ def bags2(tmp_path: Path) -> list[Path]:
         tmp_path / 'bad',
     ]
     store = get_typestore(Stores.LATEST)
-    with Writer2(paths[0]) as writer:
+    with Writer2(paths[0], version=Writer2.VERSION_LATEST) as writer:
         topic1 = writer.add_connection('/topic1', 'std_msgs/msg/Int8', typestore=store)
         topic2 = writer.add_connection('/topic2', 'std_msgs/msg/Int16', typestore=store)
         writer.write(topic1, 1, HEADER + b'\x01')
@@ -73,7 +73,7 @@ def bags2(tmp_path: Path) -> list[Path]:
         writer.write(topic2, 15, HEADER + b'\x15\x00')
 
     store = get_typestore(Stores.LATEST)
-    with Writer2(paths[1]) as writer:
+    with Writer2(paths[1], version=Writer2.VERSION_LATEST) as writer:
         topic3 = writer.add_connection('/topic3', 'std_msgs/msg/Int32', typestore=store)
         writer.write(topic3, 4, HEADER + b'\x01\x00\x00\x00')
 
@@ -254,7 +254,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     'string foo',
                     'msg',
                     0,
-                    ConnectionExtRosbag2('', ''),
+                    ConnectionExtRosbag2('', []),
                     self,
                 ),
                 Connection(
@@ -267,7 +267,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     ),
                     'idl',
                     0,
-                    ConnectionExtRosbag2('', ''),
+                    ConnectionExtRosbag2('', []),
                     self,
                 ),
                 Connection(
@@ -277,7 +277,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     '',
                     '',
                     0,
-                    ConnectionExtRosbag2('', ''),
+                    ConnectionExtRosbag2('', []),
                     self,
                 ),
             ]
@@ -314,7 +314,7 @@ def test_deprecations(bags2: list[Path]) -> None:
                     '',
                     '',
                     0,
-                    ConnectionExtRosbag2('', ''),
+                    ConnectionExtRosbag2('', []),
                     self,
                 ),
             ]

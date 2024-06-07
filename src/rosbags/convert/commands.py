@@ -47,6 +47,7 @@ def command(
         },
     ],
     dst: Annotated[Path, {'flags': ['--dst']}],
+    dst_version: Annotated[int, {'flags': ['--dst-version']}] = 8,
     src_typestore: Annotated[
         str,
         {
@@ -147,6 +148,7 @@ def command(
     Args:
         srcs: Rosbag files to read from.
         dst: Destination path to write rosbag to.
+        dst_version: Destination file format version.
         src_typestore: Source typestore name.
         src_typestore_ref: Source typestore import location.
         dst_typestore: Destination typestore name.
@@ -197,6 +199,7 @@ def command(
         convert(
             srcs,
             dst,
+            dst_version,
             default_typestore,
             typestore,
             exclude_topics,

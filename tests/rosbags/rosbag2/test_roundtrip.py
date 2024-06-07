@@ -24,7 +24,7 @@ def test_roundtrip(mode: Writer.CompressionMode, tmp_path: Path) -> None:
     float64 = Float64(1.25)
 
     path = tmp_path / 'rosbag2'
-    wbag = Writer(path)
+    wbag = Writer(path, version=Writer.VERSION_LATEST)
     wbag.set_compression(mode, wbag.CompressionFormat.ZSTD)
     with wbag:
         wconnection = wbag.add_connection('/test', float64.__msgtype__, typestore=store)
