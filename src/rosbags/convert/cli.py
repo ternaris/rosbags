@@ -99,16 +99,30 @@ PARSER = ArgumentParser(
         "'copy', an automatic conversion of messages will be performed. For each\n"
         'message type conversion, it will:\n'
         '\n'
-        '  - Detect trivial field renames.\n'
-        '  - Drop fields that have been removed.\n'
-        '  - Add a default value for fields that have been added.'
+        '    - Detect trivial field renames.\n'
+        '    - Drop fields that have been removed.\n'
+        '    - Add a default value for fields that have been added.\n'
+        '\n'
+        'Usage Examples:\n'
+        '\n'
+        '    Convert bag from rosbag1 to rosbag2:\n'
+        '        rosbags-convert --src example.bag --dst ros2_bagdir\n'
+        '\n'
+        '    Convert bag from rosbag1 to rosbag2, upgrate types to iron:\n'
+        '        rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron\n'
+        '\n'
+        '    Convert bag from legacy rosbag2 (with humble types) to rosbag1:\n'
+        '        rosbags-convert --src ros2_bagdir --dst dst.bag --src_typestore ros2_humble\n'
+        '\n'
+        '    Copy only image topics:\n'
+        '        rosbags-convert --src src.bag --dst dst.bag --include-topic sensor_msgs/msg/Image'
     ),
 )
 PARSER_dststore = PARSER.add_argument_group(
     'Destination typestore',
 ).add_mutually_exclusive_group()  # fmt: skip
 PARSER_msgtypes = PARSER.add_argument_group(
-    'Select message types to exclude or include',
+    'Select message types to exclude or include using the ROS2 type name schema',
 )  # fmt: skip
 PARSER_srcstore = PARSER.add_argument_group(
     'Default source typestore, if sources do not include types',

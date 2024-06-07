@@ -141,9 +141,23 @@ def command(
     'copy', an automatic conversion of messages will be performed. For each
     message type conversion, it will:
 
-      - Detect trivial field renames.
-      - Drop fields that have been removed.
-      - Add a default value for fields that have been added.
+        - Detect trivial field renames.
+        - Drop fields that have been removed.
+        - Add a default value for fields that have been added.
+
+    Usage Examples:
+
+        Convert bag from rosbag1 to rosbag2:
+            rosbags-convert --src example.bag --dst ros2_bagdir
+
+        Convert bag from rosbag1 to rosbag2, upgrate types to iron:
+            rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron
+
+        Convert bag from legacy rosbag2 (with humble types) to rosbag1:
+            rosbags-convert --src ros2_bagdir --dst dst.bag --src_typestore ros2_humble
+
+        Copy only image topics:
+            rosbags-convert --src src.bag --dst dst.bag --include-topic sensor_msgs/msg/Image
 
     Args:
         srcs: Rosbag files to read from.
@@ -164,7 +178,7 @@ def command(
 
     Groups:
         topics: Select topics to exclude or include
-        msgtypes: Select message types to exclude or include
+        msgtypes: Select message types to exclude or include using the ROS2 type name schema
 
     """
     if any(not x.exists() for x in srcs):
