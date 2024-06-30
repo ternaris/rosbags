@@ -3,6 +3,16 @@
 Changes
 =======
 
+0.10.4 - 2024-06-30
+-------------------
+
+- Add jazzy typestore.
+- Fix dumping of QoS metadata `#93`_
+- Fix automatic message type renaming in rosbags convert.
+
+.. _#93: https://gitlab.com/ternaris/rosbags/issues/93
+
+
 0.10.3 - 2024-06-07
 -------------------
 
