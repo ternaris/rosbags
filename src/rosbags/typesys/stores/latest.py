@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 """Latest typestore."""
 
-from .ros2_humble import *  # noqa: F403
+from .ros2_jazzy import *  # noqa: F403
