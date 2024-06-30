@@ -339,7 +339,7 @@ def create_connections_converters(
         topic = rconn.topic
         msgtype = STATIC_MSGTYPE_RENAMES.get(rconn.msgtype, rconn.msgtype)
 
-        if msgtype not in convmap:
+        if rconn.msgtype not in convmap:
             if msgtype not in typestore.fielddefs:
                 echo(f'Missing msgtype in destination, copying from source: {msgtype!r}')
                 typs = get_types_from_msg(
@@ -351,7 +351,7 @@ def create_connections_converters(
                 )
                 _ = typs.pop('std_msgs/msg/Header', None)
                 typestore.register(typs)
-            convmap[msgtype] = generate_message_converter(
+            convmap[rconn.msgtype] = generate_message_converter(
                 reader.typestore,
                 typestore,
                 rconn.msgtype,
