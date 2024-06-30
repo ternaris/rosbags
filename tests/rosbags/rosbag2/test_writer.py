@@ -83,6 +83,28 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     assert b'RIHS00' in (path / 'metadata.yaml').read_bytes()
     assert b'RIHS01' not in (path / 'metadata.yaml').read_bytes()
 
+    path = tmp_path / 'version9'
+    bag = Writer(path, version=9)
+    with bag:
+        connection = bag.add_connection(
+            '/test',
+            'std_msgs/msg/Int8',
+            msgdef='msgdef',
+            rihs01='RIHS00_hash',
+        )
+    assert b'offered_qos_profiles: []' in (path / 'metadata.yaml').read_bytes()
+
+    path = tmp_path / 'version8'
+    bag = Writer(path, version=8)
+    with bag:
+        connection = bag.add_connection(
+            '/test',
+            'std_msgs/msg/Int8',
+            msgdef='msgdef',
+            rihs01='RIHS00_hash',
+        )
+    assert b"offered_qos_profiles: ''" in (path / 'metadata.yaml').read_bytes()
+
 
 def test_failure_cases(tmp_path: Path) -> None:
     """Test writer failure cases."""

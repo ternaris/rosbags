@@ -281,16 +281,20 @@ class Writer:
         self.counts[connection.id] = 0
 
         dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
-        stream = StringIO()
-        yaml = YAML(typ='safe')
-        yaml.default_flow_style = False
-        yaml.dump(dump_qos(qos_profiles), stream)  # pyright: ignore[reportUnknownMemberType]
+        dumped = dump_qos(qos_profiles)
+        if not isinstance(dumped, str):
+            stream = StringIO()
+            yaml = YAML(typ='safe')
+            yaml.default_flow_style = False
+            yaml.dump(dumped, stream)  # pyright: ignore[reportUnknownMemberType]
+            dumped = stream.getvalue().strip()
+
         meta = (
             connection.id,
             topic,
             msgtype,
             serialization_format,
-            stream.getvalue(),
+            dumped,
             rihs01,
         )
         _ = self.cursor.execute('INSERT INTO topics VALUES(?, ?, ?, ?, ?, ?)', meta)
@@ -343,18 +347,6 @@ class Writer:
             'SELECT max(timestamp) - min(timestamp), min(timestamp), count(*) FROM messages',
         ).fetchone()
 
-        self.conn.commit()
-        _ = self.conn.execute('PRAGMA optimize')
-        self.conn.close()
-
-        if self.compression_mode == 'file':
-            assert self.compressor
-            src = self.dbpath
-            self.dbpath = src.with_suffix(f'.db3.{self.compression_format}')
-            with src.open('rb') as infile, self.dbpath.open('wb') as outfile:
-                _ = self.compressor.copy_stream(infile, outfile)
-            src.unlink()
-
         dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
 
         metadata: dict[str, Metadata] = {
@@ -393,10 +385,34 @@ class Writer:
                 'ros_distro': 'rosbags',
             },
         }
-        with self.metapath.open('w') as metafile:
-            yaml = YAML(typ='safe')
-            yaml.default_flow_style = False
-            yaml.dump(metadata, metafile)  # pyright: ignore[reportUnknownMemberType]
+
+        metastr = StringIO()
+        yaml = YAML(typ='safe')
+        yaml.default_flow_style = False
+        yaml.dump(metadata['rosbag2_bagfile_information'], metastr)  # pyright: ignore[reportUnknownMemberType]
+
+        self.conn.execute(
+            'INSERT INTO metadata(metadata_version, metadata) VALUES(?, ?)',
+            (self.version, metastr.getvalue().strip()),
+        )
+
+        self.conn.commit()
+        _ = self.conn.execute('PRAGMA optimize')
+        self.conn.close()
+
+        if self.compression_mode == 'file':
+            assert self.compressor
+            src = self.dbpath
+            self.dbpath = src.with_suffix(f'.db3.{self.compression_format}')
+            with src.open('rb') as infile, self.dbpath.open('wb') as outfile:
+                _ = self.compressor.copy_stream(infile, outfile)
+            src.unlink()
+            metadata['rosbag2_bagfile_information']['relative_file_paths'] = [self.dbpath.name]
+            metadata['rosbag2_bagfile_information']['files'][0]['path'] = self.dbpath.name
+
+        metastr = StringIO()
+        yaml.dump(metadata, metastr)  # pyright: ignore[reportUnknownMemberType]
+        self.metapath.write_text(metastr.getvalue(), 'utf8')
 
     def __enter__(self) -> Self:
         """Open rosbag2 when entering contextmanager."""

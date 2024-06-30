@@ -175,9 +175,12 @@ def dump_qos_v8(qos: list[Qos]) -> str:
         for x in qos
     ]
 
+    if not dcts:
+        return ''
+
     stream = StringIO()
     YAML(typ='safe').dump(dcts, stream)
-    return stream.getvalue()
+    return stream.getvalue().strip()
 
 
 def dump_qos_v9(qos: list[Qos]) -> list[QosDict]:
