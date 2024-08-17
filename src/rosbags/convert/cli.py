@@ -85,6 +85,9 @@ PARSER = ArgumentParser(
         'When multiple source rosbags are provided, their connections are merged,\n'
         'and messages are written in correct chronological order.\n'
         '\n'
+        'Source rosbags are automatically decompressed, destination rosbags can\n'
+        'optionally be compressed.\n'
+        '\n'
         'Source rosbag connections can be filtered by excluding or including based\n'
         'on topics and/or message types. Exclusions take precedence over inclusions.\n'
         '\n'
@@ -107,6 +110,9 @@ PARSER = ArgumentParser(
         '\n'
         '    Convert bag from rosbag1 to rosbag2:\n'
         '        rosbags-convert --src example.bag --dst ros2_bagdir\n'
+        '\n'
+        '    Convert bag from rosbag1 to rosbag2, using per file compression for destination:\n'
+        '        rosbags-convert --src example.bag --dst ros2_bagdir --compress file:zstd\n'
         '\n'
         '    Convert bag from rosbag1 to rosbag2, upgrate types to iron:\n'
         '        rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron\n'
@@ -152,6 +158,13 @@ PARSER.add_argument(
     help='Destination file format version. (default=8)',
     dest='dst_version',
     type=int,
+)
+PARSER.add_argument(
+    '--compress',
+    choices=['none', 'bz2', 'lz4', 'file:zstd', 'message:zstd'],
+    help="Compress destination ``bz2`` or ``lz4`` for rosbag1, ``file:zstd`` or ``message:zstd`` for rosbag2. (default='none')",
+    dest='compress',
+    type=str,
 )
 PARSER_srcstore.add_argument(
     '--src-typestore',
@@ -462,6 +475,7 @@ def main() -> NoReturn:  # pragma: no cover
             'srcs',
             'dst',
             'dst_version',
+            'compress',
             'src_typestore',
             'src_typestore_ref',
             'dst_typestore',

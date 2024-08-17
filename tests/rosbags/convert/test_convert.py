@@ -62,24 +62,22 @@ def test_convert_reader_errors(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.AnyReader', side_effect=AnyReaderError('exc')),
         pytest.raises(ConverterError, match='Reading source bag: exc'),
     ):
-        convert([], tmp_path, None, None, None, (), (), (), ())
+        convert([], tmp_path / 'foo', None, None, None, None, (), (), (), ())
 
 
 def test_convert_writer_errors(tmp_path: Path) -> None:
     """Test convert forwards writer errors."""
     with (
-        patch('rosbags.convert.converter.AnyReader'),
         patch('rosbags.convert.converter.Writer2', side_effect=WriterError2('exc')),
         pytest.raises(ConverterError, match='Writing destination bag: exc'),
     ):
-        convert([], tmp_path, None, None, None, (), (), (), ())
+        convert([], tmp_path / 'foo', None, None, None, None, (), (), (), ())
 
     with (
-        patch('rosbags.convert.converter.AnyReader'),
         patch('rosbags.convert.converter.Writer1', side_effect=WriterError1('exc')),
         pytest.raises(ConverterError, match='Writing destination bag: exc'),
     ):
-        convert([], tmp_path / 'foo.bag', None, None, None, (), (), (), ())
+        convert([], tmp_path / 'foo.bag', None, None, None, None, (), (), (), ())
 
 
 def test_convert_forwards_exceptions(tmp_path: Path) -> None:
@@ -88,7 +86,7 @@ def test_convert_forwards_exceptions(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.AnyReader', side_effect=KeyError('exc')),
         pytest.raises(ConverterError, match="Converting rosbag: KeyError\\('exc'\\)"),
     ):
-        convert([], tmp_path, None, None, None, (), (), (), ())
+        convert([], tmp_path / 'foo', None, None, None, None, (), (), (), ())
 
 
 def test_convert_connection_filtering(tmp_path: Path) -> None:
@@ -99,7 +97,7 @@ def test_convert_connection_filtering(tmp_path: Path) -> None:
         patch('rosbags.convert.converter.create_connections_converters') as ccc,
     ):
         reader.return_value.__enter__.return_value.connections = []
-        convert([], tmp_path, None, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, None, (), (), (), ())
     ccc.assert_not_called()
 
     with (
@@ -115,27 +113,27 @@ def test_convert_connection_filtering(tmp_path: Path) -> None:
         conn.msgtype = 'bar'
         reader.return_value.__enter__.return_value.connections = [conn]
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, None, (), (), (), ())
+            convert([], tmp_path, None, None, None, None, (), (), (), ())
         ccc.reset_mock()
 
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, None, (), ('foo'), (), ('unknown'))
+            convert([], tmp_path, None, None, None, None, (), ('foo'), (), ('unknown'))
         ccc.reset_mock()
 
         with pytest.raises(ConverterError):
-            convert([], tmp_path, None, None, None, (), ('unknown'), (), ('bar'))
+            convert([], tmp_path, None, None, None, None, (), ('unknown'), (), ('bar'))
         ccc.reset_mock()
 
-        convert([], tmp_path, None, None, None, ('foo'), (), (), ())
+        convert([], tmp_path, None, None, None, None, ('foo'), (), (), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, None, (), (), ('bar'), ())
+        convert([], tmp_path, None, None, None, None, (), (), ('bar'), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, None, (), ('unknown'), (), ())
+        convert([], tmp_path, None, None, None, None, (), ('unknown'), (), ())
         ccc.assert_not_called()
 
-        convert([], tmp_path, None, None, None, (), (), (), ('unknown'))
+        convert([], tmp_path, None, None, None, None, (), (), (), ('unknown'))
         ccc.assert_not_called()
 
 
@@ -161,10 +159,9 @@ def test_convert_applies_transforms(tmp_path: Path) -> None:
             {'bar': lambda x: x * 2},  # pyright: ignore[reportUnknownLambdaType]
         ]
 
-        convert([], tmp_path, None, None, None, (), (), (), ())
+        convert([], tmp_path, None, None, None, None, (), (), (), ())
 
-        wctx = writer.return_value.__enter__.return_value
-        wctx.write.assert_called_with(666, 1, 4)
+        writer.return_value.write.assert_called_with(666, 1, 4)
 
 
 def test_connection_params_are_converted() -> None:

@@ -48,6 +48,13 @@ def command(
     ],
     dst: Annotated[Path, {'flags': ['--dst']}],
     dst_version: Annotated[int, {'flags': ['--dst-version']}] = 8,
+    compress: Annotated[
+        str,
+        {
+            'flags': ['--compress'],
+            'choices': ['none', 'bz2', 'lz4', 'file:zstd', 'message:zstd'],
+        },
+    ] = 'none',
     src_typestore: Annotated[
         str,
         {
@@ -127,6 +134,9 @@ def command(
     When multiple source rosbags are provided, their connections are merged,
     and messages are written in correct chronological order.
 
+    Source rosbags are automatically decompressed, destination rosbags can
+    optionally be compressed.
+
     Source rosbag connections can be filtered by excluding or including based
     on topics and/or message types. Exclusions take precedence over inclusions.
 
@@ -150,6 +160,9 @@ def command(
         Convert bag from rosbag1 to rosbag2:
             rosbags-convert --src example.bag --dst ros2_bagdir
 
+        Convert bag from rosbag1 to rosbag2, using per file compression for destination:
+            rosbags-convert --src example.bag --dst ros2_bagdir --compress file:zstd
+
         Convert bag from rosbag1 to rosbag2, upgrate types to iron:
             rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron
 
@@ -163,6 +176,8 @@ def command(
         srcs: Rosbag files to read from.
         dst: Destination path to write rosbag to.
         dst_version: Destination file format version.
+        compress: Compress destination ``bz2`` or ``lz4`` for rosbag1,
+            ``file:zstd`` or ``message:zstd`` for rosbag2.
         src_typestore: Source typestore name.
         src_typestore_ref: Source typestore import location.
         dst_typestore: Destination typestore name.
@@ -190,6 +205,15 @@ def command(
         echo(f'Output path {str(dst)!r} exists already.')
         return 1
 
+    if compress and compress != 'none':
+        is2 = dst.suffix != '.bag'
+        if is2 and compress not in ('file:zstd', 'message:zstd'):
+            echo(f'ERROR: Invalid compression {compress!r} for rosbag2, see --help.')
+            return 1
+        if not is2 and compress not in ('bz2', 'lz4'):
+            echo(f'ERROR: Invalid compression {compress!r} for rosbag1, see --help.')
+            return 1
+
     if src_typestore_ref:
         obj = find_obj(src_typestore_ref)
         if not isinstance(obj, Typestore):
@@ -214,6 +238,7 @@ def command(
             srcs,
             dst,
             dst_version,
+            compress if compress != 'none' else None,
             default_typestore,
             typestore,
             exclude_topics,
