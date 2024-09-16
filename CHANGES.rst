@@ -3,6 +3,18 @@
 Changes
 =======
 
+0.10.5 - 2024-10-21
+-------------------
+
+- Support compression in rosbags-convert `#94`_
+- Require minimum typing_extensions version `#100`_
+- Improve parsing of float literals `#101`_
+
+.. _#94: https://gitlab.com/ternaris/rosbags/issues/94
+.. _#100: https://gitlab.com/ternaris/rosbags/issues/100
+.. _#101: https://gitlab.com/ternaris/rosbags/issues/101
+
+
 0.10.4 - 2024-06-30
 -------------------
 
