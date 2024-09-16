@@ -112,7 +112,7 @@ PARSER = ArgumentParser(
         '        rosbags-convert --src example.bag --dst ros2_bagdir\n'
         '\n'
         '    Convert bag from rosbag1 to rosbag2, using per file compression for destination:\n'
-        '        rosbags-convert --src example.bag --dst ros2_bagdir --compress file:zstd\n'
+        '        rosbags-convert --src example.bag --dst ros2_bagdir --compress zstd\n'
         '\n'
         '    Convert bag from rosbag1 to rosbag2, upgrate types to iron:\n'
         '        rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron\n'
@@ -161,9 +161,16 @@ PARSER.add_argument(
 )
 PARSER.add_argument(
     '--compress',
-    choices=['none', 'bz2', 'lz4', 'file:zstd', 'message:zstd'],
-    help="Compress destination ``bz2`` or ``lz4`` for rosbag1, ``file:zstd`` or ``message:zstd`` for rosbag2. (default='none')",
+    choices=['none', 'bz2', 'lz4', 'zstd'],
+    help="Compression algorithm. Rosbag1 supports 'bz2' or 'lz4'. Rosbag2 supports 'zstd'. (default='none')",
     dest='compress',
+    type=str,
+)
+PARSER.add_argument(
+    '--compress-mode',
+    choices=['file', 'message'],
+    help="Compression mode for rosbag2. (default='file')",
+    dest='compress_mode',
     type=str,
 )
 PARSER_srcstore.add_argument(
@@ -476,6 +483,7 @@ def main() -> NoReturn:  # pragma: no cover
             'dst',
             'dst_version',
             'compress',
+            'compress_mode',
             'src_typestore',
             'src_typestore_ref',
             'dst_typestore',
@@ -487,3 +495,7 @@ def main() -> NoReturn:  # pragma: no cover
         }
     }  # fmt: skip
     sys.exit(command(**runargs))
+
+
+if __name__ == '__main__':
+    main()

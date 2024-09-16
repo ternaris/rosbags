@@ -408,6 +408,7 @@ def convert(
     dst: Path,
     dst_version: int | None,
     compress: str | None,
+    compress_mode: str,
     default_typestore: Typestore | None,
     typestore: Typestore | None,
     exclude_topics: Sequence[str],
@@ -421,8 +422,9 @@ def convert(
         srcs: Rosbag files to read from.
         dst: Destination path to write rosbag to.
         dst_version: Destination file format version.
-        compress: Compress destination ``bz2`` or ``lz4`` for rosbag1,
-            ``file:zstd`` or ``message:zstd`` for rosbag2.
+        compress: Compression algorithm ``bz2`` or ``lz4`` for rosbag1,
+            ``zstd`` for rosbag2.
+        compress_mode: Compression mode ``file`` or ``message`` rosbag2.
         default_typestore: Default typestore if source files have not message definitions.
         typestore: Convert messages to this destination typestore.
         exclude_topics: Topics to exclude from conversion, even if included explicitly.
@@ -441,8 +443,8 @@ def convert(
             writer = Writer2(dst, version=cast('Literal[8, 9]', dst_version or 8))
             if compress:
                 writer.set_compression(
-                    writer.CompressionMode[compress.split(':', 1)[0].upper()],
-                    writer.CompressionFormat[compress.split(':', 1)[1].upper()],
+                    writer.CompressionMode[compress_mode.upper()],
+                    writer.CompressionFormat[compress.upper()],
                 )
         else:
             writer = Writer1(dst)

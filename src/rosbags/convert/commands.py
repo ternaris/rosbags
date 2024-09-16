@@ -52,9 +52,16 @@ def command(
         str,
         {
             'flags': ['--compress'],
-            'choices': ['none', 'bz2', 'lz4', 'file:zstd', 'message:zstd'],
+            'choices': ['none', 'bz2', 'lz4', 'zstd'],
         },
     ] = 'none',
+    compress_mode: Annotated[
+        str,
+        {
+            'flags': ['--compress-mode'],
+            'choices': ['file', 'message'],
+        },
+    ] = 'file',
     src_typestore: Annotated[
         str,
         {
@@ -161,7 +168,7 @@ def command(
             rosbags-convert --src example.bag --dst ros2_bagdir
 
         Convert bag from rosbag1 to rosbag2, using per file compression for destination:
-            rosbags-convert --src example.bag --dst ros2_bagdir --compress file:zstd
+            rosbags-convert --src example.bag --dst ros2_bagdir --compress zstd
 
         Convert bag from rosbag1 to rosbag2, upgrate types to iron:
             rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron
@@ -176,8 +183,10 @@ def command(
         srcs: Rosbag files to read from.
         dst: Destination path to write rosbag to.
         dst_version: Destination file format version.
-        compress: Compress destination ``bz2`` or ``lz4`` for rosbag1,
-            ``file:zstd`` or ``message:zstd`` for rosbag2.
+        compress: Compression algorithm.
+            Rosbag1 supports 'bz2' or 'lz4'.
+            Rosbag2 supports 'zstd'.
+        compress_mode: Compression mode for rosbag2.
         src_typestore: Source typestore name.
         src_typestore_ref: Source typestore import location.
         dst_typestore: Destination typestore name.
@@ -205,14 +214,18 @@ def command(
         echo(f'Output path {str(dst)!r} exists already.')
         return 1
 
-    if compress and compress != 'none':
-        is2 = dst.suffix != '.bag'
-        if is2 and compress not in ('file:zstd', 'message:zstd'):
+    is2 = dst.suffix != '.bag'
+    if compress != 'none':
+        if is2 and compress not in ('zstd',):
             echo(f'ERROR: Invalid compression {compress!r} for rosbag2, see --help.')
             return 1
         if not is2 and compress not in ('bz2', 'lz4'):
             echo(f'ERROR: Invalid compression {compress!r} for rosbag1, see --help.')
             return 1
+
+    if not is2 and compress_mode != 'file':
+        echo(f'ERROR: Invalid compression mode {compress_mode!r} for rosbag1, see --help.')
+        return 1
 
     if src_typestore_ref:
         obj = find_obj(src_typestore_ref)
@@ -239,6 +252,7 @@ def command(
             dst,
             dst_version,
             compress if compress != 'none' else None,
+            compress_mode,
             default_typestore,
             typestore,
             exclude_topics,
