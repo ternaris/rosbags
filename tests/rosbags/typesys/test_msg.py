@@ -95,6 +95,14 @@ MSG: std_msgs/Int
 int8 data
 """
 
+WITH_LITERALS_MSG = """
+float32 both 0.0
+float32 integer_only 0.
+float32 fraction_only .0
+float32 scientific_pos 1e1
+float32 scientific_neg 1e-1
+"""
+
 
 def test_msg_parser_raises_on_bad_definition() -> None:
     """Test msg parser raises on bad definition."""
@@ -242,3 +250,11 @@ def test_msg_parser_handles_name_collisions() -> None:
 
     assert ret['collision_msgs/msg/Foo'][1][0][1][1] == 'std_msgs/msg/Int'
     assert ret['collision_msgs/msg/Foo'][1][1][1][1] == 'collision_msgs/msg/Int'
+
+
+def test_literal_notations() -> None:
+    """Test msg parser handles different literal notations."""
+    ret = get_types_from_msg(WITH_LITERALS_MSG, 'literals_msgs/msg/Foo')
+    get_typestore(Stores.EMPTY).register(ret)
+
+    assert len(ret['literals_msgs/msg/Foo'][1]) == 5
