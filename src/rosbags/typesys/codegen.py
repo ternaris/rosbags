@@ -50,7 +50,7 @@ def get_typehint(desc: FieldDesc) -> str:
                 'byte': 'uint8',
                 'char': 'uint8',
             }.get(typ, typ)
-            return f'np.ndarray[None, np.dtype[np.{typ}]]'
+            return f'np.ndarray[tuple[int, ...], np.dtype[np.{typ}]]'
 
     return f'list[{get_typehint(sub)}]'
 

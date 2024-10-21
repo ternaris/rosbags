@@ -461,7 +461,7 @@ class geometry_msgs__msg__AccelWithCovariance:
     """Class for geometry_msgs/msg/AccelWithCovariance."""
 
     accel: geometry_msgs__msg__Accel
-    covariance: np.ndarray[None, np.dtype[np.float64]]
+    covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/AccelWithCovariance'
 
 
@@ -586,7 +586,7 @@ class geometry_msgs__msg__PoseWithCovariance:
     """Class for geometry_msgs/msg/PoseWithCovariance."""
 
     pose: geometry_msgs__msg__Pose
-    covariance: np.ndarray[None, np.dtype[np.float64]]
+    covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/PoseWithCovariance'
 
 
@@ -661,7 +661,7 @@ class geometry_msgs__msg__TwistWithCovariance:
     """Class for geometry_msgs/msg/TwistWithCovariance."""
 
     twist: geometry_msgs__msg__Twist
-    covariance: np.ndarray[None, np.dtype[np.float64]]
+    covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'geometry_msgs/msg/TwistWithCovariance'
 
 
@@ -804,7 +804,7 @@ class nav_msgs__msg__OccupancyGrid:
 
     header: std_msgs__msg__Header
     info: nav_msgs__msg__MapMetaData
-    data: np.ndarray[None, np.dtype[np.int8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.int8]]
     __msgtype__: ClassVar[str] = 'nav_msgs/msg/OccupancyGrid'
 
 
@@ -902,8 +902,8 @@ class sensor_msgs__msg__BatteryState:
     power_supply_health: int
     power_supply_technology: int
     present: bool
-    cell_voltage: np.ndarray[None, np.dtype[np.float32]]
-    cell_temperature: np.ndarray[None, np.dtype[np.float32]]
+    cell_voltage: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
+    cell_temperature: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     location: str
     serial_number: str
     POWER_SUPPLY_STATUS_UNKNOWN: ClassVar[int] = 0
@@ -938,10 +938,10 @@ class sensor_msgs__msg__CameraInfo:
     height: int
     width: int
     distortion_model: str
-    D: np.ndarray[None, np.dtype[np.float64]]
-    K: np.ndarray[None, np.dtype[np.float64]]
-    R: np.ndarray[None, np.dtype[np.float64]]
-    P: np.ndarray[None, np.dtype[np.float64]]
+    D: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    K: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    R: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    P: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     binning_x: int
     binning_y: int
     roi: sensor_msgs__msg__RegionOfInterest
@@ -953,7 +953,7 @@ class sensor_msgs__msg__ChannelFloat32:
     """Class for sensor_msgs/msg/ChannelFloat32."""
 
     name: str
-    values: np.ndarray[None, np.dtype[np.float32]]
+    values: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/ChannelFloat32'
 
 
@@ -963,7 +963,7 @@ class sensor_msgs__msg__CompressedImage:
 
     header: std_msgs__msg__Header
     format: str
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/CompressedImage'
 
 
@@ -997,7 +997,7 @@ class sensor_msgs__msg__Image:
     encoding: str
     is_bigendian: int
     step: int
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Image'
 
 
@@ -1007,11 +1007,11 @@ class sensor_msgs__msg__Imu:
 
     header: std_msgs__msg__Header
     orientation: geometry_msgs__msg__Quaternion
-    orientation_covariance: np.ndarray[None, np.dtype[np.float64]]
+    orientation_covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     angular_velocity: geometry_msgs__msg__Vector3
-    angular_velocity_covariance: np.ndarray[None, np.dtype[np.float64]]
+    angular_velocity_covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     linear_acceleration: geometry_msgs__msg__Vector3
-    linear_acceleration_covariance: np.ndarray[None, np.dtype[np.float64]]
+    linear_acceleration_covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Imu'
 
 
@@ -1021,9 +1021,9 @@ class sensor_msgs__msg__JointState:
 
     header: std_msgs__msg__Header
     name: list[str]
-    position: np.ndarray[None, np.dtype[np.float64]]
-    velocity: np.ndarray[None, np.dtype[np.float64]]
-    effort: np.ndarray[None, np.dtype[np.float64]]
+    position: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    velocity: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    effort: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/JointState'
 
 
@@ -1032,8 +1032,8 @@ class sensor_msgs__msg__Joy:
     """Class for sensor_msgs/msg/Joy."""
 
     header: std_msgs__msg__Header
-    axes: np.ndarray[None, np.dtype[np.float32]]
-    buttons: np.ndarray[None, np.dtype[np.int32]]
+    axes: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
+    buttons: np.ndarray[tuple[int, ...], np.dtype[np.int32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/Joy'
 
 
@@ -1062,7 +1062,7 @@ class sensor_msgs__msg__JoyFeedbackArray:
 class sensor_msgs__msg__LaserEcho:
     """Class for sensor_msgs/msg/LaserEcho."""
 
-    echoes: np.ndarray[None, np.dtype[np.float32]]
+    echoes: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/LaserEcho'
 
 
@@ -1078,8 +1078,8 @@ class sensor_msgs__msg__LaserScan:
     scan_time: float
     range_min: float
     range_max: float
-    ranges: np.ndarray[None, np.dtype[np.float32]]
-    intensities: np.ndarray[None, np.dtype[np.float32]]
+    ranges: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
+    intensities: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/LaserScan'
 
 
@@ -1089,7 +1089,7 @@ class sensor_msgs__msg__MagneticField:
 
     header: std_msgs__msg__Header
     magnetic_field: geometry_msgs__msg__Vector3
-    magnetic_field_covariance: np.ndarray[None, np.dtype[np.float64]]
+    magnetic_field_covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/MagneticField'
 
 
@@ -1131,7 +1131,7 @@ class sensor_msgs__msg__NavSatFix:
     latitude: float
     longitude: float
     altitude: float
-    position_covariance: np.ndarray[None, np.dtype[np.float64]]
+    position_covariance: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     position_covariance_type: int
     COVARIANCE_TYPE_UNKNOWN: ClassVar[int] = 0
     COVARIANCE_TYPE_APPROXIMATED: ClassVar[int] = 1
@@ -1178,7 +1178,7 @@ class sensor_msgs__msg__PointCloud2:
     is_bigendian: bool
     point_step: int
     row_step: int
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     is_dense: bool
     __msgtype__: ClassVar[str] = 'sensor_msgs/msg/PointCloud2'
 
@@ -1272,7 +1272,7 @@ class shape_msgs__msg__Mesh:
 class shape_msgs__msg__MeshTriangle:
     """Class for shape_msgs/msg/MeshTriangle."""
 
-    vertex_indices: np.ndarray[None, np.dtype[np.uint32]]
+    vertex_indices: np.ndarray[tuple[int, ...], np.dtype[np.uint32]]
     __msgtype__: ClassVar[str] = 'shape_msgs/msg/MeshTriangle'
 
 
@@ -1280,7 +1280,7 @@ class shape_msgs__msg__MeshTriangle:
 class shape_msgs__msg__Plane:
     """Class for shape_msgs/msg/Plane."""
 
-    coef: np.ndarray[None, np.dtype[np.float64]]
+    coef: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'shape_msgs/msg/Plane'
 
 
@@ -1289,7 +1289,7 @@ class shape_msgs__msg__SolidPrimitive:
     """Class for shape_msgs/msg/SolidPrimitive."""
 
     type: int
-    dimensions: np.ndarray[None, np.dtype[np.float64]]
+    dimensions: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     BOX: ClassVar[int] = 1
     SPHERE: ClassVar[int] = 2
     CYLINDER: ClassVar[int] = 3
@@ -1326,7 +1326,7 @@ class std_msgs__msg__ByteMultiArray:
     """Class for std_msgs/msg/ByteMultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/ByteMultiArray'
 
 
@@ -1378,7 +1378,7 @@ class std_msgs__msg__Float32MultiArray:
     """Class for std_msgs/msg/Float32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.float32]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Float32MultiArray'
 
 
@@ -1395,7 +1395,7 @@ class std_msgs__msg__Float64MultiArray:
     """Class for std_msgs/msg/Float64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.float64]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Float64MultiArray'
 
 
@@ -1422,7 +1422,7 @@ class std_msgs__msg__Int16MultiArray:
     """Class for std_msgs/msg/Int16MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.int16]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.int16]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int16MultiArray'
 
 
@@ -1439,7 +1439,7 @@ class std_msgs__msg__Int32MultiArray:
     """Class for std_msgs/msg/Int32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.int32]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.int32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int32MultiArray'
 
 
@@ -1456,7 +1456,7 @@ class std_msgs__msg__Int64MultiArray:
     """Class for std_msgs/msg/Int64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.int64]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.int64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int64MultiArray'
 
 
@@ -1473,7 +1473,7 @@ class std_msgs__msg__Int8MultiArray:
     """Class for std_msgs/msg/Int8MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.int8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.int8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/Int8MultiArray'
 
 
@@ -1525,7 +1525,7 @@ class std_msgs__msg__UInt16MultiArray:
     """Class for std_msgs/msg/UInt16MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.uint16]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint16]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt16MultiArray'
 
 
@@ -1542,7 +1542,7 @@ class std_msgs__msg__UInt32MultiArray:
     """Class for std_msgs/msg/UInt32MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.uint32]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint32]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt32MultiArray'
 
 
@@ -1559,7 +1559,7 @@ class std_msgs__msg__UInt64MultiArray:
     """Class for std_msgs/msg/UInt64MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.uint64]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint64]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt64MultiArray'
 
 
@@ -1576,7 +1576,7 @@ class std_msgs__msg__UInt8MultiArray:
     """Class for std_msgs/msg/UInt8MultiArray."""
 
     layout: std_msgs__msg__MultiArrayLayout
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'std_msgs/msg/UInt8MultiArray'
 
 
@@ -1609,10 +1609,10 @@ class trajectory_msgs__msg__JointTrajectory:
 class trajectory_msgs__msg__JointTrajectoryPoint:
     """Class for trajectory_msgs/msg/JointTrajectoryPoint."""
 
-    positions: np.ndarray[None, np.dtype[np.float64]]
-    velocities: np.ndarray[None, np.dtype[np.float64]]
-    accelerations: np.ndarray[None, np.dtype[np.float64]]
-    effort: np.ndarray[None, np.dtype[np.float64]]
+    positions: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    velocities: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    accelerations: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
+    effort: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     time_from_start: builtin_interfaces__msg__Duration
     __msgtype__: ClassVar[str] = 'trajectory_msgs/msg/JointTrajectoryPoint'
 

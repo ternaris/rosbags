@@ -281,7 +281,7 @@ class VisitorIDL(Visitor):
 
     RULES = parse_grammar(
         GRAMMAR_IDL,
-        re.compile(r'(\s|/[*]([^*]|[*](?!/))*[*]/|//[^\n]*$)+', re.M | re.S),
+        re.compile(r'(\s|/[*]([^*]|[*](?!/))*[*]/|//[^\n]*$)+', re.MULTILINE | re.DOTALL),
     )
 
     def __init__(self) -> None:
@@ -392,11 +392,11 @@ class VisitorIDL(Visitor):
                 typ, name = base
                 assert isinstance(typ, Nodetype)
                 assert isinstance(name, str | tuple)
-                count = declarator[2][1]
+                count = cast('Adec', declarator)[2][1]
                 assert isinstance(count, int)
                 value = cast('FieldDesc', (Nodetype.ARRAY, ((typ, name), count)))
             else:
-                alias = declarator[1]
+                alias = cast('NameDesc', declarator)[1]
                 value = base
             self.typedefs[alias] = value
 

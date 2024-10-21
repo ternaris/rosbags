@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 HEADER = b'\x00\x01\x00\x00'
 
 
-@pytest.fixture()
+@pytest.fixture
 def bags1(tmp_path: Path) -> list[Path]:
     """Test data fixture."""
     paths = [
@@ -54,7 +54,7 @@ def bags1(tmp_path: Path) -> list[Path]:
     return paths
 
 
-@pytest.fixture()
+@pytest.fixture
 def bags2(tmp_path: Path) -> list[Path]:
     """Test data fixture."""
     paths = [

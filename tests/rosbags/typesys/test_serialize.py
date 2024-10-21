@@ -59,7 +59,7 @@ def test_serializer_errors() -> None:
     class Foo:
         """Dummy class."""
 
-        coef: np.ndarray[None, np.dtype[np.uint8]] = np.array([1, 2, 3, 4])
+        coef: np.ndarray[tuple[int, ...], np.dtype[np.uint8]] = np.array([1, 2, 3, 4])
 
     msg = Foo()
     _ = store.serialize_cdr(msg, 'shape_msgs/msg/Plane')

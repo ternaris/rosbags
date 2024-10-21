@@ -313,12 +313,8 @@ class Writer:
 
         chunk = self.chunks[-1]
         chunk.connections[connection.id].append((timestamp, chunk.data.tell()))
-
-        if timestamp < chunk.start:
-            chunk.start = timestamp
-
-        if timestamp > chunk.end:
-            chunk.end = timestamp
+        chunk.start = min(timestamp, chunk.start)
+        chunk.end = max(timestamp, chunk.end)
 
         header = Header()
         header.set_uint32('conn', connection.id)

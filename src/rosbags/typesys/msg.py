@@ -219,7 +219,7 @@ class Node(IntEnum):
 class VisitorMSG(Visitor):
     """MSG file visitor."""
 
-    RULES = parse_grammar(GRAMMAR_MSG, re.compile(r'(\s|#[^\n]*$)+', re.M | re.S))
+    RULES = parse_grammar(GRAMMAR_MSG, re.compile(r'(\s|#[^\n]*$)+', re.MULTILINE | re.DOTALL))
 
     BASETYPES: ClassVar[set[str]] = {
         'bool',
@@ -279,7 +279,7 @@ class VisitorMSG(Visitor):
             typ = 'string'
         else:
             assert not isinstance(children[3], str)
-            typ = children[0][1][0]
+            typ = cast('Basename', children[0][1][0])
         return Node.CONST, (normalize_fieldname(children[1][1]), typ, value)
 
     def visit_field_dcl(

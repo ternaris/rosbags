@@ -201,7 +201,7 @@ def migrate_message(
             else:
                 size = dst_type[1][1]
                 src_value = cast(
-                    'list[str] | list[Msg] | np.ndarray[None, np.dtype[np.uint8]]',
+                    'list[str] | list[Msg] | np.ndarray[tuple[int, ...], np.dtype[np.uint8]]',
                     getattr(src_msg, src_name),
                 )
                 if size and size < len(src_value):

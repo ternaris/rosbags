@@ -208,7 +208,7 @@ class rcl_interfaces__msg__SetLoggerLevelsResult:
 class rmw_dds_common__msg__Gid:
     """Class for rmw_dds_common/msg/Gid."""
 
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'rmw_dds_common/msg/Gid'
 
 
@@ -228,8 +228,8 @@ class sensor_msgs__msg__BatteryState:
     power_supply_health: int
     power_supply_technology: int
     present: bool
-    cell_voltage: np.ndarray[None, np.dtype[np.float32]]
-    cell_temperature: np.ndarray[None, np.dtype[np.float32]]
+    cell_voltage: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
+    cell_temperature: np.ndarray[tuple[int, ...], np.dtype[np.float32]]
     location: str
     serial_number: str
     POWER_SUPPLY_STATUS_UNKNOWN: ClassVar[int] = 0
@@ -280,7 +280,7 @@ class service_msgs__msg__ServiceEventInfo:
 
     event_type: int
     stamp: builtin_interfaces__msg__Time
-    client_gid: np.ndarray[None, np.dtype[np.uint8]]
+    client_gid: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     sequence_number: int
     REQUEST_SENT: ClassVar[int] = 0
     REQUEST_RECEIVED: ClassVar[int] = 1

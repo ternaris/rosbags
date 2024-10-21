@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-@pytest.fixture()
+@pytest.fixture
 def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnusedFunction]
     """Make messages containing numpy arrays comparable.
 
@@ -33,7 +33,7 @@ def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnuse
     class CNDArray:
         """Comparable ndarray."""
 
-        def __init__(self, child: np.ndarray[int, np.dtype[np.uint8]]) -> None:
+        def __init__(self, child: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]) -> None:
             self.child = child
 
         @override
@@ -42,7 +42,10 @@ def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnuse
                 other = other.child
             assert isinstance(other, np.ndarray)
             return bool(
-                np.equal(self.child, cast('np.ndarray[int, np.dtype[np.uint8]]', other)).all(),
+                np.equal(
+                    self.child,
+                    cast('np.ndarray[tuple[int, ...], np.dtype[np.uint8]]', other),
+                ).all(),
             )
 
         def byteswap(self) -> CNDArray:

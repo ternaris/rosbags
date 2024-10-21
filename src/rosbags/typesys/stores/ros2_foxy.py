@@ -183,7 +183,7 @@ class libstatistics_collector__msg__DummyMessage:
 class rmw_dds_common__msg__Gid:
     """Class for rmw_dds_common/msg/Gid."""
 
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'rmw_dds_common/msg/Gid'
 
 

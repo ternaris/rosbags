@@ -200,7 +200,7 @@ class shape_msgs__msg__SolidPrimitive:
     """Class for shape_msgs/msg/SolidPrimitive."""
 
     type: int
-    dimensions: np.ndarray[None, np.dtype[np.float64]]
+    dimensions: np.ndarray[tuple[int, ...], np.dtype[np.float64]]
     polygon: geometry_msgs__msg__Polygon
     BOX: ClassVar[int] = 1
     SPHERE: ClassVar[int] = 2
@@ -266,7 +266,7 @@ class visualization_msgs__msg__MeshFile:
     """Class for visualization_msgs/msg/MeshFile."""
 
     filename: str
-    data: np.ndarray[None, np.dtype[np.uint8]]
+    data: np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
     __msgtype__: ClassVar[str] = 'visualization_msgs/msg/MeshFile'
 
 

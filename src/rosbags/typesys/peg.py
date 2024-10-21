@@ -132,7 +132,7 @@ class RuleRegex(Rule):
 
         """
         super().__init__(value, rules, whitespace, name)
-        self.value = re.compile(value[2:-1], re.M | re.S)
+        self.value = re.compile(value[2:-1], re.MULTILINE | re.DOTALL)
 
     @override
     def parse(self, text: str, pos: int) -> tuple[int, Tree]:
@@ -297,7 +297,7 @@ def collapse_tokens(
     return RuleOneof(value, rules, whitespace) if len(value) > 1 else value[0]
 
 
-RXWS = re.compile(r'\s+', re.M | re.S)
+RXWS = re.compile(r'\s+', re.MULTILINE | re.DOTALL)
 
 
 def parse_grammar(

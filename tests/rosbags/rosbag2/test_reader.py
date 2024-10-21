@@ -87,7 +87,7 @@ rosbag2_bagfile_information:
 """
 
 
-@pytest.fixture()
+@pytest.fixture
 def empty_bag(tmp_path: Path) -> Path:
     """Manually contruct empty bag."""
     _ = (tmp_path / 'metadata.yaml').write_text(METADATA_EMPTY)

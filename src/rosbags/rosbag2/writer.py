@@ -363,7 +363,7 @@ class Writer:
                             'name': x.topic,
                             'type': x.msgtype,
                             'serialization_format': x.ext.serialization_format,
-                            'offered_qos_profiles': dump_qos(x.ext.offered_qos_profiles),  # type: ignore[typeddict-item]
+                            'offered_qos_profiles': dump_qos(x.ext.offered_qos_profiles),
                             'type_description_hash': x.digest,
                         },
                         'message_count': self.counts[x.id],
