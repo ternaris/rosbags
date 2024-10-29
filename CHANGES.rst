@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.10.6 - 2024-10-29
+-------------------
+
+- Fall back to noetic store in deprecated rosbag1 writer code path `#102`_
+
+.. _#102: https://gitlab.com/ternaris/rosbags/issues/102
+
+
 0.10.5 - 2024-10-21
 -------------------
 
