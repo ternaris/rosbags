@@ -265,7 +265,7 @@ class Writer:
                     category=DeprecationWarning,
                     stacklevel=2,
                 )
-                typestore = get_typestore(Stores.ROS2_FOXY)
+                typestore = get_typestore(Stores.ROS1_NOETIC)
             msgdef, md5sum = typestore.generate_msgdef(msgtype)
         assert msgdef is not None
         assert md5sum
