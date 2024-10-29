@@ -29,6 +29,7 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
+                typestore=typestore,
                 serialization_format=ext.serialization_format,
                 offered_qos_profiles=ext.offered_qos_profiles,
             )

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import ConnectionExtRosbag2
 from rosbags.rosbag2 import Reader, Writer
+from rosbags.typesys.stores import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,6 +21,7 @@ def remove_topic(src: Path, dst: Path, topic: str) -> None:
         topic: Name of topic to remove.
 
     """
+    typestore = get_typestore(Stores.ROS2_FOXY)
     with Reader(src) as reader, Writer(dst) as writer:
         conn_map = {}
         for conn in reader.connections:
@@ -29,6 +31,7 @@ def remove_topic(src: Path, dst: Path, topic: str) -> None:
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
+                typestore=typestore,
                 serialization_format=ext.serialization_format,
                 offered_qos_profiles=ext.offered_qos_profiles,
             )

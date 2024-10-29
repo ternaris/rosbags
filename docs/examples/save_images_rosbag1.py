@@ -21,7 +21,7 @@ def save_images() -> None:
     """Iterate over IMAGES and save to output bag."""
     typestore = get_typestore(Stores.ROS1_NOETIC)
     with Writer('output.bag') as writer:
-        conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__)
+        conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__, typestore=typestore)
 
         for idx, (path, timestamp) in enumerate(IMAGES):
             msg = CompressedImage(
