@@ -1,3 +1,8 @@
+variables:
+  IMAGE: "ghcr.io/astral-sh/uv:python3.13-bookworm"
+  UV_CACHE_DIR: $CI_PROJECT_DIR/.uv_cache
+
+
 stages:
   - test
   - build
@@ -5,17 +10,14 @@ stages:
 
 test:
   stage: test
-  image: python:$VERSION
+  image: $IMAGE
   script:
-    - python$VERSION -m venv venv
-    - venv/bin/python -m pip install -r requirements-dev.txt
-    - venv/bin/python -m pip install -e .[dev]
-    - venv/bin/python -m pytest --cov=src --cov-report=term --cov-report=xml --junit-xml=report.xml
-    - venv/bin/python -m mypy --no-error-summary docs src tests tools
-    - venv/bin/python -m reuse lint
-    - venv/bin/python -m ruff check docs src tests tools
-    - venv/bin/python -m ruff format --diff docs src tests tools
-    - venv/bin/sphinx-build docs public
+    - uv run python -m pytest --cov=src --cov-report=term --cov-report=xml --junit-xml=report.xml
+    - uv run python -m mypy --no-error-summary docs src tests tools
+    - uv run python -m reuse lint
+    - uv run python -m ruff check docs src tests tools
+    - uv run python -m ruff format --diff docs src tests tools
+    - uv run sphinx-build docs public
   coverage: '/\d+\%\s*$/'
   artifacts:
     paths:
@@ -25,29 +27,38 @@ test:
         coverage_format: cobertura
         path: coverage.xml
       junit: report.xml
+  cache:
+    key: tools
+    paths:
+      - .mypy_cache
+      - .uv_cache
   parallel:
     matrix:
-      - VERSION:
-        - "3.10"
-        - "3.11"
+      - UV_PYTHON:
+        - "3.13"
         - "3.12"
+        - "3.11"
+        - "3.10"
 
 
 build:
   stage: build
-  image: python:3.10
+  image: $IMAGE
   script:
-    - python3.10 -m venv venv
-    - venv/bin/python -m pip install build
-    - venv/bin/python -m build .
+    - uv build
   artifacts:
     paths:
       - dist
+  cache:
+    key: tools
+    paths:
+      - .mypy_cache
+      - .uv_cache
 
 
 pages:
   stage: build
-  image: python:3.10
+  image: $IMAGE
   script:
     - ls public
   artifacts:

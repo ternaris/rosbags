@@ -1,0 +1,25 @@
+version = 1
+SPDX-PackageName = "rosbags"
+SPDX-PackageSupplier = "Ternaris <team@ternaris.com>"
+SPDX-PackageDownloadLocation = "https://gitlab.com/ternaris/rosbags"
+
+[[annotations]]
+path = [
+  ".gitignore",
+  ".github/**",
+  ".gitlab/**",
+  ".python-versions",
+  "uv.lock",
+  "**.toml",
+  "**.yml",
+  "**/Dockerfile",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2016 - 2024 Ternaris <team@ternaris.com>"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["**.rst", "**/**.rst", "docs/examples/**.py"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2016 - 2024 Ternaris <team@ternaris.com>"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
