@@ -139,7 +139,7 @@ force-wrap-aliases = true
 builtins-allowed-modules = ["types", "typing"]
 
 [tool.ruff.lint.flake8-copyright]
-notice-rgx = "(?i)# (C)opyright 2020 - 2024 Ternaris\n# (S)PDX-License-Identifier: Apache-2.0"
+notice-rgx = "(?i)# (C)opyright 2020 - 2025 Ternaris\n# (S)PDX-License-Identifier: Apache-2.0"
 
 [tool.ruff.lint.flake8-quotes]
 avoid-escape = false

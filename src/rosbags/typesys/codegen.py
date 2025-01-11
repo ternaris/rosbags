@@ -1,4 +1,4 @@
-# Copyright 2020 - 2024 Ternaris
+# Copyright 2020 - 2025 Ternaris
 # SPDX-License-Identifier: Apache-2.0
 """Code generators for the extensible type system."""
 
@@ -81,7 +81,7 @@ def generate_python_code(
     if not base:
         add = list(typs.keys())
     lines = [
-        '# Copyright 2020 - 2024 Ternaris',
+        '# Copyright 2020 - 2025 Ternaris',
         ('# SPDX-License-Identifier:' ' Apache-2.0'),
         '#',
         '# THIS FILE IS GENERATED, DO NOT EDIT',

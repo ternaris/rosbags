@@ -15,11 +15,11 @@ path = [
   "**/Dockerfile",
 ]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2016 - 2024 Ternaris <team@ternaris.com>"
+SPDX-FileCopyrightText = "2016 - 2025 Ternaris <team@ternaris.com>"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = ["**.rst", "**/**.rst", "docs/examples/**.py"]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2016 - 2024 Ternaris <team@ternaris.com>"
+SPDX-FileCopyrightText = "2016 - 2025 Ternaris <team@ternaris.com>"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
