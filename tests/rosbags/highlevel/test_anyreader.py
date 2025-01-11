@@ -78,7 +78,7 @@ def bags2(tmp_path: Path) -> list[Path]:
         writer.write(topic3, 4, HEADER + b'\x01\x00\x00\x00')
 
     paths[2].mkdir()
-    _ = (paths[2] / 'metadata.yaml').write_text(':')
+    _ = (paths[2] / 'metadata.yaml').write_text('x:')
 
     return paths
 
@@ -160,7 +160,7 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
 @pytest.mark.parametrize('strip_types', [False, True])
 def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
     """Test AnyReader on rosbag2."""
-    with pytest.raises(AnyReaderError, match='YAML'):
+    with pytest.raises(AnyReaderError, match='key is missing'):
         _ = AnyReader([bags2[2]])
 
     ctx = cast(
