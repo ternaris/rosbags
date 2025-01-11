@@ -4,7 +4,7 @@
 # THIS FILE IS GENERATED, DO NOT EDIT
 """Message type definitions."""
 
-# ruff: noqa: N801,N814,N816,TCH004
+# ruff: noqa: N801,N814,N816,TC004
 
 from __future__ import annotations
 

@@ -82,7 +82,8 @@ def generate_python_code(
         add = list(typs.keys())
     lines = [
         '# Copyright 2020 - 2025 Ternaris',
-        ('# SPDX-License-Identifier:' ' Apache-2.0'),
+        '# SPDX-License-Identifier'  # avoid reuse trigger
+        ': Apache-2.0',
         '#',
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""Message type definitions."""',

@@ -25,8 +25,8 @@ from .stores import Stores, get_typestore
 __all__ = [
     'Stores',
     'TypesysError',
-    'get_typestore',
     'get_types_from_idl',
     'get_types_from_msg',
+    'get_typestore',
     'register_types',
 ]
