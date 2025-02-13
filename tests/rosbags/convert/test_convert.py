@@ -89,6 +89,37 @@ def test_convert_forwards_exceptions(tmp_path: Path) -> None:
         convert([], tmp_path / 'foo', None, None, 'file', None, None, (), (), (), ())
 
 
+def test_convert_enables_compression(tmp_path: Path) -> None:
+    """Test convert forwards exceptions."""
+    with (
+        patch('rosbags.convert.converter.AnyReader'),
+        patch('rosbags.convert.converter.Writer1') as writer,
+    ):
+        convert([], tmp_path / 'foo.bag', None, None, 'file', None, None, (), (), (), ())
+    writer.return_value.set_compression.assert_not_called()
+
+    with (
+        patch('rosbags.convert.converter.AnyReader'),
+        patch('rosbags.convert.converter.Writer1') as writer,
+    ):
+        convert([], tmp_path / 'foo.bag', None, 'bz2', 'file', None, None, (), (), (), ())
+    writer.return_value.set_compression.assert_called()
+
+    with (
+        patch('rosbags.convert.converter.AnyReader'),
+        patch('rosbags.convert.converter.Writer2') as writer,
+    ):
+        convert([], tmp_path / 'foo', None, None, 'file', None, None, (), (), (), ())
+    writer.return_value.set_compression.assert_not_called()
+
+    with (
+        patch('rosbags.convert.converter.AnyReader'),
+        patch('rosbags.convert.converter.Writer2') as writer,
+    ):
+        convert([], tmp_path / 'foo', None, 'zstd', 'file', None, None, (), (), (), ())
+    writer.return_value.set_compression.assert_called()
+
+
 def test_convert_connection_filtering(tmp_path: Path) -> None:
     """Test convert filters connections."""
     with (
