@@ -29,12 +29,14 @@ class Stores(Enum):
     """Humble Hawksbill."""
     ROS2_IRON = 'ros2_iron'
     """Iron Irwini."""
+    ROS2_JAZZY = 'ros2_jazzy'
+    """Jazzy Jalisco."""
 
 
 def get_typestore(name: Stores) -> Typestore:
     """Get typestore by name."""
     if name == Stores.LATEST:
-        name = Stores.ROS2_FOXY
+        name = Stores.ROS2_JAZZY
 
     mod = import_module(f'.{name.value}', __name__)
     return Typestore(mod)

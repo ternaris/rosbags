@@ -175,7 +175,7 @@ PARSER.add_argument(
 )
 PARSER_srcstore.add_argument(
     '--src-typestore',
-    choices=['empty', 'latest', 'ros1_noetic', 'ros2_dashing', 'ros2_eloquent', 'ros2_foxy', 'ros2_galactic', 'ros2_humble', 'ros2_iron'],
+    choices=['empty', 'latest', 'ros1_noetic', 'ros2_dashing', 'ros2_eloquent', 'ros2_foxy', 'ros2_galactic', 'ros2_humble', 'ros2_iron', 'ros2_jazzy'],
     help="Source typestore name. (default='ros2_foxy')",
     dest='src_typestore',
     type=str,
@@ -188,7 +188,7 @@ PARSER_srcstore.add_argument(
 )
 PARSER_dststore.add_argument(
     '--dst-typestore',
-    choices=['copy', 'empty', 'latest', 'ros1_noetic', 'ros2_dashing', 'ros2_eloquent', 'ros2_foxy', 'ros2_galactic', 'ros2_humble', 'ros2_iron'],
+    choices=['copy', 'empty', 'latest', 'ros1_noetic', 'ros2_dashing', 'ros2_eloquent', 'ros2_foxy', 'ros2_galactic', 'ros2_humble', 'ros2_iron', 'ros2_jazzy'],
     help="Destination typestore name. (default='copy')",
     dest='dst_typestore',
     type=str,
