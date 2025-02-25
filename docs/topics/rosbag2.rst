@@ -29,8 +29,7 @@ Instances of the :py:class:`Writer <rosbags.rosbag2.Writer>` class can create an
    from rosbags.rosbag2 import Writer
    from rosbags.typesys import Stores, get_typestore
 
-
-   # Create a typestore and get the string class.
+   # Create a typestore for the desired ROS release and get the string class.
    typestore = get_typestore(Stores.LATEST)
    String = typestore.types['std_msgs/msg/String']
 
@@ -50,11 +49,14 @@ Reading rosbag2
 ---------------
 Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are used to read rosbag2 metadata and its contents. Most of the metadata is available on Reader instances right away, messages can only be accessed after the bag has been opened. To this end it is recommended to use the Reader as a context manager. The following example shows the typical usage pattern:
 
+.. note::
+
+   For reading bags, you might want to use the :ref:`highlevel` AnyReader instead, as it provides a simpler and unified API for ROS1 and ROS2 bags.
+
 .. code-block:: python
 
    from rosbags.rosbag2 import Reader
    from rosbags.typesys import Stores, get_typestore
-
 
    # Create a typestore and get the string class.
    typestore = get_typestore(Stores.LATEST)

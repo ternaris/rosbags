@@ -12,9 +12,8 @@ Instances of the :py:class:`Writer <rosbags.rosbag1.Writer>` class can create an
    from rosbags.rosbag1 import Writer
    from rosbags.typesys import Stores, get_typestore
 
-
-   # Create a typestore and get the string class.
-   typestore = get_typestore(Stores.LATEST)
+   # Create a typestore for the desired ROS release and get the string class.
+   typestore = get_typestore(Stores.ROS1_NOETIC)
    String = typestore.types['std_msgs/msg/String']
 
    # Create writer instance and open for writing.
@@ -33,14 +32,17 @@ Reading rosbag1
 ---------------
 Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are typically used as context managers and provide access to bag metadata and contents after the bag has been opened. The following example shows the typical usage pattern:
 
+.. note::
+
+   For reading bags, you might want to use the :ref:`highlevel` AnyReader instead, as it provides a simpler and unified API for ROS1 and ROS2 bags.
+
 .. code-block:: python
 
    from rosbags.rosbag1 import Reader
    from rosbags.typesys import Stores, get_typestore
 
-
-   # Create a typestore and get the string class.
-   typestore = get_typestore(Stores.LATEST)
+   # Create a typestore for the matching ROS release.
+   typestore = get_typestore(Stores.ROS1_NOETIC)
 
    # Create reader instance and open for reading.
    with Reader('/home/ros/rosbag_2020_03_24') as reader:
