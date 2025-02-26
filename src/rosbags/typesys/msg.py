@@ -159,7 +159,7 @@ def normalize_msgtype(name: str) -> str:
     return str(path)
 
 
-def normalize_fieldtype(typename: str, idx: int, field: FieldDesc) -> FieldDesc:
+def normalize_fieldtype(typename: str, field: FieldDesc) -> FieldDesc:
     """Normalize field typename.
 
     Args:
@@ -184,7 +184,7 @@ def normalize_fieldtype(typename: str, idx: int, field: FieldDesc) -> FieldDesc:
     assert ifield[0] == Nodetype.NAME
 
     name = ifield[1]
-    if name == 'Header' and not idx:
+    if name == 'Header':
         name = 'std_msgs/msg/Header'
     elif '/' not in name:
         name = str(Path(typename).parent / name)
@@ -256,7 +256,7 @@ class VisitorMSG(Visitor):
                 else:
                     assert item[0] == Node.FIELD
                     fields.append(
-                        (item[1][0], normalize_fieldtype(name, len(fields), item[1][1])),
+                        (item[1][0], normalize_fieldtype(name, item[1][1])),
                     )
 
             res[name] = consts, fields
