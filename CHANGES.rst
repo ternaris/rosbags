@@ -3,6 +3,18 @@
 Changes
 =======
 
+0.10.8 - 2025-02-26
+-------------------
+
+- Add missing jazzy store to enum `#108`_
+- Fix rosbag1 reader example and point to AnyReader `#110`_
+- Allow msg Header field type in any position `#111`_
+
+.. _#108: https://gitlab.com/ternaris/rosbags/issues/108
+.. _#110: https://gitlab.com/ternaris/rosbags/issues/110
+.. _#111: https://gitlab.com/ternaris/rosbags/issues/111
+
+
 0.10.7 - 2025-01-11
 -------------------
 
