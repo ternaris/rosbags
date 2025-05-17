@@ -58,7 +58,7 @@ def test_write_schema(tmp_path: Path) -> None:
     reader.open()
     assert len(reader.schemas) == 1
     assert not reader.channels
-    assert not len(list(reader.messages([])))
+    assert not list(reader.messages([]))
     reader.close()
 
 
@@ -86,7 +86,7 @@ def test_write_channel(tmp_path: Path) -> None:
     reader.open()
     assert len(reader.schemas) == 1
     assert len(reader.channels) == 1
-    assert not len(list(reader.messages([])))
+    assert not list(reader.messages([]))
     reader.close()
 
 
