@@ -59,13 +59,13 @@ def test_serializer_errors() -> None:
     class Foo:
         """Dummy class."""
 
-        coef: np.ndarray[tuple[int, ...], np.dtype[np.uint8]] = np.array([1, 2, 3, 4])
+        coef = np.array([1, 2, 3, 4], dtype=np.float64)
 
     msg = Foo()
     _ = store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
     _ = store.serialize_ros1(msg, 'shape_msgs/msg/Plane')
 
-    msg.coef = np.array([1, 2, 3, 4, 4])
+    msg.coef = np.array([1, 2, 3, 4, 4], dtype=np.float64)
     with pytest.raises(SerdeError, match='array length'):
         _ = store.serialize_cdr(msg, 'shape_msgs/msg/Plane')
 
