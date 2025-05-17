@@ -290,10 +290,16 @@ def test_raises_if_user_error(tmp_path: Path) -> None:
 def test_failure_cases(tmp_path: Path) -> None:
     """Test failure cases."""
     bag = tmp_path / 'test.bag'
-    with pytest.raises(ReaderError, match='does not exist'):
+    with pytest.raises(FileNotFoundError, match='does not exist'):
         Reader(bag).open()
 
     _ = bag.write_text('')
+    with (
+        pytest.raises(PermissionError),
+        patch('pathlib.Path.open', side_effect=PermissionError),
+    ):
+        Reader(bag).open()
+
     with (
         patch('pathlib.Path.open', side_effect=IOError),
         pytest.raises(ReaderError, match='not open'),

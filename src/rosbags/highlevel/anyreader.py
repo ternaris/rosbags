@@ -77,7 +77,7 @@ class AnyReader:
 
         if missing := [x for x in paths if not x.exists()]:
             msg = f'The following paths are missing: {missing!r}'
-            raise AnyReaderError(msg)
+            raise FileNotFoundError(msg)
 
         self.paths = paths
         self.is2 = (paths[0] / 'metadata.yaml').exists()

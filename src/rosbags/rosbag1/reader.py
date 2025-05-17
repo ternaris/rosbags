@@ -388,7 +388,7 @@ class Reader:
         self.path = Path(path)
         if not self.path.exists():
             msg = f'File {str(self.path)!r} does not exist.'
-            raise ReaderError(msg)
+            raise FileNotFoundError(msg)
 
         self.bio: BinaryIO | None = None
         self.connections: list[Connection] = []
@@ -402,6 +402,8 @@ class Reader:
         """Open rosbag and read metadata."""
         try:
             self.bio = self.path.open('rb')
+        except PermissionError:
+            raise
         except OSError as err:
             msg = f'Could not open file {str(self.path)!r}: {err.strerror}.'
             raise ReaderError(msg) from err

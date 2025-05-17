@@ -113,6 +113,8 @@ class Reader:
                 'dict[str, Metadata]',
                 yaml.load(yamlpath.read_text()),  # pyright: ignore[reportUnknownMemberType]
             )
+        except (FileNotFoundError, PermissionError):
+            raise
         except OSError as err:
             msg = f'Could not read metadata at {yamlpath}: {err}.'
             raise ReaderError(msg) from None

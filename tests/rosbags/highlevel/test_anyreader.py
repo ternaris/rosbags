@@ -93,7 +93,7 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
     with pytest.raises(AnyReaderError, match='at least one'):
         _ = AnyReader([])
 
-    with pytest.raises(AnyReaderError, match='missing'):
+    with pytest.raises(FileNotFoundError, match='missing'):
         _ = AnyReader([bags1[0] / 'badname'])
 
     reader = AnyReader(bags1)
