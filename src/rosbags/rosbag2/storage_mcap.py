@@ -381,6 +381,7 @@ class MCAPFile:
         return {
             schema.name: MessageDefinition(fmtmap[schema.encoding], schema.data)
             for schema in self.schemas.values()
+            if schema.encoding
         }
 
     def messages_scan(
