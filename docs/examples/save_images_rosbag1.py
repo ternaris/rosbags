@@ -1,5 +1,7 @@
 """Example: Save images as rosbag1."""
 
+from __future__ import annotations
+
 import numpy as np
 
 from rosbags.rosbag1 import Writer

@@ -1,5 +1,7 @@
 """Save multiple images in rosbag2."""
 
+from __future__ import annotations
+
 import numpy as np
 
 from rosbags.rosbag2 import Writer

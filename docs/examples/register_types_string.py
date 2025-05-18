@@ -1,5 +1,7 @@
 """Example: Register type from definition string."""
 
+from __future__ import annotations
+
 from rosbags.serde import serialize_cdr
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 

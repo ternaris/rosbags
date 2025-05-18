@@ -1,5 +1,7 @@
 """Example: Register types from msg files."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from rosbags.interfaces import ConnectionExtRosbag2
 from rosbags.rosbag2 import Reader, Writer
 from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from rosbags.interfaces import ConnectionExtRosbag2
 
 
 def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
@@ -25,7 +26,7 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
     with Reader(src) as reader, Writer(dst) as writer:
         conn_map = {}
         for conn in reader.connections:
-            ext = cast(ConnectionExtRosbag2, conn.ext)
+            ext = cast('ConnectionExtRosbag2', conn.ext)
             conn_map[conn.id] = writer.add_connection(
                 conn.topic,
                 conn.msgtype,
