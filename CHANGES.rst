@@ -3,6 +3,22 @@
 Changes
 =======
 
+0.10.10 - 2025-05-18
+--------------------
+
+- Add kilted typestore
+- Allow empty schema definitions in MCAP files
+- Read MCAP chunks with message_start_time 0 `#112`_
+- Document conversion with custom typestore `#116`_
+- Do not convert filesystem related exceptions `#117`_
+- Use explicit dtypes in tests `#118`_
+
+.. _#112: https://gitlab.com/ternaris/rosbags/issues/112
+.. _#116: https://gitlab.com/ternaris/rosbags/issues/116
+.. _#117: https://gitlab.com/ternaris/rosbags/issues/117
+.. _#118: https://gitlab.com/ternaris/rosbags/issues/118
+
+
 0.10.9 - 2025-03-11
 -------------------
 
@@ -10,7 +26,7 @@ Changes
 - Add MCAP writer, support conversion to rosbag2 with MCAP storage `#97`_
 
 .. _#97: https://gitlab.com/ternaris/rosbags/issues/97
-.. _#108: https://gitlab.com/ternaris/rosbags/issues/109
+.. _#109: https://gitlab.com/ternaris/rosbags/issues/109
 
 
 0.10.8 - 2025-02-26
