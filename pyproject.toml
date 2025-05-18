@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "setuptools-scm[toml]"]
+requires = ["setuptools>=77", "setuptools-scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 
@@ -10,7 +10,6 @@ authors = [
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -45,7 +44,7 @@ keywords = [
   "serialization",
   "writer",
 ]
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 readme = "README.rst"
 requires-python = ">=3.10"
 
