@@ -175,9 +175,14 @@ class Sqlite3Reader:
         querystr = ' '.join(query)
 
         for conn in self.dbconns:
-            tcur = cast('Iterable[tuple[str, int]]', conn.execute('SELECT name,id FROM topics'))
-            connmap: dict[int, Connection] = {  # pragma: no branch
-                row[1]: next(x for x in self.connections if x.topic == row[0]) for row in tcur
+            topics_ids = cast(
+                'list[tuple[str, int]]',
+                list(conn.execute('SELECT name,id FROM topics')),
+            )
+            connmap = {  # pragma: no branch
+                cid: conn
+                for conn in (connections or self.connections)
+                if (cid := next((cid for name, cid in topics_ids if name == conn.topic), None))
             }
 
             cur = cast('Iterable[tuple[int, int, bytes]]', conn.execute(querystr, args))
