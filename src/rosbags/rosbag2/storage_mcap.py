@@ -683,6 +683,10 @@ class McapWriter:
             self.compression = ''
             self.compressor = lambda x: x
 
+        self.message_start_time = 2**63 - 1
+        self.message_end_time = 0
+        self.channel_stats: dict[int, int] = {}
+
     def add_msgtype(self, connection: Connection) -> None:
         """Add a msgtype.
 
@@ -721,6 +725,7 @@ class McapWriter:
                 metadata.read(),
             )
         )
+        self.channel_stats[connection.id] = 0
         write_channel(self.chunk.bio, self.channels[-1], self.schemas)
 
     def close_chunk(self) -> None:
@@ -777,6 +782,9 @@ class McapWriter:
             data: Serialized message data.
 
         """
+        self.message_start_time = min(timestamp, self.message_start_time)
+        self.message_end_time = max(timestamp, self.message_end_time)
+        self.channel_stats[connection.id] += 1
         self.chunk.message_start_time = min(timestamp, self.chunk.message_start_time)
         self.chunk.message_end_time = max(timestamp, self.chunk.message_end_time)
         self.chunk.msgs[connection.id].append((timestamp, self.chunk.bio.tell()))
@@ -835,6 +843,22 @@ class McapWriter:
         write_string(rec, 'rosbag2')
         write_record(self.bio, 0x0D, rec)
 
+        statistics_offset_start = self.bio.tell()
+        rec = BytesIO()
+        write_uint64(rec, sum(self.channel_stats.values()))
+        write_uint16(rec, len(self.schemas))
+        write_uint32(rec, len(self.channels))
+        write_uint32(rec, 0)  # attachments
+        write_uint32(rec, 1)  # metadata
+        write_uint32(rec, len(self.chunks))
+        write_uint64(rec, self.message_start_time)
+        write_uint64(rec, self.message_end_time)
+        write_uint32(rec, len(self.channel_stats) * 10)
+        for cid, count in sorted(self.channel_stats.items()):
+            write_uint16(rec, cid)
+            write_uint64(rec, count)
+        write_record(self.bio, 0x0B, rec)
+
         summary_offset_start = self.bio.tell()
 
         if schema_start != channel_start:
@@ -860,8 +884,14 @@ class McapWriter:
 
         rec = BytesIO()
         rec.write(b'\x0d')
-        write_uint64(rec, chunk_start)
-        write_uint64(rec, summary_offset_start - metadata_index_start)
+        write_uint64(rec, metadata_index_start)
+        write_uint64(rec, statistics_offset_start - metadata_index_start)
+        write_record(self.bio, 0x0E, rec)
+
+        rec = BytesIO()
+        rec.write(b'\x0b')
+        write_uint64(rec, statistics_offset_start)
+        write_uint64(rec, summary_offset_start - statistics_offset_start)
         write_record(self.bio, 0x0E, rec)
 
         rec = BytesIO()
