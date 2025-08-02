@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.10.11 - 2025-08-02
+--------------------
+
+- Write mcap statistics record `#120`_
+
+.. _#120: https://gitlab.com/ternaris/rosbags/issues/120
+
+
 0.10.10 - 2025-05-18
 --------------------
 
