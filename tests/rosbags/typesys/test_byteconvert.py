@@ -60,5 +60,5 @@ def test_cdr_to_ros1() -> None:
     header = Header(stamp=Time(42, 666), frame_id='frame')
     msg_ros = store.cdr_to_ros1(
         store.serialize_cdr(header, 'std_msgs/msg/Header'), 'std_msgs/msg/Header'
-    )
+    ).tobytes()
     assert msg_ros == b'\x00\x00\x00\x00*\x00\x00\x00\x9a\x02\x00\x00\x05\x00\x00\x00frame'
