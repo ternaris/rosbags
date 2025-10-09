@@ -127,6 +127,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     bag.open()
     with pytest.raises(WriterError, match='already open'):
         bag.set_compression(CompressionMode.FILE, CompressionFormat.ZSTD)
+    bag.close()
 
     bag = Writer(tmp_path / 'topic', version=Writer.VERSION_LATEST)
     with pytest.raises(WriterError, match='was not opened'):
@@ -160,6 +161,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     )
     with pytest.raises(WriterError, match='only be added once'):
         _ = bag.add_connection('/tf', 'tf2_msgs/msg/TFMessage', typestore=store)
+    bag.close()
 
     bag = Writer(tmp_path / 'notopic', version=Writer.VERSION_LATEST)
     bag.open()
@@ -175,6 +177,7 @@ def test_failure_cases(tmp_path: Path) -> None:
     )
     with pytest.raises(WriterError, match='unknown connection'):
         bag.write(connection, 42, b'\x00')
+    bag.close()
 
     bag = Writer(tmp_path / 'bag', version=Writer.VERSION_LATEST)
     with bag, pytest.raises(WriterError, match='Cannot determine message definition'):

@@ -53,6 +53,7 @@ class Sqlite3Reader:
             )
             if cur.fetchone()[0] != 2:
                 msg = f'Cannot open database {path} or database missing tables.'
+                conn.close()
                 raise ReaderError(msg)
 
             self.dbconns.append(conn)

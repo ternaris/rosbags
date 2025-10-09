@@ -95,6 +95,7 @@ def empty_bag(tmp_path: Path) -> Path:
     dbpath = tmp_path / 'db.db3'
     dbh = sqlite3.connect(dbpath)
     _ = dbh.executescript(Sqlite3Writer.SQLITE_SCHEMA)
+    dbh.close()
     return tmp_path
 
 
@@ -166,6 +167,7 @@ def bag_sqlite3(request: SubRequest, tmp_path: Path) -> Path:
         ),
     )
     dbh.commit()
+    dbh.close()
 
     if param == 'file':
         with dbpath.open('rb') as ifh, (tmp_path / 'db.db3.zstd').open('wb') as ofh:
