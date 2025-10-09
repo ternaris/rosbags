@@ -17,7 +17,6 @@ Supported formats:
 """
 
 from .base import TypesysError
-from .deprecated import register_types
 from .idl import get_types_from_idl
 from .msg import get_types_from_msg
 from .stores import Stores, get_typestore
@@ -28,5 +27,4 @@ __all__ = [
     'get_types_from_idl',
     'get_types_from_msg',
     'get_typestore',
-    'register_types',
 ]

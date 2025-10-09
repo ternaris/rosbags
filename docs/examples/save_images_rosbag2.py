@@ -22,7 +22,7 @@ IMAGES = [('homer.jpg', 42), ('marge.jpg', 43)]
 def save_images() -> None:
     """Iterate over IMAGES and save to output bag."""
     typestore = get_typestore(Stores.ROS2_FOXY)
-    with Writer('output') as writer:
+    with Writer('output', version=9) as writer:
         conn = writer.add_connection(TOPIC, CompressedImage.__msgtype__, typestore=typestore)
 
         for path, timestamp in IMAGES:

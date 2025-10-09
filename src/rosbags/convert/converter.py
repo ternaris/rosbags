@@ -31,6 +31,7 @@ from rosbags.rosbag2 import (
     Writer as Writer2,
     WriterError as WriterError2,
 )
+from rosbags.rosbag2.enums import CompressionFormat, CompressionMode
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
@@ -451,8 +452,8 @@ def convert(
             )
             if compress:
                 writer.set_compression(
-                    writer.CompressionMode[compress_mode.upper()],
-                    writer.CompressionFormat[compress.upper()],
+                    CompressionMode[compress_mode.upper()],
+                    CompressionFormat[compress.upper()],
                 )
         else:
             writer = Writer1(dst)

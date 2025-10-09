@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from rosbags.rosbag2 import CompressionMode, Reader, Writer, WriterError
-from rosbags.rosbag2.enums import CompressionFormat
+from rosbags.rosbag2 import CompressionFormat, CompressionMode, Reader, Writer, WriterError
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.stores.latest import std_msgs__msg__Float64 as Float64
 

@@ -23,7 +23,7 @@ def remove_topic(src: Path, dst: Path, topic: str) -> None:
 
     """
     typestore = get_typestore(Stores.ROS2_FOXY)
-    with Reader(src) as reader, Writer(dst) as writer:
+    with Reader(src) as reader, Writer(dst, version=9) as writer:
         conn_map = {}
         for conn in reader.connections:
             if conn.topic == topic:

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import warnings
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,10 +20,9 @@ from rosbags.interfaces import (
     MessageDefinitionFormat,
     Qos,
 )
-from rosbags.rosbag2.metadata import dump_qos_v8, dump_qos_v9, parse_qos
+from rosbags.rosbag2.metadata import dump_qos_v8, dump_qos_v9
 from rosbags.rosbag2.storage_mcap import McapWriter
 from rosbags.rosbag2.storage_sqlite3 import Sqlite3Writer
-from rosbags.typesys import Stores, get_typestore
 
 from .enums import CompressionFormat, CompressionMode, StoragePlugin
 from .errors import WriterError
@@ -68,31 +66,7 @@ if TYPE_CHECKING:
             """Close rosbag2 after writing."""
 
 
-class DeprecationMeta(type):
-    """Deprecation Meta Class."""
-
-    def __getattr__(cls, name: str):  # type: ignore[no-untyped-def]  # noqa: ANN204
-        """Deprecate enum members."""
-        if name == 'CompressionMode':
-            warnings.warn(
-                'CompressionMode should be imported from rosbags.rosbag2.',
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return CompressionMode
-
-        if name == 'CompressionFormat':
-            warnings.warn(
-                'CompressionFormat should be imported from rosbags.rosbag2.',
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return CompressionFormat
-        msg = f'{cls.__name__!r} object has no attribute {name!r}'
-        raise AttributeError(msg)
-
-
-class Writer(metaclass=DeprecationMeta):
+class Writer:
     """Rosbag2 writer.
 
     This class implements writing of rosbag2 files in version 8 or 9. It
@@ -111,7 +85,7 @@ class Writer(metaclass=DeprecationMeta):
         self,
         path: Path | str,
         *,
-        version: Literal[8, 9] | None = None,
+        version: Literal[8, 9],
         storage_plugin: StoragePlugin = StoragePlugin.SQLITE3,
     ) -> None:
         """Initialize writer.
@@ -129,14 +103,6 @@ class Writer(metaclass=DeprecationMeta):
         if path.exists():
             msg = f'{path} exists already, not overwriting.'
             raise WriterError(msg)
-
-        if not version:
-            warnings.warn(
-                'Writer should be called with an explicit version number (8 or 9).',
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            version = 8
 
         self.path = path
         self.metapath = path / 'metadata.yaml'
@@ -216,7 +182,7 @@ class Writer(metaclass=DeprecationMeta):
         msgdef: str | None = None,
         rihs01: str | None = None,
         serialization_format: str = 'cdr',
-        offered_qos_profiles: Sequence[Qos] | str = (),
+        offered_qos_profiles: Sequence[Qos] = (),
     ) -> Connection:
         """Add a connection.
 
@@ -244,26 +210,15 @@ class Writer(metaclass=DeprecationMeta):
 
         if msgdef is None or rihs01 is None:
             if not typestore:
-                warnings.warn(
-                    'Writer.add_connection should be called with typestore or msgdef/rihs01 pair.',
-                    category=DeprecationWarning,
-                    stacklevel=2,
+                msg = (
+                    'Cannot determine message definition. '
+                    'Use either the typestore or msgdef+rihs01 arguments.'
                 )
-                typestore = get_typestore(Stores.ROS2_FOXY)
+                raise WriterError(msg)
             msgdef, _ = typestore.generate_msgdef(msgtype, ros_version=2)
             rihs01 = typestore.hash_rihs01(msgtype)
         assert msgdef is not None
         assert rihs01
-
-        if isinstance(offered_qos_profiles, str):
-            warnings.warn(
-                'Writer.add_connection should be called with instantiated QoS profiles.',
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            qos_profiles = parse_qos(offered_qos_profiles)
-        else:
-            qos_profiles = list(offered_qos_profiles)
 
         fmt = 'ros2idl' if msgdef.startswith('=' * 80 + '\nIDL: ') else 'ros2msg'
 
@@ -281,7 +236,7 @@ class Writer(metaclass=DeprecationMeta):
             msgcount=0,
             ext=ConnectionExtRosbag2(
                 serialization_format=serialization_format,
-                offered_qos_profiles=qos_profiles,
+                offered_qos_profiles=list(offered_qos_profiles),
             ),
             owner=self,
         )
@@ -298,7 +253,7 @@ class Writer(metaclass=DeprecationMeta):
         self.counts[connection.id] = 0
 
         dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
-        dumped = dump_qos(qos_profiles)
+        dumped = dump_qos(list(offered_qos_profiles))
         if not isinstance(dumped, str):
             stream = StringIO()
             yaml = YAML(typ='safe')
@@ -442,11 +397,3 @@ class Writer(metaclass=DeprecationMeta):
         """Close rosbag2 when exiting contextmanager."""
         self.close()
         return False
-
-    def __getattribute__(self, name: str):  # type: ignore[no-untyped-def]  # noqa: ANN204
-        """Deprecate enums."""
-        if name == 'CompressionMode':
-            return Writer.CompressionMode
-        if name == 'CompressionFormat':
-            return Writer.CompressionFormat
-        return super().__getattribute__(name)

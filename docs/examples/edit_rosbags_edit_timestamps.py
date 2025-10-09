@@ -23,7 +23,7 @@ def offset_timestamps(src: Path, dst: Path, offset: int) -> None:
 
     """
     typestore = get_typestore(Stores.ROS2_FOXY)
-    with Reader(src) as reader, Writer(dst) as writer:
+    with Reader(src) as reader, Writer(dst, version=9) as writer:
         conn_map = {}
         for conn in reader.connections:
             ext = cast('ConnectionExtRosbag2', conn.ext)

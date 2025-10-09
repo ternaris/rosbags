@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from rosbags.serde import serialize_cdr
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 # Your custom message definition
@@ -19,4 +18,4 @@ StrIdx = typestore.types['custom_msgs/msg/StrIdx']
 message = StrIdx(string='foo', index=42)
 
 # Rawdata that can be passed to rosbag2.Writer.write
-rawdata = serialize_cdr(message, message.__msgtype__)
+rawdata = typestore.serialize_cdr(message, message.__msgtype__)

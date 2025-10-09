@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import functools
 import operator
-import warnings
 from contextlib import suppress
 from heapq import merge
 from itertools import groupby
@@ -80,7 +79,7 @@ class AnyReader:
             raise FileNotFoundError(msg)
 
         self.paths = paths
-        self.is2 = (paths[0] / 'metadata.yaml').exists()
+        self.is2 = any(x.suffix != '.bag' for x in paths)
         self.isopen = False
         self.connections: list[Connection] = []
         self.default_typestore = default_typestore
@@ -122,33 +121,29 @@ class AnyReader:
 
         typs: Typesdict = {}
         self.connections = [y for x in self.readers for y in x.connections]
-        connections = [
-            x for x in self.connections if x.msgdef.format != MessageDefinitionFormat.NONE
-        ]
-        if connections:
-            sep = '=' * 80 + '\n'
-            for connection in connections:
-                if connection.msgdef.data.startswith(f'{sep}IDL: '):
-                    for msgdef in connection.msgdef.data.split(sep)[1:]:
-                        hdr, idl = msgdef.split('\n', 1)
-                        assert hdr.startswith('IDL: ')
-                        typs.update(get_types_from_idl(idl))
-                else:
-                    typs.update(get_types_from_msg(connection.msgdef.data, connection.msgtype))
+        if self.connections:
+            connections = [
+                x for x in self.connections if x.msgdef.format != MessageDefinitionFormat.NONE
+            ]
+            if connections:
+                sep = '=' * 80 + '\n'
+                for connection in connections:
+                    if connection.msgdef.data.startswith(f'{sep}IDL: '):
+                        for msgdef in connection.msgdef.data.split(sep)[1:]:
+                            hdr, idl = msgdef.split('\n', 1)
+                            assert hdr.startswith('IDL: ')
+                            typs.update(get_types_from_idl(idl))
+                    else:
+                        typs.update(get_types_from_msg(connection.msgdef.data, connection.msgtype))
 
-        elif self.default_typestore:
-            typs.update(self.default_typestore.fielddefs)
-        else:
-            warnings.warn(
-                (
-                    'AnyReader should be instantiated with an explicit typestore when reading '
-                    'old Rosbag2 files without embedded message type definions. Using `foxy` '
-                    'types as a workaround.'
-                ),
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            typs.update(get_typestore(Stores.ROS2_FOXY).fielddefs)
+            elif self.default_typestore:
+                typs.update(self.default_typestore.fielddefs)
+            else:
+                msg = (
+                    'Bag contains no type definitions. '
+                    'Instantiate AnyReader with a default_typestore argument.'
+                )
+                raise AnyReaderError(msg)
         self.typestore.register(typs)
         self.isopen = True
 

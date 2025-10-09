@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
@@ -29,6 +28,29 @@ if TYPE_CHECKING:
     from rosbags.typesys.stores.ros1_noetic import std_msgs__msg__Int8 as Int8
 
 HEADER = b'\x00\x01\x00\x00'
+
+
+class MockReader:
+    """Mock reader simulating empty typestore."""
+
+    def __init__(self, paths: list[Path]) -> None:
+        """Initialize mock."""
+        _ = paths
+        self.connections = [
+            Connection(
+                1,
+                '/foo',
+                'test_msg/msg/Foo',
+                MessageDefinition(MessageDefinitionFormat.NONE, ''),
+                '',
+                0,
+                ConnectionExtRosbag2('', []),
+                self,
+            ),
+        ]
+
+    def open(self) -> None:
+        """Unused."""
 
 
 @pytest.fixture
@@ -162,25 +184,13 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
             _ = next(gen)
 
 
-@pytest.mark.parametrize('strip_types', [False, True])
-def test_anyreader2(bags2: list[Path], *, strip_types: bool) -> None:
+def test_anyreader2(bags2: list[Path]) -> None:
     """Test AnyReader on rosbag2."""
     with pytest.raises(AnyReaderError, match='key is missing'):
-        _ = AnyReader([bags2[2]])
+        AnyReader([bags2[2]]).open()
 
-    ctx = cast(
-        'AbstractContextManager[None]',
-        (
-            patch(
-                'rosbags.rosbag2.storage_sqlite3.Sqlite3Reader.get_definitions',
-                return_value={},
-            )
-            if strip_types
-            else nullcontext()
-        ),
-    )
     typestore = get_typestore(Stores.LATEST)
-    with ctx, AnyReader(bags2[:2], default_typestore=typestore) as reader:
+    with AnyReader(bags2[:2], default_typestore=typestore) as reader:
         assert reader.duration == 15
         assert reader.start_time == 1
         assert reader.end_time == 16
@@ -303,35 +313,36 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
     }
 
 
-def test_deprecations(bags2: list[Path]) -> None:
-    """Test AnyReader on rosbag2."""
+def test_anyreader_raises_on_unknown_files(tmp_path: Path) -> None:
+    """Test AnyReader raises on unknown files."""
+    paths = [tmp_path / 'unknown', tmp_path / 'test.mcap']
+    for path in paths:
+        path.touch()
 
-    class MockReader:
-        """Mock reader."""
+    with pytest.raises(AnyReaderError, match='Unrecognized storage format'):
+        AnyReader(paths)
 
-        def __init__(self, paths: list[Path]) -> None:
-            """Initialize mock."""
-            _ = paths
-            self.connections = [
-                Connection(
-                    1,
-                    '/foo',
-                    'test_msg/msg/Foo',
-                    MessageDefinition(MessageDefinitionFormat.NONE, ''),
-                    '',
-                    0,
-                    ConnectionExtRosbag2('', []),
-                    self,
-                ),
-            ]
 
-        def open(self) -> None:
-            """Unused."""
+def test_anyreader_does_not_require_typestore_on_empty_bag(tmp_path: Path) -> None:
+    """Test AnyReader does not require typestore on an empty bag."""
+    path = tmp_path / 'test.bag'
+    with Writer1(path):
+        pass
 
+    with AnyReader([path]) as reader:
+        assert reader.connections == []
+
+
+def test_anyreader_uses_default_typestore(bags2: list[Path]) -> None:
+    """Test AnyReader uses default typestore."""
+    with patch('rosbags.highlevel.anyreader.Reader2', MockReader):
+        AnyReader([bags2[0]], default_typestore=get_typestore(Stores.EMPTY)).open()
+
+
+def test_anyreader_raises_on_missing_typestore(bags2: list[Path]) -> None:
+    """Test AnyReader raises on missing typestore."""
     with (
         patch('rosbags.highlevel.anyreader.Reader2', MockReader),
-        pytest.deprecated_call(
-            match='explicit typestore',
-        ),
+        pytest.raises(AnyReaderError, match='Bag contains no type definitions'),
     ):
         AnyReader([bags2[0]]).open()

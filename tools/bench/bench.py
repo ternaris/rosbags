@@ -20,7 +20,7 @@ from rosbag2_py import (  # type: ignore[import-not-found]
 from rosidl_runtime_py.utilities import get_message  # type: ignore[import-not-found]
 
 from rosbags.rosbag2 import Reader
-from rosbags.serde import deserialize_cdr
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -91,6 +91,7 @@ def compare_msg(lite: object, native: NativeMSG) -> None:
 
 def compare(path: Path) -> None:
     """Compare raw and deserialized messages."""
+    typestore = get_typestore(Stores.ROS2_FOXY)
     with Reader(path) as reader:
         gens = (reader.messages(), ReaderPy(path).messages())
         for item, item_py in zip(*gens, strict=False):
@@ -103,7 +104,7 @@ def compare(path: Path) -> None:
             assert data == data_py
 
             msg_py = deserialize_py(data_py, msgtype_py)
-            msg = deserialize_cdr(data, connection.msgtype)
+            msg = typestore.deserialize_cdr(data, connection.msgtype)
 
             compare_msg(msg, msg_py)
         assert not list(gens[0])
@@ -127,9 +128,10 @@ def read_deser_rosbag2_py(path: Path) -> None:
 
 def read_deser_rosbag2(path: Path) -> None:
     """Read testbag with rosbag2lite."""
+    typestore = get_typestore(Stores.ROS2_FOXY)
     with Reader(path) as reader:
         for connection, _, data in reader.messages():
-            deserialize_cdr(data, connection.msgtype)
+            typestore.deserialize_cdr(data, connection.msgtype)
 
 
 def main() -> None:

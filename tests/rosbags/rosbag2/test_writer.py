@@ -176,35 +176,6 @@ def test_failure_cases(tmp_path: Path) -> None:
     with pytest.raises(WriterError, match='unknown connection'):
         bag.write(connection, 42, b'\x00')
 
-
-def test_deprecations(tmp_path: Path) -> None:
-    """Test writer deprecations."""
-    with pytest.deprecated_call():
-        _ = Writer(tmp_path / 'bag')
-
     bag = Writer(tmp_path / 'bag', version=Writer.VERSION_LATEST)
-    with bag, pytest.deprecated_call():
+    with bag, pytest.raises(WriterError, match='Cannot determine message definition'):
         _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')
-
-    bag = Writer(tmp_path / 'bag2', version=Writer.VERSION_LATEST)
-    typestore = get_typestore(Stores.ROS2_FOXY)
-    with bag, pytest.deprecated_call():
-        _ = bag.add_connection(
-            '/foo',
-            'std_msgs/msg/Empty',
-            typestore=typestore,
-            offered_qos_profiles='',
-        )
-
-    with pytest.deprecated_call():
-        _ = Writer.CompressionMode
-
-    with pytest.deprecated_call():
-        _ = Writer.CompressionFormat
-
-    writer = Writer(tmp_path / 'foo', version=Writer.VERSION_LATEST)
-    with pytest.deprecated_call():
-        _ = writer.CompressionMode
-
-    with pytest.deprecated_call():
-        _ = writer.CompressionFormat
