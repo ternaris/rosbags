@@ -279,7 +279,7 @@ def test_raises_if_reader_closed(bag_sqlite3: Path) -> None:
 
 def test_raises_on_broken_fs_layouts(tmp_path: Path) -> None:
     """Test reader raises if fs layout is broken."""
-    with pytest.raises(FileNotFoundError, match='metadata.yaml'):
+    with pytest.raises(FileNotFoundError, match='metadata\\.yaml'):
         _ = Reader(tmp_path)
 
     metadata = tmp_path / 'metadata.yaml'

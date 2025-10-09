@@ -314,27 +314,27 @@ def test_failure_cases(tmp_path: Path) -> None:
         Reader(bag).open()
 
     _ = bag.write_text('#ROSBAG V3.0\n')
-    with pytest.raises(ReaderError, match='Bag version 300 is not supported.'):
+    with pytest.raises(ReaderError, match='Bag version 300 is not supported'):
         Reader(bag).open()
 
     _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x00')
-    with pytest.raises(ReaderError, match='Header could not be read from file.'):
+    with pytest.raises(ReaderError, match='Header could not be read from file'):
         Reader(bag).open()
 
     _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00')
-    with pytest.raises(ReaderError, match='Header could not be read from file.'):
+    with pytest.raises(ReaderError, match='Header could not be read from file'):
         Reader(bag).open()
 
     _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x01\x00\x00\x00\x01')
-    with pytest.raises(ReaderError, match='Header field size could not be read.'):
+    with pytest.raises(ReaderError, match='Header field size could not be read'):
         Reader(bag).open()
 
     _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x04\x00\x00\x00\x01\x00\x00\x00')
-    with pytest.raises(ReaderError, match='Declared field size is too large for header.'):
+    with pytest.raises(ReaderError, match='Declared field size is too large for header'):
         Reader(bag).open()
 
     _ = bag.write_bytes(b'#ROSBAG V2.0\x0a\x05\x00\x00\x00\x01\x00\x00\x00x')
-    with pytest.raises(ReaderError, match='Header field could not be parsed.'):
+    with pytest.raises(ReaderError, match='Header field could not be parsed'):
         Reader(bag).open()
 
     write_bag(bag, {'encryptor': b'enc', **create_default_header()})
@@ -347,27 +347,27 @@ def test_failure_cases(tmp_path: Path) -> None:
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
     _ = bag.write_bytes(bag.read_bytes().replace(b'none', b'COMP'))
-    with pytest.raises(ReaderError, match="Compression 'COMP' is not supported."):
+    with pytest.raises(ReaderError, match="Compression 'COMP' is not supported"):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
     _ = bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02'))
-    with pytest.raises(ReaderError, match='CHUNK_INFO version 2 is not supported.'):
+    with pytest.raises(ReaderError, match='CHUNK_INFO version 2 is not supported'):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
     _ = bag.write_bytes(bag.read_bytes().replace(b'ver=\x01', b'ver=\x02', 1))
-    with pytest.raises(ReaderError, match='IDXDATA version 2 is not supported.'):
+    with pytest.raises(ReaderError, match='IDXDATA version 2 is not supported'):
         Reader(bag).open()
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
     _ = bag.write_bytes(bag.read_bytes().replace(b'op=\x02', b'op=\x00', 1))
-    with Reader(bag) as reader, pytest.raises(ReaderError, match='Expected to find message data.'):
+    with Reader(bag) as reader, pytest.raises(ReaderError, match='Expected to find message data'):
         _ = next(reader.messages())
 
     write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
     _ = bag.write_bytes(bag.read_bytes().replace(b'op=\x03', b'op=\x02', 1))
-    with pytest.raises(ReaderError, match="Record of type 'MSGDATA' is unexpected."):
+    with pytest.raises(ReaderError, match="Record of type 'MSGDATA' is unexpected"):
         Reader(bag).open()
 
     # bad uint8 field
