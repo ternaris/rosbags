@@ -134,6 +134,10 @@ class IndexData(NamedTuple):
             return self.time != other[0]
         return NotImplemented  # pragma: no cover
 
+    def __hash__(self) -> int:
+        """Use normal tuple hash."""
+        return hash(tuple(self))  # pragma: no cover
+
 
 decompressors: dict[str, Callable[[bytes], bytes]] = {
     Compression.NONE.value: lambda x: x,
