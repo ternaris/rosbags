@@ -501,6 +501,8 @@ def convert(
     except (WriterError1, WriterError2) as err:
         msg = f'Writing destination bag: {err}'
         raise ConverterError(msg) from err
+    except AssertionError:
+        raise
     except Exception as err:
         msg = f'Converting rosbag: {err!r}'
         raise ConverterError(msg) from err

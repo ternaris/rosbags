@@ -87,6 +87,15 @@ def test_convert_writer_errors(tmp_path: Path) -> None:
         convert([], tmp_path / 'foo.bag', 'sqlite3', 8, None, 'file', None, None, (), (), (), ())
 
 
+def test_convert_reraises_assertions(tmp_path: Path) -> None:
+    """Test convert reraises assertion errors."""
+    with (
+        patch('rosbags.convert.converter.AnyReader', side_effect=AssertionError('exc')),
+        pytest.raises(AssertionError, match='exc'),
+    ):
+        convert([], tmp_path / 'foo', 'sqlite3', 8, None, 'file', None, None, (), (), (), ())
+
+
 def test_convert_forwards_exceptions(tmp_path: Path) -> None:
     """Test convert forwards exceptions."""
     with (
