@@ -21,17 +21,22 @@ if sys.version_info >= (3, 14):  # pragma: no cover
 else:  # pragma: no cover
     from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
-from rosbags.interfaces import MessageDefinition, MessageDefinitionFormat
+from rosbags.interfaces import (
+    Connection,
+    ConnectionExtRosbag2,
+    MessageDefinition,
+    MessageDefinitionFormat,
+    Qos,
+)
 
 from .enums import CompressionMode
 from .errors import ReaderError
+from .metadata import ReaderMetadata, parse_qos
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable
     from pathlib import Path
     from typing import BinaryIO
-
-    from rosbags.interfaces import Connection, ConnectionExtRosbag2
 
     Unpack = Callable[[bytes], 'tuple[int]']
     Unpack2 = Callable[[bytes], 'tuple[int, int]']
@@ -95,7 +100,7 @@ class Statistics(NamedTuple):
     chunk_count: int
     start_time: int
     end_time: int
-    channel_message_counts: bytes
+    channel_message_counts: dict[int, int]
 
 
 class Msg(NamedTuple):
@@ -113,6 +118,7 @@ deserialize_uint16: Unpack = struct.Struct('<H').unpack
 deserialize_uint32: Unpack = struct.Struct('<I').unpack
 deserialize_uint64: Unpack = struct.Struct('<Q').unpack
 
+deserialize_hq: Unpack2 = struct.Struct('<HQ').unpack
 deserialize_qq: Unpack2 = struct.Struct('<QQ').unpack
 deserialize_qqqi: Unpack4 = struct.Struct('<QQQI').unpack
 deserialize_qqqq: Unpack4 = struct.Struct('<QQQQ').unpack
@@ -182,7 +188,7 @@ def msgsrc(
     yield from sorted(messages, key=lambda x: x.timestamp)
 
 
-class MCAPFile:
+class McapReader:
     """Mcap format reader."""
 
     def __init__(self, path: Path) -> None:
@@ -195,6 +201,8 @@ class MCAPFile:
         self.channels: dict[int, Channel] = {}
         self.chunks: list[ChunkInfo] = []
         self.statistics: Statistics | None = None
+        self.connections: list[Connection] = []
+        self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
 
     def open(self) -> None:
         """Open MCAP."""
@@ -240,8 +248,83 @@ class MCAPFile:
         if summary_start:
             self.data_end = summary_start
             self.read_index()
+            if self.statistics:
+                if not self.schemas:
+                    self.meta_scan()
+            elif self.chunks:
+                message_count = sum(sum(x.channel_count.values()) for x in self.chunks)
+                start_time = min(x.message_start_time for x in self.chunks)
+                end_time = max(x.message_end_time for x in self.chunks)
+                duration = end_time - start_time
+                cstats: dict[int, int] = defaultdict(int)
+                for chunk in self.chunks:
+                    for cid, count in chunk.channel_count.items():
+                        cstats[cid] += count
+                self.statistics = Statistics(
+                    message_count,
+                    len(self.schemas),
+                    len(self.channels),
+                    0,
+                    0,
+                    len(self.chunks),
+                    start_time,
+                    end_time,
+                    cstats,
+                )
+            else:
+                self.meta_scan()
         else:
             self.data_end = footer_start
+            self.meta_scan()
+
+        def get_msgdef(name: str) -> MessageDefinition:
+            """Get message definition for name."""
+            fmtmap = {
+                'ros2msg': MessageDefinitionFormat.MSG,
+                'ros2idl': MessageDefinitionFormat.IDL,
+            }
+            if msgtype := next((x for x in self.schemas.values() if x.name == name), None):
+                return MessageDefinition(fmtmap[msgtype.encoding], msgtype.data)
+            return MessageDefinition(MessageDefinitionFormat.NONE, '')
+
+        def get_qos(metadata: bytes) -> list[Qos]:
+            bio = BytesIO(metadata)
+            while bio.tell() < len(metadata):
+                key = read_string(bio)
+                value = read_string(bio)
+                if key == 'offered_qos_profiles':
+                    return parse_qos(value)
+            return []
+
+        assert self.statistics
+        self.connections = [
+            Connection(
+                x.id,
+                x.topic,
+                x.schema,
+                get_msgdef(x.schema),
+                '',
+                self.statistics.channel_message_counts.get(x.id, 0),
+                ConnectionExtRosbag2(
+                    x.message_encoding,
+                    get_qos(x.metadata),
+                ),
+                self,
+            )
+            for x in self.channels.values()
+        ]
+
+        message_count = self.statistics.message_count
+        start_time = self.statistics.start_time
+        end_time = self.statistics.end_time
+        duration = end_time - start_time
+
+        self.metadata = self.metadata._replace(
+            duration=duration + 1,
+            start_time=start_time,
+            end_time=end_time + 1,
+            message_count=message_count,
+        )
 
     def read_index(self) -> None:
         """Read index from file."""
@@ -267,7 +350,10 @@ class MCAPFile:
             elif op_ == 0x04:
                 _ = bio.seek(8, 1)
                 (key,) = deserialize_uint16(bio.read(2))
-                schema_name = schemas[deserialize_uint16(bio.read(2))[0]].name
+                schema_name = schemas.get(
+                    deserialize_uint16(bio.read(2))[0],
+                    Schema(0, '__schemaless__', 'cdr', ''),
+                ).name
                 channels[key] = Channel(
                     key,
                     schema_name,
@@ -316,7 +402,10 @@ class MCAPFile:
                         'tuple[int, int, int, int, int, int, int ,int]',
                         unpack_from('<QHIIIIQQ', bio.read(42), 0),
                     ),
-                    read_bytes(bio),
+                    dict(
+                        deserialize_hq(bio.read(10))
+                        for _ in range(deserialize_uint32(bio.read(4))[0] // 10)
+                    ),
                 )
 
             elif op_ == 0x0D:
@@ -338,6 +427,12 @@ class MCAPFile:
         bio_size = self.data_end
         _ = bio.seek(self.data_start)
 
+        msgcount = 0
+        start_time = 2**63 - 1
+        end_time = 0
+        nchunks = 0
+        cstats: dict[int, int] = defaultdict(int)
+
         schemas = self.schemas
         channels = self.channels
 
@@ -351,7 +446,10 @@ class MCAPFile:
             elif op_ == 0x04:
                 _ = bio.seek(8, 1)
                 (key,) = deserialize_uint16(bio.read(2))
-                schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
+                schema_name = schemas.get(
+                    deserialize_uint16(bio.read(2))[0],
+                    Schema(0, '__schemaless__', 'cdr', ''),
+                ).name
                 channels[key] = Channel(
                     key,
                     schema_name,
@@ -359,6 +457,16 @@ class MCAPFile:
                     read_string(bio),
                     read_bytes(bio),
                 )
+            elif op_ == 0x05:
+                (size,) = deserialize_uint64(bio.read(8))
+                (cid,) = deserialize_uint16(bio.read(2))
+                _ = bio.seek(4, 1)
+                (timestamp,) = deserialize_uint64(bio.read(8))
+                msgcount += 1
+                start_time = min(timestamp, start_time)
+                end_time = max(timestamp, end_time)
+                cstats[cid] += 1
+                _ = bio.seek(size - 14, 1)
             elif op_ == 0x06:
                 _ = bio.seek(8, 1)
                 _, _, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
@@ -368,6 +476,7 @@ class MCAPFile:
                     DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
                 )
                 bio_size = uncompressed_size
+                nchunks += 1
             else:
                 skip_sized(bio)
 
@@ -375,19 +484,17 @@ class MCAPFile:
                 bio = self.bio
                 bio_size = self.data_end
 
-    def get_schema_definitions(self) -> dict[str, MessageDefinition]:
-        """Get schema definition."""
-        if not self.schemas:
-            self.meta_scan()
-        fmtmap = {
-            'ros2msg': MessageDefinitionFormat.MSG,
-            'ros2idl': MessageDefinitionFormat.IDL,
-        }
-        return {
-            schema.name: MessageDefinition(fmtmap[schema.encoding], schema.data)
-            for schema in self.schemas.values()
-            if schema.encoding
-        }
+        self.statistics = Statistics(
+            msgcount,
+            len(schemas),
+            len(channels),
+            0,
+            0,
+            nchunks,
+            start_time,
+            end_time,
+            cstats,
+        )
 
     def messages_scan(
         self,
@@ -401,28 +508,7 @@ class MCAPFile:
         bio_size = self.data_end
         _ = bio.seek(self.data_start)
 
-        schemas = self.schemas.copy()
-        channels = self.channels.copy()
-
-        if channels:
-            read_meta = False
-            channel_map = {  # pragma: no branch
-                cid: conn
-                for conn in connections
-                if (
-                    cid := next(
-                        (
-                            cid
-                            for cid, x in self.channels.items()
-                            if x.schema == conn.msgtype and x.topic == conn.topic
-                        ),
-                        None,
-                    )
-                )
-            }
-        else:
-            read_meta = True
-            channel_map = {}
+        cmap = {x.id: x for x in connections}
 
         if start is None:
             start = 0
@@ -432,40 +518,15 @@ class MCAPFile:
         while bio.tell() < bio_size:
             op_ = ord(bio.read(1))
 
-            if op_ == 0x03 and read_meta:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
-                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
-            elif op_ == 0x04 and read_meta:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
-                schema_name = schemas[unpack_from('<H', bio.read(2))[0]].name
-                channels[key] = Channel(
-                    key,
-                    schema_name,
-                    read_string(bio),
-                    read_string(bio),
-                    read_bytes(bio),
-                )
-                conn = next(
-                    (
-                        x
-                        for x in connections
-                        if x.topic == channels[key].topic and x.msgtype == schema_name
-                    ),
-                    None,
-                )
-                if conn:
-                    channel_map[key] = conn
-            elif op_ == 0x05:
+            if op_ == 0x05:
                 size, channel_id, _, timestamp, _ = deserialize_qhiqq(bio.read(30))
                 data = bio.read(size - 22)
-                if start <= timestamp < stop and channel_id in channel_map:
-                    yield channel_map[channel_id], timestamp, data
+                if start <= timestamp < stop and channel_id in cmap:
+                    yield cmap[channel_id], timestamp, data
             elif op_ == 0x06:
                 (size,) = deserialize_uint64(bio.read(8))
                 start_time, end_time, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
-                if read_meta or (start < end_time and start_time < stop):
+                if start < end_time and start_time < stop:
                     compression = read_string(bio)
                     (compressed_size,) = deserialize_uint64(bio.read(8))
                     bio = BytesIO(
@@ -539,65 +600,6 @@ class MCAPFile:
             assert connection
             assert data
             yield connection, timestamp, data
-
-
-class McapReader:
-    """Mcap storage reader."""
-
-    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]) -> None:
-        """Set up storage reader.
-
-        Args:
-            paths: Paths of storage files.
-            connections: List of connections.
-
-        """
-        self.paths = paths
-        self.readers: list[MCAPFile] = []
-        self.connections = connections
-
-    def open(self) -> None:
-        """Open rosbag2."""
-        self.readers = [MCAPFile(x) for x in self.paths]
-        for reader in self.readers:
-            reader.open()
-
-    def close(self) -> None:
-        """Close rosbag2."""
-        assert self.readers
-        for reader in self.readers:
-            reader.close()
-        self.readers = []
-
-    def get_definitions(self) -> dict[str, MessageDefinition]:
-        """Get message definitions."""
-        res: dict[str, MessageDefinition] = {}
-        for reader in self.readers:
-            res.update(reader.get_schema_definitions())
-        return res
-
-    def messages(
-        self,
-        connections: Iterable[Connection] = (),
-        start: int | None = None,
-        stop: int | None = None,
-    ) -> Generator[tuple[Connection, int, bytes], None, None]:
-        """Read messages from bag.
-
-        Args:
-            connections: Iterable with connections to filter for. An empty
-                iterable disables filtering on connections.
-            start: Yield only messages at or after this timestamp (ns).
-            stop: Yield only messages before this timestamp (ns).
-
-        Yields:
-            tuples of connection, timestamp (ns), and rawdata.
-
-        """
-        connections = list(connections) or list(self.connections)
-
-        for reader in self.readers:
-            yield from reader.messages(connections, start, stop)
 
 
 def write_uint64(bio: BinaryIO, uint: int) -> None:

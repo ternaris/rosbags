@@ -4,7 +4,7 @@ The :py:mod:`rosbags.rosbag2` package provides a conformant implementation of ro
 
 Supported Versions
 ------------------
-All versions up to the current (ROS2 Iron) version 8 are supported.
+All versions up to the current (ROS2 Jazzy) version 9 are supported.
 
 Supported Features
 ------------------
@@ -47,7 +47,7 @@ Instances of the :py:class:`Writer <rosbags.rosbag2.Writer>` class can create an
 
 Reading rosbag2
 ---------------
-Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are used to read rosbag2 metadata and its contents. Most of the metadata is available on Reader instances right away, messages can only be accessed after the bag has been opened. To this end it is recommended to use the Reader as a context manager. The following example shows the typical usage pattern:
+Instances of the :py:class:`Reader <rosbags.rosbag2.Reader>` class are used to read rosbag2 metadata and its contents. It is recommended to use the Reader as a context manager. The following example shows the typical usage pattern:
 
 .. note::
 

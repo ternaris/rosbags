@@ -260,7 +260,6 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
         def __init__(self, paths: list[Path]) -> None:
             """Initialize mock."""
             _ = paths
-            self.metadata = {'storage_identifier': 'mcap'}
             self.connections = [
                 Connection(
                     1,

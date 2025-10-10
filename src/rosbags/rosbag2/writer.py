@@ -18,12 +18,12 @@ from rosbags.interfaces import (
     MessageDefinitionFormat,
     Qos,
 )
-from rosbags.rosbag2.metadata import dump_qos_v8, dump_qos_v9
-from rosbags.rosbag2.storage_mcap import McapWriter
-from rosbags.rosbag2.storage_sqlite3 import Sqlite3Writer
 
 from .enums import CompressionFormat, CompressionMode, StoragePlugin
 from .errors import WriterError
+from .metadata import dump_qos_v8, dump_qos_v9
+from .storage_mcap import McapWriter
+from .storage_sqlite3 import Sqlite3Writer
 
 if TYPE_CHECKING:
     import sys

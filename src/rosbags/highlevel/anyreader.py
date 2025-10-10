@@ -9,7 +9,7 @@ import operator
 from contextlib import suppress
 from heapq import merge
 from itertools import groupby
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import MessageDefinition, MessageDefinitionFormat, TopicInfo
 from rosbags.rosbag1 import (
@@ -53,7 +53,10 @@ class AnyReader:
     typestore: Typestore
 
     def __init__(
-        self, paths: Sequence[Path], *, default_typestore: Typestore | None = None
+        self,
+        paths: Sequence[Path],
+        *,
+        default_typestore: Typestore | None = None,
     ) -> None:
         """Initialize RosbagReader.
 
@@ -237,8 +240,7 @@ class AnyReader:
         assert self.isopen
 
         def get_owner(connection: Connection) -> Reader1 | Reader2:
-            assert isinstance(connection.owner, Reader1 | Reader2)
-            return connection.owner
+            return cast('Reader1 | Reader2', connection.owner)
 
         if connections:
             generators = [

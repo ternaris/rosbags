@@ -7,58 +7,60 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, cast
 
-from rosbags.interfaces import MessageDefinition, MessageDefinitionFormat
-from rosbags.rosbag2.enums import CompressionMode
+from rosbags.interfaces import (
+    Connection,
+    ConnectionExtRosbag2,
+    MessageDefinition,
+    MessageDefinitionFormat,
+)
 from rosbags.typesys.msg import get_types_from_msg
 from rosbags.typesys.store import Typestore
 
+from .enums import CompressionMode
 from .errors import ReaderError, WriterError
+from .metadata import ReaderMetadata, parse_qos
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
     from pathlib import Path
 
-    from rosbags.interfaces import Connection, ConnectionExtRosbag2
-
 
 class Sqlite3Reader:
     """Sqlite3 storage reader."""
 
-    def __init__(self, paths: Iterable[Path], connections: Iterable[Connection]) -> None:
+    def __init__(self, path: Path) -> None:
         """Set up storage reader.
 
         Args:
-            paths: Paths of storage files.
-            connections: List of connections.
-            store: Typestore.
+            path: Paths of storage files.
 
         """
-        self.paths = paths
-        self.dbconns: list[sqlite3.Connection] = []
+        self.path = path
+        self.dbconn: sqlite3.Connection | None = None
         self.schema = 0
         self.msgtypes: list[dict[str, str]] = []
-        self.connections = connections
+        self.connections: list[Connection] = []
+        self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
 
     def open(self) -> None:
-        """Open rosbag2."""
-        for path in self.paths:
-            conn = sqlite3.connect(f'file:{path}?immutable=1', uri=True)
-            conn.row_factory = lambda _, x: x  # pyright: ignore[reportUnknownLambdaType]
-            cur = conn.cursor()
-            _ = cur.execute(
-                (
-                    'SELECT count(*) FROM sqlite_master '
-                    'WHERE type="table" AND name IN ("messages", "topics")'
-                ),
-            )
-            if cur.fetchone()[0] != 2:
-                msg = f'Cannot open database {path} or database missing tables.'
-                conn.close()
-                raise ReaderError(msg)
+        """Open sqlite3 storage file."""
+        conn = sqlite3.connect(f'file:{self.path}?immutable=1', uri=True)
+        conn.row_factory = lambda _, x: x
+        cur = conn.cursor()
+        _ = cur.execute(
+            (
+                'SELECT count(*) FROM sqlite_master '
+                'WHERE type="table" AND name IN ("messages", "topics")'
+            ),
+        )
+        if cur.fetchone()[0] != 2:
+            msg = f'Cannot open database {self.path} or database missing tables.'
+            conn.close()
+            raise ReaderError(msg)
 
-            self.dbconns.append(conn)
+        self.dbconn = conn
 
-        cur = self.dbconns[-1].cursor()
+        cur = conn.cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
             schema: int
             (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone()
@@ -101,32 +103,140 @@ class Sqlite3Reader:
         else:
             msgtypes = []
 
+        def get_msgdef(name: str) -> MessageDefinition:
+            """Get message definition for name."""
+            fmtmap = {
+                'ros2msg': MessageDefinitionFormat.MSG,
+                'ros2idl': MessageDefinitionFormat.IDL,
+            }
+            if msgtype := next((x for x in msgtypes if x['name'] == name), None):
+                return MessageDefinition(fmtmap[msgtype['encoding']], msgtype['msgdef'])
+            return MessageDefinition(MessageDefinitionFormat.NONE, '')
+
+        if schema >= 4:
+            connections = [
+                Connection(
+                    cid,
+                    topic,
+                    msgtype,
+                    get_msgdef(msgtype),
+                    digest,
+                    msgcount,
+                    ConnectionExtRosbag2(serialization_format, parse_qos(offered_qos_profiles)),
+                    self,
+                )
+                for (
+                    cid,
+                    topic,
+                    msgtype,
+                    msgcount,
+                    serialization_format,
+                    offered_qos_profiles,
+                    digest,
+                ) in cast(
+                    'Iterable[tuple[int, str, str, int, str, str, str]]',
+                    cur.execute(
+                        (
+                            'SELECT topics.id, name, type, count(messages.id), '
+                            'serialization_format, offered_qos_profiles, type_description_hash '
+                            'FROM topics LEFT JOIN messages ON topics.id == messages.topic_id '
+                            'GROUP BY topics.id ORDER BY topics.id'
+                        ),
+                    ),
+                )
+            ]
+        elif schema >= 2:
+            connections = [
+                Connection(
+                    cid,
+                    topic,
+                    msgtype,
+                    get_msgdef(msgtype),
+                    '',
+                    msgcount,
+                    ConnectionExtRosbag2(serialization_format, parse_qos(offered_qos_profiles)),
+                    self,
+                )
+                for (
+                    cid,
+                    topic,
+                    msgtype,
+                    msgcount,
+                    serialization_format,
+                    offered_qos_profiles,
+                ) in cast(
+                    'Iterable[tuple[int, str, str, int, str, str]]',
+                    cur.execute(
+                        (
+                            'SELECT topics.id, name, type, count(*), '
+                            'serialization_format, offered_qos_profiles '
+                            'FROM topics JOIN messages ON topics.id == messages.topic_id '
+                            'GROUP BY topics.id ORDER BY topics.id'
+                        ),
+                    ),
+                )
+            ]
+        else:
+            connections = [
+                Connection(
+                    cid,
+                    topic,
+                    msgtype,
+                    get_msgdef(msgtype),
+                    '',
+                    msgcount,
+                    ConnectionExtRosbag2(serialization_format, []),
+                    self,
+                )
+                for (
+                    cid,
+                    topic,
+                    msgtype,
+                    msgcount,
+                    serialization_format,
+                ) in cast(
+                    'Iterable[tuple[int, str, str, int, str]]',
+                    cur.execute(
+                        (
+                            'SELECT topics.id, name, type, count(*), '
+                            'serialization_format '
+                            'FROM topics JOIN messages ON topics.id == messages.topic_id '
+                            'GROUP BY topics.id ORDER BY topics.id'
+                        ),
+                    ),
+                )
+            ]
+
         self.schema = schema
         self.msgtypes = msgtypes
+        self.connections = connections
+
+        ((start_time, end_time, msgcount),) = cast(
+            'Iterable[tuple[int, int, int]]',
+            cur.execute(
+                'SELECT MIN(timestamp), MAX(timestamp) + 1, COUNT(*) FROM messages',
+            ),
+        )
+        self.metadata = ReaderMetadata(
+            end_time - start_time if start_time is not None else 0,
+            start_time if start_time is not None else 2**63 - 1,
+            end_time if end_time is not None else 0,
+            msgcount,
+            None,
+            None,
+            None,
+            None,
+        )
 
     def close(self) -> None:
         """Close rosbag2."""
-        assert self.dbconns
-        for dbconn in self.dbconns:
-            dbconn.close()
-        self.dbconns.clear()
-
-    def get_definitions(self) -> dict[str, MessageDefinition]:
-        """Get message definitions."""
-        if not self.dbconns:
-            msg = 'Rosbag has not been opened.'
-            raise ReaderError(msg)
-        fmtmap = {
-            'ros2msg': MessageDefinitionFormat.MSG,
-            'ros2idl': MessageDefinitionFormat.IDL,
-        }
-        return {
-            x['name']: MessageDefinition(fmtmap[x['encoding']], x['msgdef']) for x in self.msgtypes
-        }
+        assert self.dbconn
+        self.dbconn.close()
+        self.dbconn = None
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Iterable[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
@@ -145,9 +255,7 @@ class Sqlite3Reader:
             ReaderError: Bag not open.
 
         """
-        if not self.dbconns:
-            msg = 'Rosbag has not been opened.'
-            raise ReaderError(msg)
+        assert self.dbconn
 
         query = [
             'SELECT topics.id,messages.timestamp,messages.data',
@@ -156,11 +264,10 @@ class Sqlite3Reader:
         args: list[Iterable[str] | int] = []
         clause = 'WHERE'
 
-        if connections:
-            topics = {x.topic for x in connections}
-            query.append(f'{clause} topics.name IN ({",".join("?" for _ in topics)})')
-            args += topics
-            clause = 'AND'
+        topics = {x.topic for x in connections}
+        query.append(f'{clause} topics.name IN ({",".join("?" for _ in topics)})')
+        args += topics
+        clause = 'AND'
 
         if start is not None:
             query.append(f'{clause} messages.timestamp >= ?')
@@ -175,21 +282,12 @@ class Sqlite3Reader:
         query.append('ORDER BY timestamp')
         querystr = ' '.join(query)
 
-        for conn in self.dbconns:
-            topics_ids = cast(
-                'list[tuple[str, int]]',
-                list(conn.execute('SELECT name,id FROM topics')),
-            )
-            connmap = {  # pragma: no branch
-                cid: conn
-                for conn in (connections or self.connections)
-                if (cid := next((cid for name, cid in topics_ids if name == conn.topic), None))
-            }
+        connmap = {x.id: x for x in self.connections}
 
-            cur = cast('Iterable[tuple[int, int, bytes]]', conn.execute(querystr, args))
+        cur = cast('Iterable[tuple[int, int, bytes]]', self.dbconn.execute(querystr, args))
 
-            for cid, timestamp, data in cur:
-                yield connmap[cid], timestamp, data
+        for cid, timestamp, data in cur:
+            yield connmap[cid], timestamp, data
 
 
 class Sqlite3Writer:

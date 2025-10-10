@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from io import StringIO
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, NamedTuple, TypedDict
 
 from ruamel.yaml import YAML
 
@@ -93,6 +93,19 @@ class Metadata(TypedDict):
     files: list[FileInformation]
     custom_data: dict[str, str] | None
     ros_distro: str
+
+
+class ReaderMetadata(NamedTuple):
+    """Storage Metadata."""
+
+    duration: int
+    start_time: int
+    end_time: int
+    message_count: int
+    compression_format: str | None
+    compression_mode: str | None
+    ros_distro: str | None
+    custom: dict[str, str] | None
 
 
 def parse_qos(dcts: list[QosDict] | str) -> list[Qos]:
