@@ -805,12 +805,13 @@ class McapWriter:
         if self.chunk.bio.tell() > 2**20:
             self.close_chunk()
 
-    def close(self, _version: int, metadata: str) -> None:
+    def close(self, version: int, metadata: str) -> None:
         """Close rosbag2 after writing.
 
         Closes open database transactions and writes metadata.yaml.
 
         """
+        _ = version
         if self.chunk.bio.tell():
             self.close_chunk()
 
