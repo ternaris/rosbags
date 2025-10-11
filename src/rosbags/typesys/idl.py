@@ -173,6 +173,7 @@ base_type_spec
 integer_type
   = r'u?int(64|32|16|8)\b'
   / r'(unsigned\s+)?((long\s+)?long|int|short)\b'
+  / r'octet\b'
 
 float_type
   = r'(long.double|double|float)\b'
@@ -184,7 +185,9 @@ boolean_type
   = r'boolean\b'
 
 string_type
-  = 'string' '<' expression '>'
+  = 'string' '<' primary_expr binary_operator expression '>'
+  / 'string' '<' primary_expr '>'
+  / 'string' '<' unary_operator primary_expr '>'
   / r'string\b'
 
 scoped_name
@@ -196,7 +199,7 @@ identifier
   = r'[a-zA-Z_][a-zA-Z_0-9]*'
 
 expression
-  = primary_expr binary_operator primary_expr
+  = primary_expr binary_operator expression
   / primary_expr
   / unary_operator primary_expr
 
