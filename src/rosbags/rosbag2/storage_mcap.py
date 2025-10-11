@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import heapq
 import struct
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -14,7 +15,11 @@ from struct import iter_unpack, unpack_from
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 import zstandard
-from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+
+if sys.version_info >= (3, 14):  # pragma: no cover
+    from safelz4.frame import decompress as lz4_decompress
+else:  # pragma: no cover
+    from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import MessageDefinition, MessageDefinitionFormat
 
@@ -137,7 +142,7 @@ def read_string(bio: BinaryIO) -> str:
 
 DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
     '': lambda x, _: x,
-    'lz4': lambda x, _: cast('Callable[[bytes], bytes]', lz4_decompress)(x),
+    'lz4': lambda x, _: lz4_decompress(x),
     'zstd': zstandard.ZstdDecompressor().decompress,
 }
 

@@ -16,14 +16,16 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
 description = "Pure Python library to read, modify, convert, and write rosbag files."
 dependencies = [
-  "lz4",
+  "lz4; python_version < '3.14'",
   "numpy",
   "ruamel.yaml",
+  "safelz4; python_version >= '3.14'",
   "typing_extensions >= 4.5",
   "zstandard",
 ]
