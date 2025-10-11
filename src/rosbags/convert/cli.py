@@ -163,7 +163,7 @@ PARSER.add_argument(
 )
 PARSER.add_argument(
     '--dst-version',
-    help='Destination file format version. (default=8)',
+    help='Destination file format version. (default=9)',
     dest='dst_version',
     type=int,
 )

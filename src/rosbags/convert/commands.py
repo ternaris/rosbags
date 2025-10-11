@@ -54,7 +54,7 @@ def command(
             'choices': ['sqlite3', 'mcap'],
         },
     ] = 'sqlite3',
-    dst_version: Annotated[int, {'flags': ['--dst-version']}] = 8,
+    dst_version: Annotated[int, {'flags': ['--dst-version']}] = 9,
     compress: Annotated[
         str,
         {
