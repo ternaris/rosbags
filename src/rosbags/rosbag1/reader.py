@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 v2.0 reader."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 import heapq

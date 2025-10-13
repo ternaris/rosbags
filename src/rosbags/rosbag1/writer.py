@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 writer."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 import struct

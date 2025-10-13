@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag2 writer."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 from io import StringIO
@@ -154,7 +152,7 @@ class Writer:
             WriterError: If value has incorrect type.
 
         """
-        if not isinstance(value, str):  # pyright:ignore[reportUnnecessaryIsInstance]
+        if not isinstance(value, str):
             msg = f'Cannot set non-string value {value!r} in custom_data.'
             raise WriterError(msg)
         self.custom_data[key] = value
@@ -258,7 +256,7 @@ class Writer:
             stream = StringIO()
             yaml = YAML(typ='safe')
             yaml.default_flow_style = False
-            yaml.dump(dumped, stream)  # pyright: ignore[reportUnknownMemberType]
+            yaml.dump(dumped, stream)
             dumped = stream.getvalue().strip()
 
         if msgtype not in self.added_types:
@@ -369,11 +367,11 @@ class Writer:
         yaml.default_flow_style = False
 
         metastr = StringIO()
-        yaml.dump(metadata, metastr)  # pyright: ignore[reportUnknownMemberType]
+        yaml.dump(metadata, metastr)
         self.metapath.write_text(metastr.getvalue(), 'utf8')
 
         metastr = StringIO()
-        yaml.dump(metadata['rosbag2_bagfile_information'], metastr)  # pyright: ignore[reportUnknownMemberType]
+        yaml.dump(metadata['rosbag2_bagfile_information'], metastr)
         self.storage.close(self.version, metastr.getvalue().strip())
         self.storage = None
 

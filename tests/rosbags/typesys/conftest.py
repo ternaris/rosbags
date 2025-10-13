@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def _comparable() -> Generator[None, None, None]:  # pyright: ignore[reportUnusedFunction]
+def _comparable() -> Generator[None, None, None]:
     """Make messages containing numpy arrays comparable.
 
     Notes:

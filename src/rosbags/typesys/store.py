@@ -114,7 +114,7 @@ class Typestore:
         self.types = {}
         self.fielddefs = {}
         if base:
-            fielddefs: Typesdict = base.FIELDDEFS  # pyright: ignore[reportAny]
+            fielddefs: Typesdict = base.FIELDDEFS
             self.fielddefs.update(fielddefs)
             self.types.update({k: getattr(base, k.replace('/', '__')) for k in fielddefs})
 
@@ -281,7 +281,7 @@ class Typestore:
         module = module_from_spec(spec)
         sys.modules[name] = module
         exec(code, module.__dict__)  # noqa: S102
-        fielddefs: Typesdict = module.FIELDDEFS  # pyright: ignore[reportAny]
+        fielddefs: Typesdict = module.FIELDDEFS
 
         for name, (_, fields) in fielddefs.items():
             if have := self.fielddefs.get(name):
@@ -315,7 +315,7 @@ class Typestore:
             getsize_cdr, size_cdr = generate_getsize_cdr(entries, self)
             getsize_ros1, size_ros1 = generate_getsize_ros1(entries, self)
 
-            self.cache[typename] = Msgdef(  # pyright: ignore[reportArgumentType]
+            self.cache[typename] = Msgdef(
                 typename,
                 entries,
                 self.types[typename],

@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag Converter Tests."""
 
-# pyright: strict, reportAny=false
-
 from __future__ import annotations
 
 import sys

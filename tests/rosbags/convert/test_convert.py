@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag Converter Tests."""
 
-# pyright: strict, reportAny=false
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -207,7 +205,7 @@ def test_convert_applies_transforms(tmp_path: Path) -> None:
         rctx.messages.return_value = [(conn, 1, 2)]
         ccc.return_value = [
             {(42, 'own'): 666},
-            {'bar': lambda x: x * 2},  # pyright: ignore[reportUnknownLambdaType]
+            {'bar': lambda x: x * 2},
         ]
 
         convert([], tmp_path, 'sqlite3', 8, None, 'file', None, None, (), (), (), ())

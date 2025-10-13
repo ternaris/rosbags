@@ -182,7 +182,7 @@ def test_metadata() -> None:
     yaml = YAML(typ='safe')
     dct = cast(
         'dict[str, Metadata]',
-        yaml.load(METADATA_EMPTY),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(METADATA_EMPTY),
     )
     assert dct['rosbag2_bagfile_information'].keys() == Metadata.__annotations__.keys()
 

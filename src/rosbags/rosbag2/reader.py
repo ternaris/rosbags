@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag2 reader."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -111,7 +109,7 @@ class Reader:
             yaml = YAML(typ='safe')
             dct = cast(
                 'dict[str, Metadata]',
-                yaml.load(yamlpath.read_text()),  # pyright: ignore[reportUnknownMemberType]
+                yaml.load(yamlpath.read_text()),
             )
         except (FileNotFoundError, PermissionError):
             raise

@@ -88,25 +88,25 @@ def test_qos_parsing() -> None:
     yaml = YAML(typ='safe')
     dct = cast(
         'dict[str, str]',
-        yaml.load(QOS_V8_EMPTY),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(QOS_V8_EMPTY),
     )
     assert parse_qos(dct['offered_qos_profiles']) == []
 
     dct = cast(
         'dict[str, str]',
-        yaml.load(QOS_V8),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(QOS_V8),
     )
     assert parse_qos(dct['offered_qos_profiles']) == REF
 
     dct = cast(
         'dict[str, str]',
-        yaml.load(QOS_V9_EMPTY),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(QOS_V9_EMPTY),
     )
     assert parse_qos(dct['offered_qos_profiles']) == []
 
     dct = cast(
         'dict[str, str]',
-        yaml.load(QOS_V9),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(QOS_V9),
     )
     assert parse_qos(dct['offered_qos_profiles']) == REF
 
@@ -116,7 +116,7 @@ def test_qos_v8_out_of_range() -> None:
     yaml = YAML(typ='safe')
     dct = cast(
         'dict[str, str]',
-        yaml.load(QOS_V8_BADENTRIES),  # pyright: ignore[reportUnknownMemberType]
+        yaml.load(QOS_V8_BADENTRIES),
     )
     assert parse_qos(dct['offered_qos_profiles']) == REF_UNKNOWN
 

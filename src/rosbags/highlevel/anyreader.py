@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tools for reading all rosbag versions with unified api."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 import functools
