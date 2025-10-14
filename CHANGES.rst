@@ -3,6 +3,20 @@
 Changes
 =======
 
+0.11.0 - 2025-10-15
+-------------------
+
+- Advertise Python 3.14 compatibility
+- Support standalone storage files in ``rosbag2.Reader`` `#78`_ `#121`_ `#124`_
+- Remove deprecated APIs and behavior
+- Increase ``rosbags-convert`` default rosbag2 target format version to 9
+- Improve handling of nested types in the IDL parser
+
+.. _#78: https://gitlab.com/ternaris/rosbags/issues/78
+.. _#121: https://gitlab.com/ternaris/rosbags/issues/121
+.. _#124: https://gitlab.com/ternaris/rosbags/issues/124
+
+
 0.10.11 - 2025-08-02
 --------------------
 
