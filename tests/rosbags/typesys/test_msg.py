@@ -103,6 +103,11 @@ float32 scientific_pos 1e1
 float32 scientific_neg 1e-1
 """
 
+ACTION_DEFINITION = """
+unique_identifier_msgs/msg/UUID goal_id
+control_msgs/action/FollowJointTrajectory_Feedback feedback
+"""
+
 
 def test_msg_parser_raises_on_bad_definition() -> None:
     """Test msg parser raises on bad definition."""
@@ -258,3 +263,25 @@ def test_literal_notations() -> None:
     get_typestore(Stores.EMPTY).register(ret)
 
     assert len(ret['literals_msgs/msg/Foo'][1]) == 5
+
+
+def test_actions_definitions() -> None:
+    """Test msg parser action definitions."""
+    ret = get_types_from_msg(
+        ACTION_DEFINITION, 'control_msgs/action/FollowJointTrajectory_FeedbackMessage'
+    )
+    assert ret == {
+        'control_msgs/action/FollowJointTrajectory_FeedbackMessage': (
+            [],
+            [
+                ('goal_id', (Nodetype.NAME, 'unique_identifier_msgs/msg/UUID')),
+                (
+                    'feedback',
+                    (
+                        Nodetype.NAME,
+                        'control_msgs/action/FollowJointTrajectory_Feedback',
+                    ),
+                ),
+            ],
+        )
+    }
