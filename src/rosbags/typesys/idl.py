@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum, auto
+from pathlib import PurePosixPath as Path
 from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
@@ -40,7 +41,9 @@ if TYPE_CHECKING:
     LitNode: TypeAlias = 'tuple[Literal[Node.LITERAL], ConstValue]'
 
     Adec: TypeAlias = 'tuple[Literal[Node.ADECLARATOR], NameDesc, LitNode]'
-    Anno: TypeAlias = 'tuple[Literal[Node.ANNOTATION], str, list[tuple[NameDesc, LitNode]]]'
+    Anno: TypeAlias = (
+        'tuple[Literal[Node.ANNOTATION], str, list[tuple[NameDesc, LitNode]] | LitNode]'
+    )
     Const: TypeAlias = 'tuple[Literal[Node.CONST], tuple[Basetype, str, ConstValue]]'
     Expr: TypeAlias = 'LitNode | NameDesc | ExprUnary | ExprBinary'
     ExprBinary: TypeAlias = 'tuple[Literal[Node.EXPRESSION_BINARY], str, int, int]'
@@ -53,11 +56,15 @@ specification
   = definition+
 
 definition
-  = macro
+  = ros2idl_sep
+  / macro
   / include
   / module_dcl ';'
   / const_dcl ';'
   / type_dcl ';'
+
+ros2idl_sep
+  = r'={80}\nIDL:\s[a-zA-Z][\w]*(/[a-zA-Z][\w]*)*'
 
 macro
   = ifndef
@@ -252,8 +259,7 @@ hexadecimal_literal
   = r'[-+]?0[xX][a-fA-F0-9]+'
 
 float_literal
-  = r'[-+]?[0-9]*\.[0-9]+([eE][-+]?[0-9]+)?'
-  / r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)'
+  = r'[-+]?(([0-9]+\.[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?|[0-9]+[eE][-+]?[0-9]+)'
 
 character_literal
   = '\'' r'[a-zA-Z0-9_]' '\''
@@ -264,6 +270,40 @@ string_literals
 string_literal
   = '"' r'(\\"|[^"])*' '"'
 """
+
+
+def normalize_fieldtype(typename: str, field: FieldDesc) -> FieldDesc:
+    """Normalize field typename.
+
+    Args:
+        typename: Type name of field owner.
+        field: Field definition.
+
+    Returns:
+        Normalized fieldtype.
+
+    """
+    if field[0] == Nodetype.BASE:
+        return field
+
+    ftype, args = field
+    ifield = field if ftype == Nodetype.NAME else args[0]
+
+    if ifield[0] == Nodetype.BASE:
+        return field
+
+    assert isinstance(ifield, tuple)
+    assert ifield[0] == Nodetype.NAME
+
+    name = ifield[1]
+    if '/' not in name:
+        name = str(Path(typename).parent / name)
+    elif name.startswith(f'{Path(typename).parent.name}/'):
+        name = str(Path(typename).parent.parent / name)
+
+    ifield = Nodetype.NAME, name
+
+    return ifield if ftype == Nodetype.NAME else (ftype, (ifield, args[1]))  # type: ignore[return-value]
 
 
 class Node(IntEnum):
@@ -294,33 +334,47 @@ class VisitorIDL(Visitor):
 
     def visit_specification(
         self,
-        children: tuple[tuple[tuple[Node, list[Const], list[Struct]], L] | None],
+        children: tuple[
+            tuple[
+                tuple[Literal[Node.MODULE], list[Const], list[Struct]]
+                | tuple[Literal[Node.STRUCT], str, list[tuple[str, FieldDesc]]],
+                L,
+            ]
+            | None
+        ],
     ) -> Typesdict:
         """Process start symbol, return only children of modules."""
         structs: dict[str, Fielddefs] = {}
         consts: dict[str, list[tuple[str, Basename, ConstValue]]] = {}
         for item in children:
-            if item is None or item[0][0] != Node.MODULE:
+            if item is None:
                 continue
-            for csubitem in item[0][1]:
-                assert csubitem[0] == Node.CONST
-                if '_Constants/' in csubitem[1][1]:
-                    structname, varname = csubitem[1][1].split('_Constants/')
-                    if structname not in consts:
-                        consts[structname] = []
-                    consts[structname].append(
-                        (
-                            normalize_fieldname(varname),
-                            csubitem[1][0][0],
-                            csubitem[1][2],
-                        ),
-                    )
+            if item[0][0] == Node.MODULE:
+                for csubitem in item[0][1]:
+                    assert csubitem[0] == Node.CONST
+                    if '_Constants/' in csubitem[1][1]:
+                        structname, varname = csubitem[1][1].split('_Constants/')
+                        if structname not in consts:
+                            consts[structname] = []
+                        consts[structname].append(
+                            (
+                                normalize_fieldname(varname),
+                                csubitem[1][0][0],
+                                csubitem[1][2],
+                            ),
+                        )
 
-            for ssubitem in item[0][2]:
-                assert ssubitem[0] == Node.STRUCT
-                structs[ssubitem[1]] = ssubitem[2]
-                if ssubitem[1] not in consts:
-                    consts[ssubitem[1]] = []
+                for ssubitem in item[0][2]:
+                    assert ssubitem[0] == Node.STRUCT
+                    structs[ssubitem[1]] = ssubitem[2]
+                    if ssubitem[1] not in consts:
+                        consts[ssubitem[1]] = []
+            elif item[0][0] == Node.STRUCT:
+                assert item[1] == ('LITERAL', ';')
+                consts[item[0][1]] = []
+                structs[item[0][1]] = [
+                    (x[0], normalize_fieldtype(item[0][1], x[1])) for x in item[0][2]
+                ]
         return {k: (consts[k], v) for k, v in structs.items()}
 
     def visit_macro(self, _: L | tuple[L, str]) -> None:
@@ -365,7 +419,14 @@ class VisitorIDL(Visitor):
                 structs += subitem[2]
 
         consts = [(ityp, (typ, f'{name}/{subname}', val)) for ityp, (typ, subname, val) in consts]
-        structs = [(typ, f'{name}/{subname}', rest) for typ, subname, rest in structs]
+        structs = [
+            (
+                typ,
+                f'{name}/{subname}',
+                [(x[0], normalize_fieldtype(f'{name}/{subname}', x[1])) for x in rest],
+            )
+            for typ, subname, rest in structs
+        ]
 
         return Node.MODULE, consts, structs
 
@@ -480,19 +541,31 @@ class VisitorIDL(Visitor):
                     tuple[
                         tuple[NameDesc, L, LitNode],
                         tuple[tuple[L, tuple[NameDesc, L, LitNode]], ...],
-                    ],
+                    ]
+                    | LitNode
+                    | NameDesc,
                     L,
-                ],
-            ],
+                ]
+            ]
+            | tuple[()],
         ],
     ) -> Anno:
         """Process annotation."""
         assert len(children) == 3
         assert children[1][0] == Nodetype.NAME
-        params = children[2][0][1]
-        flat = [params[0], *[x[1:][0] for x in params[1]]]
-        assert all(len(x) == 3 for x in flat)
-        retparams = [(x[0], x[2]) for x in flat]
+        retparams: list[tuple[NameDesc, LitNode]] | LitNode | NameDesc
+        if not children[2]:
+            retparams = []
+        else:
+            params = children[2][0][1]
+            if params[0] in (Node.LITERAL, Nodetype.NAME):
+                retparams = cast('LitNode', params)
+            else:
+                head = cast('tuple[NameDesc, L, LitNode]', params[0])
+                tail = cast('tuple[tuple[L, tuple[NameDesc, L, LitNode]], ...]', params[1])
+                flat = [head, *[x[1:][0] for x in tail]]
+                assert all(len(x) == 3 for x in flat)
+                retparams = [(x[0], x[2]) for x in flat]
         return Node.ANNOTATION, children[1][1], retparams
 
     def visit_base_type_spec(self, children: str) -> BaseDesc:

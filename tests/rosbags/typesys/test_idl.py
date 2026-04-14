@@ -57,7 +57,9 @@ module test_msgs {
         const int64 BAR = 64;
     };
 
+    @just_key
     @comment(type="text", text="ignore")
+    @expr("foo")
     struct Foo {
         // comment in struct
         std_msgs::msg::Header header;
@@ -77,6 +79,10 @@ module test_msgs {
   struct Bar {
     int i;
   };
+};
+
+struct Toplevel {
+  short s;
 };
 """
 
@@ -99,6 +105,16 @@ module test_msgs {
     };
     struct Foo {
         uint64 yield;
+    };
+  };
+};
+"""
+
+IDL_REFRENAME = """
+module test_msgs {
+  module msg {
+    struct Foo {
+        Bar bar;
     };
   };
 };
@@ -143,6 +159,13 @@ def test_idl_parser_accepts_complex_document() -> None:
     assert fields[0][0] == 'i'
     assert fields[0][1][1] == ('int', 0)
 
+    assert 'Toplevel' in ret
+    consts, fields = ret['Toplevel']
+    assert consts == []
+    assert len(fields) == 1
+    assert fields[0][0] == 's'
+    assert fields[0][1][1] == ('short', 0)
+
 
 def test_idl_parser_accepts_string_arrays() -> None:
     """Test idl parser accepts string arrays."""
@@ -164,3 +187,13 @@ def test_idl_parser_avoids_python_keyword_collisions() -> None:
     consts, fields = ret['test_msgs/msg/Foo']
     assert consts[0][0] == 'return_'
     assert fields[0][0] == 'yield_'
+
+
+def test_idl_parser_renames_relative_references() -> None:
+    """Test idl parser renames relative type references."""
+    ret = get_types_from_idl(IDL_REFRENAME)
+    get_typestore(Stores.EMPTY).register(ret)
+
+    _, fields = ret['test_msgs/msg/Foo']
+    assert fields[0][0] == 'bar'
+    assert fields[0][1] == (Nodetype.NAME, 'test_msgs/msg/Bar')

@@ -31,7 +31,12 @@ def get_typehint(desc: FieldDesc) -> str:
     if desc[0] == Nodetype.BASE:
         if desc[1][0] == 'string':
             return 'str'
-        typ = 'int' if desc[1][0] in {'char', 'byte', 'octet'} else desc[1][0]
+        typ = (
+            'int'
+            if desc[1][0].split('unsigned ')[-1]
+            in {'char', 'byte', 'octet', 'short', 'long', 'long long'}
+            else desc[1][0]
+        )
         match = INTLIKE.match(typ)
         assert match, typ
         return match.group(1)
@@ -44,12 +49,25 @@ def get_typehint(desc: FieldDesc) -> str:
     sub = desc[1][0]
     if sub[0] == Nodetype.BASE:
         typ = sub[1][0]
-        if typ in {'byte', 'char'} or INTLIKE.match(typ):
+        if typ.split('unsigned ')[-1] in {
+            'byte',
+            'char',
+            'octet',
+            'short',
+            'long',
+            'long long',
+        } or INTLIKE.match(typ):
             typ = {
                 'bool': 'bool_',
                 'byte': 'uint8',
                 'char': 'uint8',
                 'octet': 'uint8',
+                'short': 'int16',
+                'long': 'int32',
+                'long long': 'int64',
+                'unsigned short': 'uint16',
+                'unsigned long': 'uint32',
+                'unsigned long long': 'uint64',
             }.get(typ, typ)
             return f'np.ndarray[tuple[int, ...], np.dtype[np.{typ}]]'
 
