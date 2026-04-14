@@ -224,7 +224,7 @@ def command(
 
     is2 = dst.suffix != '.bag'
     if compress != 'none':
-        if is2 and compress not in ('zstd',):
+        if is2 and compress != 'zstd':
             echo(f'ERROR: Invalid compression {compress!r} for rosbag2, see --help.')
             return 1
         if not is2 and compress not in ('bz2', 'lz4'):
