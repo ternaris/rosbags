@@ -282,6 +282,8 @@ class McapReader:
             fmtmap = {
                 'ros2msg': MessageDefinitionFormat.MSG,
                 'ros2idl': MessageDefinitionFormat.IDL,
+                'omgidl': MessageDefinitionFormat.IDL,
+                '': MessageDefinitionFormat.NONE,
             }
             if msgtype := next((x for x in self.schemas.values() if x.name == name), None):
                 return MessageDefinition(fmtmap[msgtype.encoding], msgtype.data)
