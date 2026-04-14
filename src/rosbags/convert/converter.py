@@ -287,7 +287,7 @@ def generate_message_converter(
     """Generate message converter."""
     if is_same_wireformat(src_typestore, dst_typestore, src_msgtype, dst_msgtype):
         if src_is2 == dst_is2:
-            return lambda x: memoryview(x)
+            return memoryview
         if src_is2:
             return partial(src_typestore.cdr_to_ros1, typename=src_msgtype)
         return partial(dst_typestore.ros1_to_cdr, typename=dst_msgtype)
