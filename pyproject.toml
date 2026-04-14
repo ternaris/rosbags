@@ -22,10 +22,9 @@ classifiers = [
 ]
 description = "Pure Python library to read, modify, convert, and write rosbag files."
 dependencies = [
-  "lz4; python_version < '3.14'",
+  "lz4",
   "numpy",
   "ruamel.yaml",
-  "safelz4; python_version >= '3.14'",
   "typing_extensions >= 4.5",
   "zstandard",
 ]

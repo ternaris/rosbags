@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import struct
-import sys
 import warnings
 from bz2 import compress as bz2_compress
 from collections import defaultdict
@@ -15,14 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-if sys.version_info >= (3, 14):  # pragma: no cover
-    from safelz4.frame import compress as _lz4_compress
-
-    def lz4_compress(data: bytes, *_: int) -> bytes:
-        """Shim adding arg."""
-        return _lz4_compress(data)
-else:  # pragma: no cover
-    from lz4.frame import compress as lz4_compress  # type: ignore[import-untyped]
+from lz4.frame import compress as lz4_compress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import (
     Connection,
@@ -36,6 +28,7 @@ from rosbags.typesys.msg import denormalize_msgtype
 from .reader import RecordType
 
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Callable
     from types import TracebackType
     from typing import BinaryIO, Literal

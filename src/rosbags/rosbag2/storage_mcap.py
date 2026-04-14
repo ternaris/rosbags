@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import heapq
 import struct
-import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -15,11 +14,7 @@ from struct import iter_unpack, unpack_from
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 import zstandard
-
-if sys.version_info >= (3, 14):  # pragma: no cover
-    from safelz4.frame import decompress as lz4_decompress
-else:  # pragma: no cover
-    from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import (
     Connection,
