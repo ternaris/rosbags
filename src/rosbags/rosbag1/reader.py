@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
+    from rosbags.interfaces.typing import RPath
+
     Unpack = Callable[[bytes], 'tuple[int]']
     UnpackFrom = Callable[[bytes, int], 'tuple[int]']
 
@@ -377,7 +379,7 @@ class Reader:
 
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | RPath) -> None:
         """Initialize.
 
         Args:
@@ -387,7 +389,7 @@ class Reader:
             ReaderError: Path does not exist.
 
         """
-        self.path = Path(path)
+        self.path: RPath = Path(path) if isinstance(path, str) else path
         if not self.path.exists():
             msg = f'File {str(self.path)!r} does not exist.'
             raise FileNotFoundError(msg)

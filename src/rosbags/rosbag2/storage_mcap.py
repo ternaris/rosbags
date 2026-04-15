@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import BinaryIO
 
+    from rosbags.interfaces.typing import RPath
+
     Unpack = Callable[[bytes], 'tuple[int]']
     Unpack2 = Callable[[bytes], 'tuple[int, int]']
     Unpack4 = Callable[[bytes], 'tuple[int, int, int, int]']
@@ -186,7 +188,7 @@ def msgsrc(
 class McapReader:
     """Mcap format reader."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: RPath) -> None:
         """Initialize."""
         self.path = path
         self.bio: BinaryIO | None = None

@@ -5,7 +5,11 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+import apsw
 
 from rosbags.interfaces import (
     Connection,
@@ -20,15 +24,92 @@ from .enums import CompressionMode
 from .errors import ReaderError, WriterError
 from .metadata import ReaderMetadata, parse_qos
 
+if sys.version_info >= (3, 12):
+    from typing import override
+else:  # pragma: no cover
+    from typing_extensions import override
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
-    from pathlib import Path
+
+    from rosbags.interfaces.typing import RPath
+
+
+def make_vfs(rpath: RPath) -> apsw.VFS:  # pragma: no cover
+    """Create sqlite vfs driver for path."""
+
+    class VFS(apsw.VFS):
+        class VFSFile(apsw.VFSFile):
+            def __init__(
+                self,
+                _vfs: VFS,
+                _path: str | apsw.URIFilename | None,
+                _flags: list[int],
+            ) -> None:
+                self._path = rpath.open('rb')
+
+            @override
+            def xDeviceCharacteristics(self) -> int:
+                return 0
+
+            @override
+            def xSectorSize(self) -> int:
+                return 0
+
+            @override
+            def xFileControl(self, op: int, ptr: int) -> bool:
+                if op in (14, 15, 30):
+                    return False
+                return super().xFileControl(op, ptr)
+
+            @override
+            def xFileSize(self) -> int:
+                return rpath.stat().st_size
+
+            @override
+            def xRead(self, amount: int, offset: int) -> bytes:
+                self._path.seek(offset)
+                return self._path.read(amount)
+
+            @override
+            def xClose(self) -> None:
+                self._path.close()
+
+        @override
+        def __init__(self, name: str = 'rpathvfs') -> None:
+            super().__init__(name, '')
+
+        @override
+        def xOpen(
+            self,
+            name: str | apsw.URIFilename | None,
+            flags: list[int],
+        ) -> apsw.VFSFile:
+            if name is None:
+                return super().xOpen(name, flags)
+
+            write_flags = {
+                apsw.SQLITE_OPEN_READWRITE,
+                apsw.SQLITE_OPEN_CREATE,
+                apsw.SQLITE_OPEN_DELETEONCLOSE,
+                apsw.SQLITE_OPEN_EXCLUSIVE,
+                apsw.SQLITE_OPEN_AUTOPROXY,
+                apsw.SQLITE_OPEN_WAL,
+                apsw.SQLITE_OPEN_SUPER_JOURNAL,
+            }
+            if any(x in write_flags for x in flags):
+                msg = 'Only read-only access supported'
+                raise RuntimeError(msg)
+
+            return self.VFSFile(self, name, flags)
+
+    return VFS()
 
 
 class Sqlite3Reader:
     """Sqlite3 storage reader."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: RPath) -> None:
         """Set up storage reader.
 
         Args:
@@ -36,7 +117,7 @@ class Sqlite3Reader:
 
         """
         self.path = path
-        self.dbconn: sqlite3.Connection | None = None
+        self.dbconn: apsw.Connection | None = None
         self.schema = 0
         self.msgtypes: list[dict[str, str]] = []
         self.connections: list[Connection] = []
@@ -44,8 +125,18 @@ class Sqlite3Reader:
 
     def open(self) -> None:
         """Open sqlite3 storage file."""
-        conn = sqlite3.connect(f'file:{self.path}?immutable=1', uri=True)
-        conn.row_factory = lambda _, x: x
+        if isinstance(self.path, Path):
+            vfs = None
+        else:  # pragma: no cover
+            vfs = 'rpathvfs'
+            _vfs = make_vfs(self.path)
+
+        conn = apsw.Connection(
+            f'file:{self.path}?immutable=1',
+            flags=apsw.SQLITE_OPEN_READONLY | apsw.SQLITE_OPEN_URI,
+            vfs=vfs,
+        )
+
         cur = conn.cursor()
         _ = cur.execute(
             (
@@ -53,7 +144,7 @@ class Sqlite3Reader:
                 'WHERE type="table" AND name IN ("messages", "topics")'
             ),
         )
-        if cur.fetchone()[0] != 2:
+        if (x := cur.fetchone()) is None or x[0] != 2:
             msg = f'Cannot open database {self.path} or database missing tables.'
             conn.close()
             raise ReaderError(msg)
@@ -63,7 +154,7 @@ class Sqlite3Reader:
         cur = conn.cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
             schema: int
-            (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone()
+            (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone() or (-1,)
         elif any(
             x[1] == 'offered_qos_profiles'
             for x in cast('Iterable[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
@@ -261,10 +352,10 @@ class Sqlite3Reader:
             'SELECT topics.id,messages.timestamp,messages.data',
             'FROM messages JOIN topics ON messages.topic_id=topics.id',
         ]
-        args: list[Iterable[str] | int] = []
+        args: list[apsw.Binding] = []
         clause = 'WHERE'
 
-        topics = {x.topic for x in connections}
+        topics = tuple({x.topic for x in connections})
         query.append(f'{clause} topics.name IN ({",".join("?" for _ in topics)})')
         args += topics
         clause = 'AND'

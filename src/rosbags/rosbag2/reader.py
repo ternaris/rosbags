@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
+    from rosbags.interfaces.typing import RPath
+
     from .metadata import FileInformation, Metadata
 
     class ReaderProtocol(Protocol):
@@ -44,7 +46,7 @@ if TYPE_CHECKING:
         connections: list[Connection]
         metadata: ReaderMetadata
 
-        def __init__(self, path: Path) -> None:
+        def __init__(self, path: RPath) -> None:
             """Initialize."""
             raise NotImplementedError  # pragma: no cover
 
@@ -91,7 +93,7 @@ class DirectoryReader:
         'sqlite3': Sqlite3Reader,
     }
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: RPath) -> None:
         """Open rosbag and check metadata.
 
         Args:
@@ -136,7 +138,7 @@ class DirectoryReader:
                 msg = f'Rosbag2 version {ver} not supported; please report issue.'
                 raise ReaderError(msg)
 
-            paths = [self.path / Path(x).name for x in metadata['relative_file_paths']]
+            paths = [self.path / PurePath(x).name for x in metadata['relative_file_paths']]
             if missing := [x for x in paths if not x.exists()]:
                 msg = f'Some database files are missing: {[str(x) for x in missing]!r}'
                 raise ReaderError(msg)
@@ -200,7 +202,7 @@ class DirectoryReader:
 
         self.files = metadata.get('files', [])[:]
 
-        storage_paths: list[Path] = []
+        storage_paths: list[RPath] = []
         if compression_mode == 'file':
             self.tmpdir = TemporaryDirectory()
             tmpdir = self.tmpdir.name
@@ -292,7 +294,7 @@ class Reader:
         '.db3': Sqlite3Reader,
     }
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | RPath) -> None:
         """Initialize.
 
         Args:
@@ -302,7 +304,7 @@ class Reader:
             ReaderError: Path does not exist.
 
         """
-        self.path = Path(path)
+        self.path: RPath = Path(path) if isinstance(path, str) else path
         if not self.path.exists():
             msg = f'File {str(self.path)!r} does not exist.'
             raise FileNotFoundError(msg)

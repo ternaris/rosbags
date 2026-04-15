@@ -25,7 +25,6 @@ from rosbags.typesys import Stores, get_types_from_idl, get_types_from_msg, get_
 if TYPE_CHECKING:
     import sys
     from collections.abc import Generator, Iterable, Sequence
-    from pathlib import Path
     from types import TracebackType
     from typing import Literal
 
@@ -35,7 +34,7 @@ if TYPE_CHECKING:
         from typing_extensions import Self
 
     from rosbags.interfaces import Connection
-    from rosbags.interfaces.typing import Typesdict
+    from rosbags.interfaces.typing import RPath, Typesdict
     from rosbags.typesys.store import Typestore
 
 
@@ -54,7 +53,7 @@ class AnyReader:
 
     def __init__(
         self,
-        paths: Sequence[Path],
+        paths: Sequence[RPath],
         *,
         default_typestore: Typestore | None = None,
     ) -> None:
