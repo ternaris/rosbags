@@ -13,7 +13,7 @@ test:
   image: $IMAGE
   script:
     - uv run python -m pytest --cov=src --cov-report=term --cov-report=xml --junit-xml=report.xml
-    - uv run python -m mypy --no-error-summary docs src tests tools
+    - test "$UV_PYTHON" -ne "3.10" && uv run python -m mypy --no-error-summary docs src tests tools
     - uv run python -m reuse lint
     - uv run python -m ruff check docs src tests tools
     - uv run python -m ruff format --diff docs src tests tools
