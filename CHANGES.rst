@@ -3,6 +3,23 @@
 Changes
 =======
 
+0.11.1 - 2026-04-16
+-------------------
+
+- Remove the safelz4 dependency previously introduced for early Python 3.14 support `#130`_
+- Enhance support for action messages defined in the msg format `#131`_
+- Improve parsing of IDL annotations and resolve relative references more reliably
+- Add support for OMG IDL encoding in MCAP files `#132`_
+- Add support for MCAP channels without schema definitions `#134`_
+- Accept any `pathlib`-like objects across all readers, enabling remote file access `#133`_
+
+.. _#130: https://gitlab.com/ternaris/rosbags/issues/130
+.. _#131: https://gitlab.com/ternaris/rosbags/issues/131
+.. _#132: https://gitlab.com/ternaris/rosbags/issues/132
+.. _#133: https://gitlab.com/ternaris/rosbags/issues/133
+.. _#134: https://gitlab.com/ternaris/rosbags/issues/134
+
+
 0.11.0 - 2025-10-15
 -------------------
 
