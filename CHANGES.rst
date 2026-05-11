@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.11.2 - 2026-05-11
+-------------------
+
+- Fix storing QoS profile metadata in MCAP writer `#135`_
+
+.. _#135: https://gitlab.com/ternaris/rosbags/issues/135
+
+
 0.11.1 - 2026-04-16
 -------------------
 
