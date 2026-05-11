@@ -728,7 +728,7 @@ class McapWriter:
                 connection.msgtype,
                 connection.topic,
                 cast('ConnectionExtRosbag2', connection.ext).serialization_format,
-                metadata.read(),
+                metadata.getvalue(),
             )
         )
         self.channel_stats[connection.id] = 0

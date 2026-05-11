@@ -5,20 +5,28 @@
 from __future__ import annotations
 
 import struct
-from io import BytesIO
+from io import BytesIO, StringIO
 from itertools import groupby, product
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
+from ruamel.yaml import YAML
 
 from rosbags.interfaces import (
     Connection,
     ConnectionExtRosbag2,
     MessageDefinition,
     MessageDefinitionFormat,
+    Qos,
+    QosDurability,
+    QosHistory,
+    QosLiveliness,
+    QosReliability,
+    QosTime,
 )
 from rosbags.rosbag2.enums import CompressionMode
 from rosbags.rosbag2.errors import ReaderError
+from rosbags.rosbag2.metadata import dump_qos_v9
 from rosbags.rosbag2.storage_mcap import McapReader, McapWriter
 
 if TYPE_CHECKING:
@@ -117,6 +125,33 @@ CHANNELS = [
         ),
     ),
 ]
+
+LATCH = [
+    Qos(
+        QosHistory.UNKNOWN,
+        0,
+        QosReliability.RELIABLE,
+        QosDurability.TRANSIENT_LOCAL,
+        QosTime(2147483647, 4294967295),
+        QosTime(2147483647, 4294967295),
+        QosLiveliness.AUTOMATIC,
+        QosTime(2147483647, 4294967295),
+        avoid_ros_namespace_conventions=False,
+    )
+]
+
+
+@pytest.fixture(scope='session')
+def qos() -> str:
+    """Preserialized QoS metadata for channels."""
+    stream = StringIO()
+    yaml = YAML(typ='safe')
+    yaml.default_flow_style = False
+    yaml.dump(
+        dump_qos_v9(LATCH),
+        stream,
+    )
+    return stream.getvalue().strip()
 
 
 @pytest.fixture(
@@ -511,7 +546,7 @@ def test_write_schema(tmp_path: Path) -> None:
     reader.close()
 
 
-def test_write_channel(tmp_path: Path) -> None:
+def test_write_channel(tmp_path: Path, qos: str) -> None:
     """Test schema version is detected."""
     bag = tmp_path / 'bag'
     bag.mkdir()
@@ -528,7 +563,7 @@ def test_write_channel(tmp_path: Path) -> None:
         None,
     )
     mcap.add_msgtype(connection)
-    mcap.add_connection(connection, 'qos')
+    mcap.add_connection(connection, offered_qos_profiles=qos)
     mcap.close(0, 'metadata')
 
     reader = McapReader(bag / 'bag.mcap')
@@ -536,10 +571,15 @@ def test_write_channel(tmp_path: Path) -> None:
     assert len(reader.schemas) == 1
     assert len(reader.channels) == 1
     assert not list(reader.messages([]))
+    offered_qos_profiles = cast(
+        'ConnectionExtRosbag2',
+        reader.connections[0].ext,
+    ).offered_qos_profiles
+    assert offered_qos_profiles == LATCH
     reader.close()
 
 
-def test_write_message(tmp_path: Path) -> None:
+def test_write_message(tmp_path: Path, qos: str) -> None:
     """Test schema version is detected."""
     bag = tmp_path / 'bag'
     bag.mkdir()
@@ -556,7 +596,7 @@ def test_write_message(tmp_path: Path) -> None:
         None,
     )
     mcap.add_msgtype(connection)
-    mcap.add_connection(connection, 'qos')
+    mcap.add_connection(connection, offered_qos_profiles=qos)
     mcap.write(connection, 42, b'msg1')
     mcap.write(connection, 43, b'msg2')
     mcap.close(0, 'metadata')
@@ -574,7 +614,7 @@ def test_write_message(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize('compression', ['none', 'storage'])
-def test_write_multichunk(tmp_path: Path, compression: str) -> None:
+def test_write_multichunk(tmp_path: Path, qos: str, compression: str) -> None:
     """Test schema version is detected."""
     bag = tmp_path / 'bag'
     bag.mkdir()
@@ -591,7 +631,7 @@ def test_write_multichunk(tmp_path: Path, compression: str) -> None:
         None,
     )
     mcap.add_msgtype(connection)
-    mcap.add_connection(connection, 'qos')
+    mcap.add_connection(connection, offered_qos_profiles=qos)
     mcap.write(connection, 42, b'\x00' * 2**20)
     mcap.close(0, 'metadata')
 
@@ -604,7 +644,7 @@ def test_write_multichunk(tmp_path: Path, compression: str) -> None:
 
     mcap = McapWriter(bag, CompressionMode.NONE)
     mcap.add_msgtype(connection)
-    mcap.add_connection(connection, 'qos')
+    mcap.add_connection(connection, offered_qos_profiles=qos)
     mcap.write(connection, 42, b'\x00' * 2**20)
     mcap.write(connection, 43, b'msg2')
     mcap.close(0, 'metadata')
