@@ -277,6 +277,21 @@ def test_reader(tmp_path: Path) -> None:
         assert msgs[0][2] == b'MSGCONTENT5'
 
 
+def test_reader_accepts_empty_latching(tmp_path: Path) -> None:
+    """Empty 'latching' field in connection header must not crash the reader."""
+    bag = tmp_path / 'test.bag'
+    head, data = create_connection()
+    write_bag(
+        bag,
+        create_default_header(),
+        chunks=[[(head, {**data, 'latching': b''}), create_message(time=1)]],
+    )
+    with Reader(bag) as reader:
+        connections = list(reader.connections)
+        assert len(connections) == 1
+        assert connections[0].ext.latching is None
+
+
 def test_raises_if_user_error(tmp_path: Path) -> None:
     """Test reader raises if user makes error."""
     bag = tmp_path / 'test.bag'

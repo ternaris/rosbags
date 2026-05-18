@@ -541,7 +541,8 @@ class Reader:
         )
 
         callerid = header.get_string('callerid') if 'callerid' in header else None
-        latching = int(header.get_string('latching')) if 'latching' in header else None
+        _latching_raw = header.get_string('latching') if 'latching' in header else None
+        latching = int(_latching_raw) if _latching_raw not in (None, '') else None
 
         return Connection(
             conn,
