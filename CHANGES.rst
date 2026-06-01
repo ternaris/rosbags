@@ -3,6 +3,13 @@
 Changes
 =======
 
+0.11.3 - 2026-06-01
+-------------------
+
+- Tolerate empty ``latching`` field in rosbag1 connection headers
+- Add lyrical typestore
+
+
 0.11.2 - 2026-05-11
 -------------------
 
