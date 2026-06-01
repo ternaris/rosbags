@@ -33,6 +33,8 @@ class Stores(Enum):
     """Jazzy Jalisco."""
     ROS2_KILTED = 'ros2_kilted'
     """Kilted Kaiju."""
+    ROS2_LYRICAL = 'ros2_lyrical'
+    """Lyrical Luth."""
 
 
 def get_typestore(name: Stores) -> Typestore:
