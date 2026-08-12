@@ -3,6 +3,16 @@
 Changes
 =======
 
+0.11.4 - 2026-08-12
+-------------------
+
+- Accept binary literals in msg definitions `#136`_
+- Accept type embedded definitions with empty type description hashes `#137`_
+
+.. _#136: https://gitlab.com/ternaris/rosbags/issues/136
+.. _#137: https://gitlab.com/ternaris/rosbags/issues/137
+
+
 0.11.3 - 2026-06-01
 -------------------
 
