@@ -12,6 +12,9 @@ MSG = """
 
 bool b=true
 int32 global=42
+uint8 b = 0b1010
+uint8 o = 0377
+uint8 h = 0xff
 float32 f=1.33
 string str= foo bar\t
 
@@ -131,6 +134,9 @@ def test_msg_parser_accepts_single_msg() -> None:
     assert consts == [
         ('b', 'bool', True),
         ('global_', 'int32', 42),
+        ('b', 'uint8', 10),
+        ('o', 'uint8', 255),
+        ('h', 'uint8', 255),
         ('f', 'float32', 1.33),
         ('str', 'string', 'foo bar'),
     ]

@@ -113,6 +113,7 @@ boolean_literal
 
 integer_literal
   = hexadecimal_literal
+  / binary_literal
   / octal_literal
   / decimal_literal
 
@@ -122,6 +123,9 @@ decimal_literal
 
 octal_literal
   = r'[-+]?0[0-7]+'
+
+binary_literal
+  = r'[-+]?0b[0-7]+'
 
 hexadecimal_literal
   = r'[-+]?0[xX][a-fA-F0-9]+'
@@ -347,6 +351,10 @@ class VisitorMSG(Visitor):
     def visit_octal_literal(self, children: str) -> int:
         """Process octal integer literal."""
         return int(children, 8)
+
+    def visit_binary_literal(self, children: str) -> int:
+        """Process octal integer literal."""
+        return int(children, 0)
 
     def visit_hexadecimal_literal(self, children: str) -> int:
         """Process hexadecimal integer literal."""
