@@ -188,7 +188,7 @@ class Sqlite3Reader:
                 store = Typestore()
                 store.register(types)
 
-                assert typ['digest'] == store.hash_rihs01(
+                assert not typ['digest'] or typ['digest'] == store.hash_rihs01(
                     typ['name'],
                 ), f'Failed to parse {typ["name"]}'
         else:
