@@ -577,6 +577,7 @@ class McapReader:
                     None,
                 )
             )
+            is not None
         }
 
         chunks = [
