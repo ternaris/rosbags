@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 
 INTLIKE = re.compile('^u?(bool|int|float)')
+INTSTOR = {'byte', 'char', 'octet', 'wchar'}
 
 
 def get_typehint(desc: FieldDesc) -> str:
@@ -29,19 +30,12 @@ def get_typehint(desc: FieldDesc) -> str:
 
     """
     if desc[0] == Nodetype.BASE:
-        if desc[1][0] == 'string':
+        if desc[1][0] in {'string', 'wstring'}:
             return 'str'
-        typ = cast(
-            'Basename',
-            (
-                'int'
-                if desc[1][0].split('unsigned ')[-1]
-                in {'char', 'byte', 'octet', 'short', 'long', 'long long'}
-                else desc[1][0]
-            ),
-        )
-        match = INTLIKE.match(typ)
-        assert match, typ
+        if desc[1][0] in INTSTOR:
+            return 'int'
+        match = INTLIKE.match(desc[1][0])
+        assert match, desc[1][0]
         return cast('str', match.group(1))
 
     if desc[0] == Nodetype.NAME:
@@ -52,14 +46,7 @@ def get_typehint(desc: FieldDesc) -> str:
     sub = desc[1][0]
     if sub[0] == Nodetype.BASE:
         typ = sub[1][0]
-        if typ.split('unsigned ')[-1] in {
-            'byte',
-            'char',
-            'octet',
-            'short',
-            'long',
-            'long long',
-        } or INTLIKE.match(typ):
+        if typ in INTSTOR or INTLIKE.match(typ):
             typ = cast(
                 'Basename',
                 {
@@ -67,12 +54,6 @@ def get_typehint(desc: FieldDesc) -> str:
                     'byte': 'uint8',
                     'char': 'uint8',
                     'octet': 'uint8',
-                    'short': 'int16',
-                    'long': 'int32',
-                    'long long': 'int64',
-                    'unsigned short': 'uint16',
-                    'unsigned long': 'uint32',
-                    'unsigned long long': 'uint64',
                 }.get(typ, typ),
             )
             return f'np.ndarray[tuple[int, ...], np.dtype[np.{typ}]]'

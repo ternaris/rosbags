@@ -10,12 +10,13 @@ from rosbags.typesys import Stores, TypesysError, get_types_from_idl, get_typest
 IDL_LITERALS_EXPRESSIONS = """
 // assign different literals and expressions
 
-const bool g_bool = TRUE;
+const boolean g_bool = TRUE;
 const int8 g_int1 = 7;
 const int8 g_int2 = 07;
 const int8 g_int3 = 0x7;
 const double g_float1 = 1.1;
 const double g_float2 = 1e10;
+const long double g_float3 = -.1e0;
 const char g_char = 'c';
 const string g_string1 = "";
 const string<128> g_string2 = "str" "ing";
@@ -23,8 +24,37 @@ const string<128> g_string2 = "str" "ing";
 module Foo {
     const int64 g_expr1 = ~1;
     const int64 g_expr2 = 2 * 4;
+    const int64 g_expr3 = (3);
+    const int64 g_expr4 = (g_int1 * 2);
 };
 
+"""
+
+IDL_CONST_EXPRS = """
+module test_msgs {
+  module msg {
+    module Foo_Constants {
+      const int8 OR = 1 | 2;
+      const int8 XOR = 1 ^ 3;
+      const int8 AND = 1 & 3;
+      const int8 SHIFTL = 1 << 3;
+      const int8 SHIFTR = 32 >> 3;
+      const int8 ADDP = 1 + 3;
+      const int8 ADDM = 1 - 3;
+      const int8 MULTM = 2 * 3;
+      const int8 MULTR = 8 % 3;
+      const int8 MULTD = 8 / 2;
+      const int8 UNAM = -8;
+      const int8 UNAP = +8;
+      const int8 UNAI = ~8;
+
+      const int8 PRECEDENCE = 1 + 2 * 3;
+    };
+    struct Foo {
+      int8 i;
+    };
+  };
+};
 """
 
 IDL = """
@@ -108,10 +138,42 @@ module test_msgs {
 IDL_REFRENAME = """
 module test_msgs {
   module msg {
+    struct Bar {
+        int8 i;
+    };
+
     struct Foo {
-        Bar bar;
+        Bar bar1;
+        msg::Bar bar2;
+        ::test_msgs::msg::Bar bar3;
+
+        // Undefined
+        Baz baz1;
     };
   };
+};
+"""
+
+IDL_TYPEDEFS = """
+typedef short T1;
+module test_msgs {
+  module msg {
+    typedef long T1;
+    struct Foo {
+        T1 local;
+        ::T1 global;
+    };
+  };
+};
+"""
+
+IDL_ENUMS = """
+enum COLORS {
+  RED,
+  GREEN,
+  BLUE,
+  @value(100)
+  BLACK
 };
 """
 
@@ -121,11 +183,41 @@ def test_idl_parser_raises_on_bad_definition() -> None:
     with pytest.raises(TypesysError, match='Could not parse'):
         _ = get_types_from_idl('module test_msgs {}')
 
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('typedef long good; bad')
+
 
 def test_idl_parser_accepts_literals_and_expressions() -> None:
     """Test idl parser accepts literals and expressions."""
     ret = get_types_from_idl(IDL_LITERALS_EXPRESSIONS)
     assert ret == {}
+
+
+def test_idl_parser_evaluates_expressions() -> None:
+    """Test idl parser evluates expressions."""
+    ret = get_types_from_idl(IDL_CONST_EXPRS)
+    assert ret['test_msgs/msg/Foo'][0] == [
+        ('OR', 'int8', 3),
+        ('XOR', 'int8', 2),
+        ('AND', 'int8', 1),
+        ('SHIFTL', 'int8', 8),
+        ('SHIFTR', 'int8', 4),
+        ('ADDP', 'int8', 4),
+        ('ADDM', 'int8', -2),
+        ('MULTM', 'int8', 6),
+        ('MULTR', 'int8', 2),
+        ('MULTD', 'int8', 4),
+        ('UNAM', 'int8', -8),
+        ('UNAP', 'int8', 8),
+        ('UNAI', 'int8', -9),
+        ('PRECEDENCE', 'int8', 7),
+    ]
+
+
+def test_idl_parser_raises_on_unresolved_constant() -> None:
+    """Test idl parser raises on unresolved constant."""
+    with pytest.raises(TypesysError, match="resolve constant 'B'"):
+        _ = get_types_from_idl('const int8 A = B;')
 
 
 def test_idl_parser_accepts_complex_document() -> None:
@@ -190,5 +282,74 @@ def test_idl_parser_renames_relative_references() -> None:
     get_typestore(Stores.EMPTY).register(ret)
 
     _, fields = ret['test_msgs/msg/Foo']
-    assert fields[0][0] == 'bar'
+    assert fields[0][0] == 'bar1'
     assert fields[0][1] == (Nodetype.NAME, 'test_msgs/msg/Bar')
+    assert fields[1][0] == 'bar2'
+    assert fields[1][1] == (Nodetype.NAME, 'test_msgs/msg/Bar')
+    assert fields[2][0] == 'bar3'
+    assert fields[2][1] == (Nodetype.NAME, 'test_msgs/msg/Bar')
+    assert fields[3][0] == 'baz1'
+    assert fields[3][1] == (Nodetype.NAME, 'test_msgs/msg/Baz')
+
+
+def test_idl_typedefs() -> None:
+    """Test idl parser resolves typedefs."""
+    ret = get_types_from_idl(IDL_TYPEDEFS)
+    get_typestore(Stores.EMPTY).register(ret)
+
+    _, fields = ret['test_msgs/msg/Foo']
+    assert fields[0][0] == 'local'
+    assert fields[0][1] == (Nodetype.BASE, ('int32', 0))
+    assert fields[1][0] == 'global_'
+    assert fields[1][1] == (Nodetype.BASE, ('int16', 0))
+
+
+def test_idl_parser_refuses_bad_const_types() -> None:
+    """Test idl parser refuses bad const types."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('module test_msgs { const _Foo foo = 8; };')
+
+
+def test_idl_parser_refuses_bad_expressions() -> None:
+    """Test idl parser refuses bad const types."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('module test_msgs { const int8 foo = !8; };')
+
+
+def test_idl_parser_refuses_missing_array_size() -> None:
+    """Test idl parser refuses missing array size."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('struct Foo { int8 arr[]; };')
+
+
+def test_idl_parser_refuses_bad_enumerator() -> None:
+    """Test idl parser refuses bad enumerators."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('enum COLORS { _RED };')
+
+
+def test_idl_parser_parses_enums() -> None:
+    """Test idl parser parses enums."""
+    res = get_types_from_idl(IDL_ENUMS)
+    assert res == {}
+
+
+def test_idl_parser_refuses_bad_type_declarator() -> None:
+    """Test idl parser refuses bad type declarator."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('typedef _Foo foo;')
+
+
+def test_idl_parser_refuses_bad_declarators() -> None:
+    """Test idl parser refuses bad declarators."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('typedef Foo _foo;')
+
+
+def test_idl_parser_refuses_bad_annotation_params() -> None:
+    """Test idl parser refuses bad annotation params."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('enum COLORS { @value( RED };')
+
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_idl('enum COLORS { @value() RED };')

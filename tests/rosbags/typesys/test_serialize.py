@@ -79,10 +79,7 @@ def test_padding_is_correct_after_base_array() -> None:
     store = get_typestore(Stores.LATEST)
 
     typename = 'test_msgs/msg/ab_au16'
-    msgdef = """
-    bool[1] ab
-    uint16[2] au16
-    """
+    msgdef = 'bool[1] ab\nuint16[2] au16'
     cdr_bytestream = b'\x01\x00\x02\x03\x04\x05'
     ros1_bytestream = b'\x01\x02\x03\x04\x05'
 
@@ -104,11 +101,8 @@ def test_empty_sequences_do_not_add_padding() -> None:
     """Test empty sequences do not add padding."""
     store = get_typestore(Stores.LATEST)
 
-    typename = 'test_msgs/msg/su64_b'
-    msgdef = """
-    uint64[] su64
-    bool b
-    """
+    typename = 'test_msgs/msg/Su64_b'
+    msgdef = 'uint64[] su64\nbool b'
     bytestream = b'\x00\x00\x00\x00\x01'
 
     store.register(get_types_from_msg(msgdef, typename))
@@ -129,17 +123,11 @@ def test_empty_sequences_have_correct_postalignment() -> None:
     """Test alignment after empty sequences is correct."""
     store = get_typestore(Stores.LATEST)
 
-    typename_su64_u64 = 'test_msgs/msg/su64_u64'
-    msgdef_su64_u64 = """
-    uint64[] su64
-    uint64 u64
-    """
+    typename_su64_u64 = 'test_msgs/msg/Su64U64'
+    msgdef_su64_u64 = 'uint64[] su64\nuint64 u64'
 
-    typename_smsg_u64 = 'test_msgs/msg/smsg_u64'
-    msgdef_smsg_u64 = """
-    su64_u64[] seq
-    uint64 u64
-    """
+    typename_smsg_u64 = 'test_msgs/msg/SmsgU64'
+    msgdef_smsg_u64 = 'Su64U64[] seq\nuint64 u64'
 
     cdr_bytes = (
         b'\x00\x00\x00\x00'  # sequence length = 0
@@ -178,23 +166,13 @@ def test_empty_message_handling() -> None:
     store = get_typestore(Stores.LATEST)
 
     typename_empty = 'test_msgs/msg/Empty'
-    msgdef_empty = """
-    uint8 JUST_SOME_CONSTANT = 1
-    """
+    msgdef_empty = 'uint8 JUST_SOME_CONSTANT = 1'
 
     typename_unaligned = 'test_msgs/msg/UnalignedHolder'
-    msgdef_unaligned = """
-    int32 pre
-    test_msgs/msg/Empty empty
-    int64 post
-    """
+    msgdef_unaligned = 'int32 pre\ntest_msgs/msg/Empty empty\nint64 post'
 
     typename_aligned = 'test_msgs/msg/AlignedHolder'
-    msgdef_aligned = """
-    int64 pre
-    test_msgs/msg/Empty empty
-    int64 post
-    """
+    msgdef_aligned = 'int64 pre\ntest_msgs/msg/Empty empty\nint64 post'
 
     store.register(get_types_from_msg(msgdef_empty, typename_empty))
     store.register(get_types_from_msg(msgdef_unaligned, typename_unaligned))

@@ -5,16 +5,114 @@
 from __future__ import annotations
 
 import keyword
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, NamedTuple
+
+from rosbags.interfaces import Nodetype
 
 if TYPE_CHECKING:
-    from rosbags.interfaces.typing import Typesdict
+    from collections.abc import Sequence
 
-    from .peg import Visitor
+    from rosbags.interfaces.typing import (
+        BaseDesc,
+        FieldDesc,
+        NameDesc,
+        ScalarValue,
+        Typesdict,
+        Value,
+    )
 
 
 class TypesysError(Exception):
     """Parser error."""
+
+
+class BaseName(Enum):
+    """Base type."""
+
+    BOOL = 'bool'
+    BYTE = 'byte'
+    CHAR = 'char'
+    FIXED = 'fixed'
+    INT8 = 'int8'
+    INT16 = 'int16'
+    INT32 = 'int32'
+    INT64 = 'int64'
+    UINT8 = 'uint8'
+    UINT16 = 'uint16'
+    UINT32 = 'uint32'
+    UINT64 = 'uint64'
+    FLOAT32 = 'float32'
+    FLOAT64 = 'float64'
+    FLOAT128 = 'float128'
+    STRING = 'string'
+    WCHAR = 'wchar'
+    WSTRING = 'wstring'
+
+
+BASE_NAMES = {t.value: t for t in BaseName}
+
+
+class Cardinality(Enum):
+    """Type cardinality."""
+
+    SCALAR = 'scalar'
+    ARRAY = 'array'
+    SEQUENCE = 'sequence'
+
+
+class BaseType(NamedTuple):
+    """Base type."""
+
+    name: BaseName
+
+
+class NamedType(NamedTuple):
+    """Named type."""
+
+    name: str
+
+
+TypeRef = BaseType | NamedType
+
+
+class Type(NamedTuple):
+    """Named type."""
+
+    ref: TypeRef
+    cardinality: Cardinality = Cardinality.SCALAR
+    str_size: int = 0
+    size: int = 0
+
+
+class Annotation(NamedTuple):
+    """Annotation."""
+
+    name: str
+
+
+class Constant(NamedTuple):
+    """Annotation."""
+
+    typ: BaseName
+    name: str
+    value: ScalarValue
+
+
+class Field(NamedTuple):
+    """Field."""
+
+    typ: Type
+    name: str
+    value: Value | None
+
+
+class Message(NamedTuple):
+    """Message."""
+
+    name: str
+    constants: list[Constant]
+    fields: list[Field]
 
 
 def normalize_fieldname(name: str) -> str:
@@ -34,26 +132,28 @@ def normalize_fieldname(name: str) -> str:
     return name
 
 
-def parse_message_definition(visitor: Visitor, text: str) -> Typesdict:
-    """Parse message definition.
+def create_field_desc(typ: Type) -> FieldDesc:
+    """Create field type descriptor."""
+    inner: BaseDesc | NameDesc = (
+        (Nodetype.BASE, (typ.ref.name.value, typ.str_size))
+        if isinstance(typ.ref, BaseType)
+        else (Nodetype.NAME, typ.ref.name)
+    )
+    if typ.cardinality == Cardinality.SCALAR:
+        return inner
 
-    Args:
-        visitor: Visitor instance to use.
-        text: Message definition.
+    return (
+        Nodetype.ARRAY if typ.cardinality == Cardinality.ARRAY else Nodetype.SEQUENCE,
+        (inner, typ.size),
+    )
 
-    Returns:
-        Parsetree of message.
 
-    Raises:
-        TypesysError: Message parsing failed.
-
-    """
-    try:
-        rule = visitor.RULES['specification']
-        pos = rule.skip_ws(text, 0)
-        npos, trees = rule.parse(text, pos)
-        assert npos == len(text), f'Could not parse: {text!r}'
-        return visitor.visit(trees)  # type: ignore[return-value]
-    except Exception as err:
-        msg = f'Could not parse: {text!r}'
-        raise TypesysError(msg) from err
+def make_typesdict(msgs: Sequence[Message]) -> Typesdict:
+    """Make typedict from messages."""
+    return {
+        x.name: (
+            [(normalize_fieldname(y.name), y.typ.value, y.value) for y in x.constants],
+            [(normalize_fieldname(y.name), create_field_desc(y.typ)) for y in x.fields],
+        )
+        for x in msgs
+    }

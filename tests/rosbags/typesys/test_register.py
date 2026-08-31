@@ -72,79 +72,60 @@ def test_registered_types_support_serde() -> None:
     """Test registered types allow serde operstions."""
     store = get_typestore(Stores.LATEST)
 
-    typename_s_64_64 = 'test_msgs/msg/static_64_64'
-    msgdef_s_64_64 = """
-    uint64[2] u64
-    """
+    def lstrip(text: str) -> str:
+        return '\n'.join(x.lstrip() for x in text.split('\n'))
 
-    typename_s_64_16 = 'test_msgs/msg/static_64_16'
-    msgdef_s_64_16 = """
-    uint64 u64
-    uint16 u16
-    """
+    typename_s_64_64 = 'test_msgs/msg/Static6464'
+    msgdef_s_64_64 = 'uint64[2] u64'
 
-    typename_s_16_64 = 'test_msgs/msg/static_16_64'
-    msgdef_s_16_64 = """
-    uint16 u16
-    uint64 u64
-    """
+    typename_s_64_16 = 'test_msgs/msg/Static6416'
+    msgdef_s_64_16 = 'uint64 u64\nuint16 u16'
 
-    typename_d_64_64 = 'test_msgs/msg/dynamic_64_64'
-    msgdef_d_64_64 = """
-    uint64[] u64
-    """
+    typename_s_16_64 = 'test_msgs/msg/Static1664'
+    msgdef_s_16_64 = 'uint16 u16\nuint64 u64'
 
-    typename_d_64_b_64 = 'test_msgs/msg/dynamic_64_b_64'
-    msgdef_d_64_b_64 = """
-    uint64 u64
-    bool b
-    float64 f64
-    """
+    typename_d_64_64 = 'test_msgs/msg/Dynamic6464'
+    msgdef_d_64_64 = 'uint64[] u64'
 
-    typename_d_64_s = 'test_msgs/msg/dynamic_64_s'
-    msgdef_d_64_s = """
-    uint64 u64
-    string s
-    """
+    typename_d_64_b_64 = 'test_msgs/msg/Dynamic64b64'
+    msgdef_d_64_b_64 = 'uint64 u64\nbool b\nfloat64 f64'
 
-    typename_d_s_64 = 'test_msgs/msg/dynamic_s_64'
-    msgdef_d_s_64 = """
-    string s
-    uint64 u64
-    """
+    typename_d_64_s = 'test_msgs/msg/Dynamic64s'
+    msgdef_d_64_s = 'uint64 u64\nstring s'
+
+    typename_d_s_64 = 'test_msgs/msg/Dynamics64'
+    msgdef_d_s_64 = 'string s\nuint64 u64'
 
     typename_custom = 'test_msgs/msg/custom'
-    msgdef_custom = """
-    string base_str
-    float32 base_f32
-    test_msgs/msg/static_64_64 msg_s66
-    test_msgs/msg/static_64_16 msg_s61
-    test_msgs/msg/static_16_64 msg_s16
-    test_msgs/msg/dynamic_64_64 msg_d66
-    test_msgs/msg/dynamic_64_b_64 msg_d6b6
-    test_msgs/msg/dynamic_64_s msg_d6s
-    test_msgs/msg/dynamic_s_64 msg_ds6
-
-    string[2] arr_base_str
-    float32[2] arr_base_f32
-    test_msgs/msg/static_64_64[2] arr_msg_s66
-    test_msgs/msg/static_64_16[2] arr_msg_s61
-    test_msgs/msg/static_16_64[2] arr_msg_s16
-    test_msgs/msg/dynamic_64_64[2] arr_msg_d66
-    test_msgs/msg/dynamic_64_b_64[2] arr_msg_d6b6
-    test_msgs/msg/dynamic_64_s[2] arr_msg_d6s
-    test_msgs/msg/dynamic_s_64[2] arr_msg_ds6
-
-    string[] seq_base_str
-    float32[] seq_base_f32
-    test_msgs/msg/static_64_64[] seq_msg_s66
-    test_msgs/msg/static_64_16[] seq_msg_s61
-    test_msgs/msg/static_16_64[] seq_msg_s16
-    test_msgs/msg/dynamic_64_64[] seq_msg_d66
-    test_msgs/msg/dynamic_64_b_64[] seq_msg_d6b6
-    test_msgs/msg/dynamic_64_s[] seq_msg_d6s
-    test_msgs/msg/dynamic_s_64[] seq_msg_ds6
-    """
+    msgdef_custom = (
+        'string base_str\n'
+        'float32 base_f32\n'
+        'test_msgs/msg/Static6464 msg_s66\n'
+        'test_msgs/msg/Static6416 msg_s61\n'
+        'test_msgs/msg/Static1664 msg_s16\n'
+        'test_msgs/msg/Dynamic6464 msg_d66\n'
+        'test_msgs/msg/Dynamic64b64 msg_d6b6\n'
+        'test_msgs/msg/Dynamic64s msg_d6s\n'
+        'test_msgs/msg/Dynamics64 msg_ds6\n'
+        'string[2] arr_base_str\n'
+        'float32[2] arr_base_32\n'
+        'test_msgs/msg/Static6464[2] arr_msg_s66\n'
+        'test_msgs/msg/Static6416[2] arr_msg_s61\n'
+        'test_msgs/msg/Static1664[2] arr_msg_s16\n'
+        'test_msgs/msg/Dynamic6464[2] arr_msg_d66\n'
+        'test_msgs/msg/Dynamic64b64[2] arr_msg_d6b6\n'
+        'test_msgs/msg/Dynamic64s[2] arr_msg_d6s\n'
+        'test_msgs/msg/Dynamics64[2] arr_msg_ds6\n'
+        'string[] seq_base_str\n'
+        'float32[] seq_base_f32\n'
+        'test_msgs/msg/Static6464[] seq_msg_s66\n'
+        'test_msgs/msg/Static6416[] seq_msg_s61\n'
+        'test_msgs/msg/Static1664[] seq_msg_s16\n'
+        'test_msgs/msg/Dynamic6464[] seq_msg_d66\n'
+        'test_msgs/msg/Dynamic64b64[] seq_msg_d6b6\n'
+        'test_msgs/msg/Dynamic64s[] seq_msg_d6s\n'
+        'test_msgs/msg/Dynamics64[] seq_msg_ds6\n'
+    )
 
     store.register(get_types_from_msg(msgdef_s_64_64, typename_s_64_64))
     store.register(get_types_from_msg(msgdef_s_64_16, typename_s_64_16))

@@ -3,9 +3,10 @@
 """Rosbags typing."""
 
 import sys
-from enum import IntEnum, auto
 from pathlib import PosixPath
 from typing import Any, BinaryIO, Literal, Protocol, TypeAlias, TypeVar
+
+from rosbags.interfaces import Nodetype
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -15,22 +16,11 @@ else:  # pragma: no cover
 T = TypeVar('T')
 
 
-class Nodetype(IntEnum):
-    """Parse tree node types.
-
-    The first four match the Valtypes of final message definitions.
-    """
-
-    BASE = auto()
-    NAME = auto()
-    ARRAY = auto()
-    SEQUENCE = auto()
-
-
 Basename: TypeAlias = Literal[
     'bool',
     'byte',
     'char',
+    'fixed',
     'int8',
     'int16',
     'int32',
@@ -43,6 +33,8 @@ Basename: TypeAlias = Literal[
     'float64',
     'float128',
     'string',
+    'wchar',
+    'wstring',
 ]
 Basetype: TypeAlias = tuple[Basename, int]
 
@@ -55,6 +47,8 @@ FieldDesc: TypeAlias = (
 )
 
 ConstValue: TypeAlias = str | bool | int | float
+ScalarValue: TypeAlias = float | int | bool | str
+Value: TypeAlias = ScalarValue | list[ScalarValue]
 
 Constdefs: TypeAlias = list[tuple[str, Basename, ConstValue]]
 Fielddefs: TypeAlias = list[tuple[str, FieldDesc]]

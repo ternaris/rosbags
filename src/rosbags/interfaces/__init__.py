@@ -6,10 +6,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum, auto
 from typing import TYPE_CHECKING, Generic, NamedTuple, Protocol, TypeAlias, TypeVar
-
-from .typing import Nodetype as _Nodetype
 
 if TYPE_CHECKING:
     from rosbags.interfaces.typing import Typesdict
@@ -17,8 +15,6 @@ if TYPE_CHECKING:
     from .typing import Fielddefs
 
 T = TypeVar('T')
-
-Nodetype = _Nodetype
 
 
 class ConnectionExtRosbag1(NamedTuple):
@@ -172,3 +168,15 @@ class Msgdef(Generic[T]):
     ros1_to_cdr: Bitcvt
     getsize_cdr_to_ros1: BitcvtSize
     cdr_to_ros1: Bitcvt
+
+
+class Nodetype(IntEnum):
+    """Parse tree node types.
+
+    The first four match the Valtypes of final message definitions.
+    """
+
+    BASE = auto()
+    NAME = auto()
+    ARRAY = auto()
+    SEQUENCE = auto()

@@ -10,13 +10,14 @@ from rosbags.typesys import Stores, TypesysError, get_types_from_msg, get_typest
 MSG = """
 # comment
 
-bool b=true
-int32 global=42
-uint8 b = 0b1010
-uint8 o = 0377
-uint8 h = 0xff
-float32 f=1.33
-string str= foo bar\t
+bool B=true
+int32 GLOBAL=42
+uint8 B = 0b1010
+uint8 O = 0377
+uint8 H = 0xff
+float32 F=1.33
+string STR= foo bar\t
+string STR2 =   "foo bar\t"
 
 std_msgs/Header header
 std_msgs/msg/Bool bool
@@ -48,6 +49,7 @@ uint8 h 0xff
 float32 y -314.15e-2
 string name1 "John"
 string name2 'Ringo'
+string nodef\t
 int32[] samples [-200, -100, 0, 100, 200]
 """
 
@@ -63,8 +65,8 @@ time time
 
 ================================================================================
 MSG: test_msgs/Other
-uint64[3] Header
-uint32 static = 42
+uint64[3] header
+uint32 STATIC = 42
 """
 
 CSTRING_CONFUSION_MSG = """
@@ -82,7 +84,6 @@ Other other
 """
 
 KEYWORD_MSG = """
-bool return=true
 uint64 yield
 """
 
@@ -111,9 +112,18 @@ unique_identifier_msgs/msg/UUID goal_id
 control_msgs/action/FollowJointTrajectory_Feedback feedback
 """
 
+ANNOTATION_MSG = """
+@optional
+int8 i1
+@optional int8 i2
+"""
+
 
 def test_msg_parser_raises_on_bad_definition() -> None:
     """Test msg parser raises on bad definition."""
+    with pytest.raises(TypesysError, match='Could not parse'):
+        _ = get_types_from_msg('int8 i', 'bad name')
+
     with pytest.raises(TypesysError, match='Could not parse'):
         _ = get_types_from_msg('invalid', 'test_msgs/msg/Foo')
 
@@ -132,13 +142,14 @@ def test_msg_parser_accepts_single_msg() -> None:
     assert 'test_msgs/msg/Foo' in ret
     consts, fields = ret['test_msgs/msg/Foo']
     assert consts == [
-        ('b', 'bool', True),
-        ('global_', 'int32', 42),
-        ('b', 'uint8', 10),
-        ('o', 'uint8', 255),
-        ('h', 'uint8', 255),
-        ('f', 'float32', 1.33),
-        ('str', 'string', 'foo bar'),
+        ('B', 'bool', True),
+        ('GLOBAL', 'int32', 42),
+        ('B', 'uint8', 10),
+        ('O', 'uint8', 255),
+        ('H', 'uint8', 255),
+        ('F', 'float32', 1.33),
+        ('STR', 'string', 'foo bar'),
+        ('STR2', 'string', 'foo bar\t'),
     ]
     assert fields[0][0] == 'header'
     assert fields[0][1][1] == 'std_msgs/msg/Header'
@@ -193,6 +204,7 @@ def test_msg_parser_accepts_field_defaults() -> None:
                 ('y', (1, ('float32', 0))),
                 ('name1', (1, ('string', 0))),
                 ('name2', (1, ('string', 0))),
+                ('nodef', (1, ('string', 0))),
                 ('samples', (4, ((1, ('int32', 0)), 0))),
             ],
         ),
@@ -213,7 +225,7 @@ def test_msg_parser_accepts_multiple_definitions() -> None:
     assert fields[1][1][1] == ('byte', 0)
     assert fields[2][1][1] == ('char', 0)
     consts = ret['test_msgs/msg/Other'][0]
-    assert consts == [('static', 'uint32', 42)]
+    assert consts == [('STATIC', 'uint32', 42)]
 
 
 def test_msg_parser_does_not_confuse_string_constants() -> None:
@@ -250,7 +262,6 @@ def test_msg_parser_avoids_python_keyword_collisions() -> None:
     ret = get_types_from_msg(KEYWORD_MSG, 'keyword_msgs/msg/Foo')
     get_typestore(Stores.EMPTY).register(ret)
 
-    assert ret['keyword_msgs/msg/Foo'][0][0][0] == 'return_'
     assert ret['keyword_msgs/msg/Foo'][1][0][0] == 'yield_'
 
 
@@ -291,3 +302,11 @@ def test_actions_definitions() -> None:
             ],
         )
     }
+
+
+def test_parses_annotations() -> None:
+    """Test msg parser handles annotations."""
+    ret = get_types_from_msg(ANNOTATION_MSG, 'annotation_msgs/msg/Foo')
+    get_typestore(Stores.EMPTY).register(ret)
+
+    assert len(ret['annotation_msgs/msg/Foo'][1]) == 2

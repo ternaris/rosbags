@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """MSG Parser.
 
-Grammar, parse tree visitor and conversion functions for message definitions in
-`MSG`_ format. It also supports concatenated message definitions as found in
-Rosbag1 connection information.
+Parser for the ROS1 and ROS2 `MSG`_ message definition format. It also
+supports concatenated message definitions as found in Rosbag1 connection
+information.
 
 .. _MSG: http://wiki.ros.org/msg
 
@@ -13,356 +13,537 @@ Rosbag1 connection information.
 from __future__ import annotations
 
 import re
-from enum import IntEnum, auto
-from pathlib import PurePosixPath as Path
-from typing import TYPE_CHECKING, cast
+from pathlib import PosixPath
+from typing import TYPE_CHECKING
 
-from rosbags.interfaces import Nodetype
-
-from .base import normalize_fieldname, parse_message_definition
-from .peg import Rule, Visitor, parse_grammar
+from .base import (
+    BASE_NAMES,
+    Annotation,
+    BaseType,
+    Cardinality,
+    Constant,
+    Field,
+    Message,
+    NamedType,
+    Type,
+    TypesysError,
+    make_typesdict,
+)
+from .peg import Failure, Parser, Success
 
 if TYPE_CHECKING:
-    from typing import ClassVar, Literal, TypeAlias, TypeVar
-
     from rosbags.interfaces.typing import (
-        BaseDesc,
-        Basename,
-        Constdefs,
-        ConstValue,
-        Fielddefs,
-        FieldDesc,
-        NameDesc,
+        ScalarValue,
         Typesdict,
+        Value,
     )
 
-    T = TypeVar('T')
-
-    L: TypeAlias = 'tuple[Literal["LITERAL"], str]'
-
-    Const: TypeAlias = 'tuple[Literal[Node.CONST], tuple[str, Basename, ConstValue]]'
-    Field: TypeAlias = 'tuple[Literal[Node.FIELD], tuple[str, FieldDesc]]'
-    Msgdesc: TypeAlias = 'tuple[Const | Field, ...]'
-
-GRAMMAR_MSG = r"""
-specification
-  = msgdef (msgsep msgdef)*
-
-msgdef
-  = r'MSG:\s' scoped_name definition*
-
-msgsep
-  = r'================================================================================'
-
-definition
-  = const_dcl
-  / field_dcl
-
-const_dcl
-  = 'string' identifier '=' r'(?!={79}\n)[^\n]+'
-  / type_spec identifier '=' float_literal
-  / type_spec identifier '=' integer_literal
-  / type_spec identifier '=' boolean_literal
-
-field_dcl
-  = type_spec identifier default_value?
-
-type_spec
-  = array_type_spec
-  / bounded_array_type_spec
-  / simple_type_spec
-
-array_type_spec
-  = simple_type_spec array_size
-
-bounded_array_type_spec
-  = simple_type_spec array_bounds
-
-simple_type_spec
-  = 'string' '<=' integer_literal
-  / scoped_name
-
-array_size
-  = '[' integer_literal? ']'
-
-array_bounds
-  = '[<=' integer_literal ']'
-
-scoped_name
-  = identifier '/' scoped_name
-  / identifier
-
-identifier
-  = r'[a-zA-Z_][a-zA-Z_0-9]*'
-
-default_value
-  = literal
-
-literal
-  = float_literal
-  / integer_literal
-  / boolean_literal
-  / string_literal
-  / array_literal
-
-boolean_literal
-  = r'[tT][rR][uU][eE]'
-  / r'[fF][aA][lL][sS][eE]'
-  / '0'
-  / '1'
-
-integer_literal
-  = hexadecimal_literal
-  / binary_literal
-  / octal_literal
-  / decimal_literal
-
-decimal_literal
-  = r'[-+]?[1-9][0-9]+'
-  / r'[-+]?[0-9]'
-
-octal_literal
-  = r'[-+]?0[0-7]+'
-
-binary_literal
-  = r'[-+]?0b[0-7]+'
-
-hexadecimal_literal
-  = r'[-+]?0[xX][a-fA-F0-9]+'
-
-float_literal
-  = r'[-+]?([0-9]+[.][0-9]*|[0-9]*[.][0-9]+)([eE][-+]?[0-9]+)?'
-  / r'[-+]?[0-9]+([eE][-+]?[0-9]+)'
-
-string_literal
-  = '"' r'(\\"|[^"])*' '"'
-  / '\'' r'(\\\'|[^'])*' '\''
-
-array_literal
-  = '[' array_elements? ']'
-
-array_elements
-  = literal ',' array_elements
-  / literal
-"""
+    from .peg import Result
 
 
 def normalize_msgtype(name: str) -> str:
-    """Normalize message typename.
+    """Normalize message name.
 
     Args:
-        name: Message typename.
+        name: Message name.
 
     Returns:
-        Normalized name.
+        Message name in ROS2 style.
 
     """
-    path = Path(name)
+    path = PosixPath(name)
     if path.parent.name not in ('msg', 'action'):
         path = path.parent / 'msg' / path.name
     return str(path)
 
 
-def normalize_fieldtype(typename: str, field: FieldDesc) -> FieldDesc:
-    """Normalize field typename.
+def denormalize_msgtype(name: str) -> str:
+    """Undo message name normalization.
+
+    Args:
+        name: Normalized message name.
+
+    Returns:
+        Message name in ROS1 style.
+
+    """
+    assert '/msg/' in name
+    return str((path := PosixPath(name)).parent.parent / path.name)
+
+
+def normalize_type_ref(typename: str, typ: Type) -> Type:
+    """Normalize type reference.
 
     Args:
         typename: Type name of field owner.
-        idx: Field index.
-        field: Field definition.
+        typ: Type.
 
     Returns:
-        Normalized fieldtype.
+        Normalized type reference.
 
     """
-    if field[0] == Nodetype.BASE:
-        return field
+    if isinstance(typ.ref, BaseType):
+        return typ
 
-    ftype, args = field
-    ifield = field if ftype == Nodetype.NAME else args[0]
-
-    if ifield[0] == Nodetype.BASE:
-        return field
-
-    assert isinstance(ifield, tuple)
-    assert ifield[0] == Nodetype.NAME
-
-    name = ifield[1]
-    if name == 'Header':
-        name = 'std_msgs/msg/Header'
-    elif '/' not in name:
-        name = str(Path(typename).parent / name)
+    name = typ.ref.name
+    if '/' not in name:
+        name = str(PosixPath(typename).parent / name)
     elif '/msg/' not in name and '/action/' not in name:
-        name = str((path := Path(name)).parent / 'msg' / path.name)
-    ifield = Nodetype.NAME, name
+        name = str((path := PosixPath(name)).parent / 'msg' / path.name)
 
-    return ifield if ftype == Nodetype.NAME else (ftype, (ifield, args[1]))  # type: ignore[return-value]
-
-
-def denormalize_msgtype(typename: str) -> str:
-    """Undo message tyoename normalization.
-
-    Args:
-        typename: Normalized message typename.
-
-    Returns:
-        ROS1 style name.
-
-    """
-    assert '/msg/' in typename
-    return str((path := Path(typename)).parent.parent / path.name)
+    return Type(NamedType(name), str_size=typ.str_size, cardinality=typ.cardinality, size=typ.size)
 
 
-class Node(IntEnum):
-    """Parse tree node types."""
+class MSGParser(Parser):
+    """ROS MSG Parser."""
 
-    CONST = auto()
-    FIELD = auto()
+    Separator = '================================================================================'
 
+    MixedSnake = r'[A-Za-z](?:_?[A-Za-z0-9]+)*'
+    LowerSnake = r'[a-z](?:_?[a-z0-9]+)*'
+    MixedCamel = r'[A-Za-z](?:_?[A-Za-z0-9]+)*'
+    UpperCamel = r'[A-Z](?:_?[A-Za-z0-9]+)*'
+    UpperSnake = r'[A-Z](?:_?[A-Z0-9]+)*'
 
-class VisitorMSG(Visitor):
-    """MSG file visitor."""
+    ConstantName = UpperSnake
+    # ROS2 uses stricter LowerSnake.
+    FieldName = MixedSnake
+    # ROS2 uses stricter UpperCamel.
+    MessageName = MixedCamel
+    PackageName = LowerSnake
 
-    RULES = parse_grammar(GRAMMAR_MSG, re.compile(r'(\s|#[^\n]*$)+', re.MULTILINE | re.DOTALL))
+    def specification(self) -> list[Message]:
+        """Parse message specification."""
+        if isinstance(
+            res := self.all(
+                0,
+                (
+                    lambda p: self.regex(p, r'\s*', re.MULTILINE),
+                    self.message,
+                    lambda p: self.many0(
+                        p,
+                        lambda p: self.all(
+                            p,
+                            (
+                                lambda p: self.literal(p, self.Separator + '\n'),
+                                self.message,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            Failure,
+        ):
+            msg = f'Could not parse:\n{self.text!r}\n{res.pos}\n{res.context}\n{res.expected}'
+            raise TypesysError(msg)
 
-    BASETYPES: ClassVar[set[str]] = {
-        'bool',
-        'byte',
-        'char',
-        'int8',
-        'int16',
-        'int32',
-        'int64',
-        'uint8',
-        'uint16',
-        'uint32',
-        'uint64',
-        'float32',
-        'float64',
-        'string',
-    }
+        if res.pos < len(self.text):
+            msg = f'Could not parse:\n{self.text!r}\n{res.pos}\n{self.text[res.pos :]}'
+            raise TypesysError(msg)
 
-    def visit_specification(
-        self,
-        children: tuple[tuple[str, Msgdesc], tuple[tuple[str, tuple[str, Msgdesc]], ...]],
-    ) -> Typesdict:
-        """Process start symbol."""
-        typelist = [children[0], *[x[1] for x in children[1]]]
-        typedict = dict(typelist)
-        res: Typesdict = {}
-        for name, items in typedict.items():
-            consts: Constdefs = []
-            fields: Fielddefs = []
+        _, head, tail = res.value
+        msgs = [head, *(x[1] for x in tail)]
 
-            for item in items:
-                if item[0] == Node.CONST:
-                    consts.append(item[1])
-                else:
-                    assert item[0] == Node.FIELD
-                    fields.append(
-                        (item[1][0], normalize_fieldtype(name, item[1][1])),
-                    )
+        return [
+            Message(
+                name := normalize_msgtype(x.name),
+                x.constants,
+                [y._replace(typ=normalize_type_ref(name, y.typ)) for y in x.fields],
+            )
+            for x in msgs
+        ]
 
-            res[name] = consts, fields
-        return res
+    def message(self, pos: int) -> Result[Message]:
+        """Parse message."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    self.header,
+                    lambda p: self.many0(p, self.line),
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        hdr, lines = res.value
+        constants = [x for x in lines if isinstance(x, Constant)]
+        fields = [x for x in lines if isinstance(x, Field)]
+        return Success(res.pos, Message(hdr, constants, fields))
 
-    def visit_msgdef(self, children: tuple[str, NameDesc, Msgdesc]) -> tuple[str, Msgdesc]:
-        """Process single message definition."""
-        return normalize_msgtype(children[1][1]), children[2]
+    def header(self, pos: int) -> Result[str]:
+        """Parse message header."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    lambda p: self.literal(p, 'MSG: '),
+                    lambda p: self.regex(p, r'[A-Za-z0-9/_]+'),
+                    lambda p: self.regex(p, r'[ \t]*\n'),
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        return Success(res.pos, res.value[1])
 
-    def visit_msgsep(self, _: str) -> None:
-        """Process message separator, suppress output."""
+    def line(self, pos: int) -> Result[Annotation | Constant | Field | None]:
+        """Parse message line."""
+        return self.any(
+            pos,
+            (
+                self.annotation,
+                self.constant,
+                self.field,
+                self.end,
+            ),
+        )
 
-    def visit_const_dcl(self, children: tuple[BaseDesc | L, NameDesc, L, ConstValue]) -> Const:
-        """Process const declaration."""
-        typ: Basename
-        value = children[3]
-        if children[0][0] == 'LITERAL':
-            assert isinstance(value, str)
-            value = value.strip()
-            typ = 'string'
-        else:
-            assert not isinstance(children[3], str)
-            typ = cast('Basename', children[0][1][0])
-        return Node.CONST, (normalize_fieldname(children[1][1]), typ, value)
+    def annotation(self, pos: int) -> Result[Annotation]:
+        """Parse annotation."""
+        if isinstance(
+            res := self.all(
+                self.optspace(pos).pos,
+                (
+                    lambda p: self.literal(p, '@'),
+                    lambda p: self.regex(p, '[a-z]+'),
+                    lambda p: self.any(p, (self.space, self.newline)),
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        return Success(res.pos, Annotation(res.value[1]))
 
-    def visit_field_dcl(
-        self,
-        children: tuple[FieldDesc, NameDesc, tuple[ConstValue, ...]],
-    ) -> Field:
-        """Process field declaration."""
-        return Node.FIELD, (normalize_fieldname(children[1][1]), children[0])
+    def constant(self, pos: int) -> Result[Constant]:
+        """Parse constant."""
+        if isinstance(
+            res := self.all(
+                self.optspace(pos).pos,
+                (
+                    self.base_type,
+                    self.space,
+                    lambda p: self.regex(p, self.ConstantName),
+                    lambda p: self.regex(p, r'[ \t]*=[ \t]*'),
+                    self.value,
+                    self.end,
+                ),
+            ),
+            Failure,
+        ):
+            return res
 
-    def visit_array_type_spec(
-        self,
-        children: tuple[BaseDesc | NameDesc, tuple[L, tuple[int, ...], L]],
-    ) -> FieldDesc:
-        """Process array type specifier."""
-        if length := children[1][1]:
-            return Nodetype.ARRAY, (children[0], length[0])
-        return Nodetype.SEQUENCE, (children[0], 0)
+        typ, _, name, _, value, _ = res.value
+        assert isinstance(typ.ref, BaseType)
+        assert not isinstance(value, list)
+        return Success(res.pos, Constant(typ.ref.name, name, value))
 
-    def visit_bounded_array_type_spec(
-        self,
-        children: tuple[BaseDesc | NameDesc, tuple[L, int, L]],
-    ) -> FieldDesc:
-        """Process bounded array type specifier."""
-        return Nodetype.SEQUENCE, (children[0], children[1][1])
+    def field(self, pos: int) -> Result[Field]:
+        """Parse field."""
+        if isinstance(
+            res := self.all(
+                self.optspace(pos).pos,
+                (
+                    self.typ,
+                    self.space,
+                    lambda p: self.regex(p, self.FieldName),
+                    lambda p: self.optional(
+                        p,
+                        lambda p: self.all(p, (self.space, self.value)),
+                    ),
+                    self.end,
+                ),
+            ),
+            Failure,
+        ):
+            return res
 
-    def visit_simple_type_spec(self, children: NameDesc | tuple[L, L, int]) -> BaseDesc | NameDesc:
-        """Process simple type specifier."""
-        if len(children) == 3:
-            assert children[1] == (Rule.LIT, '<=')
-            assert isinstance(children[2], int)
-            return Nodetype.BASE, ('string', children[2])
-        typespec = children[1]
-        assert isinstance(typespec, str)
+        typ, _, name, optvalue, _ = res.value
+        return Success(res.pos, Field(typ, name, optvalue[1] if optvalue is not None else None))
+
+    def typ(self, pos: int) -> Result[Type]:
+        """Parse type."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    lambda p: self.any(
+                        p,
+                        (
+                            self.bounded_string,
+                            self.base_type,
+                            self.message_type,
+                        ),
+                    ),
+                    lambda p: self.optional(
+                        p,
+                        lambda p: self.all(
+                            p,
+                            (
+                                lambda p: self.literal(p, '['),
+                                lambda p: self.optional(
+                                    p,
+                                    lambda p: self.any(
+                                        p,
+                                        (
+                                            self.decimal_literal,
+                                            lambda p: self.all(
+                                                p,
+                                                (
+                                                    lambda p: self.literal(p, '<='),
+                                                    self.decimal_literal,
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                lambda p: self.literal(p, ']'),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            Failure,
+        ):
+            return res
+
+        typ, default = res.value
+        if default is not None:
+            if default[1] is None:
+                typ = typ._replace(cardinality=Cardinality.SEQUENCE)
+            elif isinstance(default[1], tuple):
+                typ = typ._replace(cardinality=Cardinality.SEQUENCE, size=default[1][1])
+            else:
+                typ = typ._replace(cardinality=Cardinality.ARRAY, size=default[1])
+
+        return Success(res.pos, typ)
+
+    def message_type(self, pos: int) -> Result[Type]:
+        """Parse message type."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    lambda p: self.many0(
+                        p,
+                        lambda p: self.all(
+                            p,
+                            (
+                                lambda p: self.regex(p, self.PackageName),
+                                lambda p: self.literal(p, '/'),
+                            ),
+                        ),
+                    ),
+                    lambda p: self.any(
+                        p,
+                        (
+                            lambda p: self.regex(p, self.MessageName),
+                            lambda p: self.literal(p, 'time'),
+                            lambda p: self.literal(p, 'duration'),
+                        ),
+                    ),
+                ),
+            ),
+            Failure,
+        ):
+            return res
+
+        pkgs, name = res.value
+        name = '/'.join((*(x[0] for x in pkgs), name))
+
         dct: dict[str, str] = {
             'time': 'builtin_interfaces/msg/Time',
             'duration': 'builtin_interfaces/msg/Duration',
+            'Header': 'std_msgs/msg/Header',
         }
-        typespec = dct.get(typespec, typespec)
-        if typespec in VisitorMSG.BASETYPES:
-            return Nodetype.BASE, (cast('Basename', typespec), 0)
-        return Nodetype.NAME, typespec
+        name = dct.get(name, name)
 
-    def visit_scoped_name(self, children: NameDesc | tuple[NameDesc, L, NameDesc]) -> NameDesc:
-        """Process scoped name."""
-        if len(children) == 2:
-            return children
-        return Nodetype.NAME, f'{children[0][1]}/{children[2][1]}'
+        return Success(
+            res.pos,
+            Type(NamedType(name), Cardinality.SCALAR, 0, 0),
+        )
 
-    def visit_identifier(self, children: str) -> NameDesc:
-        """Process identifier."""
-        return Nodetype.NAME, children
+    def bounded_string(self, pos: int) -> Result[Type]:
+        """Parse bounded string."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    lambda p: self.literal(p, 'string<='),
+                    self.decimal_literal,
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        return Success(
+            res.pos,
+            Type(BaseType(BASE_NAMES['string']), Cardinality.SCALAR, res.value[1], 0),
+        )
 
-    def visit_boolean_literal(self, children: str) -> bool:
-        """Process boolean literal."""
-        return children.lower() in {'true', '1'}
+    def base_type(self, pos: int) -> Result[Type]:
+        """Parse base type."""
+        if isinstance(
+            res := self.regex(pos, r'(bool|byte|char|float(32|64)|u?int(8|16|32|64)|string)\b'),
+            Failure,
+        ):
+            return res
+        return Success(res.pos, Type(BaseType(BASE_NAMES[res.value]), Cardinality.SCALAR, 0, 0))
 
-    def visit_float_literal(self, children: str) -> float:
-        """Process float literal."""
-        return float(children)
+    def value(self, pos: int) -> Result[Value]:
+        """Parse value."""
+        return self.any(
+            pos,
+            (self.array_value, self.scalar_value),
+        )
 
-    def visit_decimal_literal(self, children: str) -> int:
-        """Process decimal integer literal."""
-        return int(children)
+    def array_value(self, pos: int) -> Result[list[ScalarValue]]:
+        """Parse array value."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    lambda p: self.literal(p, '['),
+                    self.optspace,
+                    self.scalar_value,
+                    lambda p: self.many0(
+                        p,
+                        (
+                            lambda p: self.all(
+                                p,
+                                (
+                                    self.optspace,
+                                    lambda p: self.literal(p, ','),
+                                    self.optspace,
+                                    self.scalar_value,
+                                ),
+                            )
+                        ),
+                    ),
+                    self.optspace,
+                    lambda p: self.literal(p, ']'),
+                ),
+            ),
+            Failure,
+        ):
+            return res
 
-    def visit_octal_literal(self, children: str) -> int:
-        """Process octal integer literal."""
-        return int(children, 8)
+        _, _, head, sep_tail, _, _ = res.value
+        items = [head, *(x[3] for x in sep_tail)]
+        return Success(res.pos, items)
 
-    def visit_binary_literal(self, children: str) -> int:
-        """Process octal integer literal."""
-        return int(children, 0)
+    def scalar_value(self, pos: int) -> Result[ScalarValue]:
+        """Parse scalar value."""
+        return self.any(
+            pos,
+            (
+                self.float_literal,
+                self.integer_literal,
+                self.boolean_literal,
+                self.string_literal,
+            ),
+        )
 
-    def visit_hexadecimal_literal(self, children: str) -> int:
-        """Process hexadecimal integer literal."""
-        return int(children, 16)
+    def float_literal(self, pos: int) -> Result[float]:
+        """Parse float value."""
+        if isinstance(
+            res := self.regex(
+                pos,
+                (
+                    r'[+-]?([0-9]+\.[0-9]*([eE][+-]?[0-9]+)?)|'
+                    r'(\.[0-9]+([eE][+-]?[0-9]+)?)|'
+                    r'([+-]?[0-9]+[eE][+-]?[0-9]+)'
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        return Success(res.pos, float(res.value))
 
-    def visit_string_literal(self, children: str) -> str:
-        """Process integer literal."""
-        return children[1]
+    def integer_literal(self, pos: int) -> Result[int]:
+        """Parse integer value."""
+        return self.any(
+            pos,
+            (
+                self.hexadecimal_literal,
+                self.binary_literal,
+                self.octal_literal,
+                self.decimal_literal,
+            ),
+        )
+
+    def hexadecimal_literal(self, pos: int) -> Result[int]:
+        """Parse hexadecimal integer value."""
+        if isinstance(res := self.regex(pos, r'[-+]?0[xX][a-fA-F0-9]+'), Failure):
+            return res
+        return Success(res.pos, int(res.value, 0))
+
+    def decimal_literal(self, pos: int) -> Result[int]:
+        """Parse decimal integer value."""
+        if isinstance(res := self.regex(pos, r'[+-]?[0-9]+'), Failure):
+            return res
+        return Success(res.pos, int(res.value))
+
+    def octal_literal(self, pos: int) -> Result[int]:
+        """Parse octal integer value."""
+        if isinstance(res := self.regex(pos, r'[-+]?0[0-7]+'), Failure):
+            return res
+        return Success(res.pos, int(res.value, 8))
+
+    def binary_literal(self, pos: int) -> Result[int]:
+        """Parse binary integer value."""
+        if isinstance(res := self.regex(pos, r'[-+]?0b[01]+'), Failure):
+            return res
+        return Success(res.pos, int(res.value, 0))
+
+    def boolean_literal(self, pos: int) -> Result[bool]:
+        """Parse boolean value."""
+        if isinstance(res := self.regex(pos, r'true|false', re.IGNORECASE), Failure):
+            return res
+        return Success(res.pos, res.value.lower() == 'true')
+
+    def string_literal(self, pos: int) -> Result[str]:
+        """Parse string value."""
+        if isinstance(
+            res := self.regex(pos, r"""('(?:\\.|[^'\\])*')|("(?:\\.|[^"\\])*")"""),
+            Failure,
+        ):
+            if isinstance(res := self.regex(pos, r'[ \t]*[^# \t\n][^\n]*'), Failure):
+                return res
+            return Success(res.pos, res.value.strip())
+        return Success(res.pos, res.value[1:-1])
+
+    def end(self, pos: int) -> Result[None]:
+        """Parse line end."""
+        if isinstance(
+            res := self.all(
+                pos,
+                (
+                    self.optspace,
+                    lambda p: self.optional(p, self.comment),
+                    self.newline,
+                ),
+            ),
+            Failure,
+        ):
+            return res
+        return Success(res.pos, None)
+
+    def comment(self, pos: int) -> Result[str]:
+        """Parse comment."""
+        return self.regex(pos, r'#[^\n]*')
+
+    def newline(self, pos: int) -> Result[str]:
+        """Parse newline."""
+        return self.regex(pos, r'\n|$')
+
+    def optspace(self, pos: int) -> Result[str]:
+        """Parse optional whitespace."""
+        return self.regex(pos, r'[ \t]*')
+
+    def space(self, pos: int) -> Result[str]:
+        """Parse whitespace."""
+        return self.regex(pos, r'[ \t]+')
 
 
 def get_types_from_msg(text: str, name: str) -> Typesdict:
@@ -376,4 +557,4 @@ def get_types_from_msg(text: str, name: str) -> Typesdict:
         list with single message name and parsetree.
 
     """
-    return parse_message_definition(VisitorMSG(), f'MSG: {name}\n{text}')
+    return make_typesdict(MSGParser(f'MSG: {name}\n{text}').specification())

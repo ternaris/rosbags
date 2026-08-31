@@ -56,9 +56,9 @@ def test_generate_msgdef() -> None:
     res = store.generate_msgdef('sensor_msgs/msg/MultiEchoLaserScan')
     assert len(res[0].split('=' * 80)) == 3
 
-    store.register(get_types_from_msg('time[3] times\nuint8 foo=42', 'foo_msgs/Timelist'))
+    store.register(get_types_from_msg('time[3] times\nuint8 FOO=42', 'foo_msgs/Timelist'))
     res = store.generate_msgdef('foo_msgs/msg/Timelist')
-    assert res[0] == 'uint8 foo=42\ntime[3] times\n'
+    assert res[0] == 'uint8 FOO=42\ntime[3] times\n'
 
     with pytest.raises(TypesysError, match='is unknown'):
         _ = store.generate_msgdef('foo_msgs/msg/Badname')
