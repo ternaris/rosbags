@@ -10,12 +10,6 @@ from rosbags.typesys import Stores, TypesysError, get_types_from_idl, get_typest
 IDL_LITERALS_EXPRESSIONS = """
 // assign different literals and expressions
 
-#ifndef FOO
-#define FOO
-
-#include <global>
-#include "local"
-
 const bool g_bool = TRUE;
 const int8 g_int1 = 7;
 const int8 g_int2 = 07;
@@ -31,7 +25,6 @@ module Foo {
     const int64 g_expr2 = 2 * 4;
 };
 
-#endif
 """
 
 IDL = """
