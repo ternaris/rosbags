@@ -75,6 +75,7 @@ dev = [
   "sphinx",
   "sphinx-autodoc-typehints",
   "sphinx-rtd-theme",
+  "ty>=0.0.78",
   # project
   "zstandard",
 ]
@@ -126,6 +127,7 @@ ignore = [
   "PLR0912",
   "PLR0913",
   "PLR0915",
+  "PLR0917",
   "PLR2004",
   # allow asserts
   "S101",
@@ -149,6 +151,9 @@ notice-rgx = "(?i)# (C)opyright 2020-2026 Ternaris\n# (S)PDX-License-Identifier:
 avoid-escape = false
 inline-quotes = "single"
 
+[tool.ruff.lint.per-file-ignores]
+"docs/**.py" = ["CPY001"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -156,3 +161,7 @@ convention = "google"
 [tool.setuptools_scm]
 version_scheme = "only-version"
 local_scheme = "no-local-version"
+
+
+[tool.ty.rules]
+all = "error"
