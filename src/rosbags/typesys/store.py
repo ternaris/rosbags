@@ -114,7 +114,7 @@ class Typestore:
         self.types = {}
         self.fielddefs = {}
         if base:
-            fielddefs: Typesdict = base.FIELDDEFS
+            fielddefs = cast('Typesdict', base.FIELDDEFS)
             self.fielddefs.update(fielddefs)
             self.types.update({k: getattr(base, k.replace('/', '__')) for k in fielddefs})
 
@@ -281,7 +281,7 @@ class Typestore:
         module = module_from_spec(spec)
         sys.modules[name] = module
         exec(code, module.__dict__)  # noqa: S102
-        fielddefs: Typesdict = module.FIELDDEFS
+        fielddefs = cast('Typesdict', module.FIELDDEFS)
 
         for name, (_, fields) in fielddefs.items():
             if have := self.fielddefs.get(name):

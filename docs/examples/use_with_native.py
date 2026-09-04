@@ -3,16 +3,28 @@
 from __future__ import annotations
 
 import importlib
-from typing import TypeVar
+from dataclasses import fields
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from dataclasses import Field
+    from typing import ClassVar, Protocol
+
+    class MessageInstance(Protocol):
+        """Rosbags deserialized message instance."""
+
+        __msgtype__: ClassVar[str]
+        __dataclass_fields__: ClassVar[dict[str, Field[object]]]
+
 
 T = TypeVar('T')
 
 NATIVE_CLASSES: dict[str, type] = {}
 
 
-def to_native(msg: object) -> object:
+def to_native(msg: MessageInstance) -> object:
     """Convert rosbags message to native message.
 
     Args:
@@ -22,25 +34,26 @@ def to_native(msg: object) -> object:
         Native message.
 
     """
-    msgtype: str = msg.__msgtype__  # type: ignore[attr-defined]
+    msgtype: str = msg.__msgtype__
     if msgtype not in NATIVE_CLASSES:
         pkg, name = msgtype.rsplit('/', 1)
         NATIVE_CLASSES[msgtype] = getattr(importlib.import_module(pkg.replace('/', '.')), name)
 
-    fields = {}
-    for name, field in msg.__dataclass_fields__.items():  # type: ignore[attr-defined]
+    kwargs = {}
+    for field in fields(msg):
+        assert isinstance(field.type, str)
         if 'ClassVar' in field.type:
             continue
-        value = getattr(msg, name)
+        value = getattr(msg, field.name)
         if '__msg__' in field.type:
             value = to_native(value)
         elif isinstance(value, list):
             value = [to_native(x) for x in value]
         elif isinstance(value, np.ndarray):
             value = value.tolist()
-        fields[name] = value
+        kwargs[field.name] = value
 
-    return NATIVE_CLASSES[msgtype](**fields)
+    return NATIVE_CLASSES[msgtype](**kwargs)
 
 
 if __name__ == '__main__':

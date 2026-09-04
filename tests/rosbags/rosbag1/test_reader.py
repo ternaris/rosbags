@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from rosbags.interfaces import ConnectionExtRosbag1
 from rosbags.rosbag1 import Reader, ReaderError
 from rosbags.rosbag1.reader import IndexData
 
@@ -289,6 +290,7 @@ def test_reader_accepts_empty_latching(tmp_path: Path) -> None:
     with Reader(bag) as reader:
         connections = list(reader.connections)
         assert len(connections) == 1
+        assert isinstance(connections[0].ext, ConnectionExtRosbag1)
         assert connections[0].ext.latching is None
 
 

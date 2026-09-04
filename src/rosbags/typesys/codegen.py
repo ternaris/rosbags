@@ -42,7 +42,7 @@ def get_typehint(desc: FieldDesc) -> str:
         )
         match = INTLIKE.match(typ)
         assert match, typ
-        return match.group(1)
+        return cast('str', match.group(1))
 
     if desc[0] == Nodetype.NAME:
         assert isinstance(desc[1], str)
@@ -107,8 +107,10 @@ def generate_python_code(
         add = list(typs.keys())
     lines = [
         '# Copyright 2020-2026 Ternaris',
-        '# SPDX-License-Identifier'  # avoid reuse trigger
-        ': Apache-2.0',
+        (
+            '# SPDX-License-Identifier'  # avoid reuse trigger
+            ': Apache-2.0'
+        ),
         '#',
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""Message type definitions."""',

@@ -568,7 +568,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
     return cast('CDRSer', getattr(compile_lines(lines), funcname))
 
 
-def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDeser[T]:
+def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDeser:
     """Generate ros1 deserialization function.
 
     Args:
@@ -702,4 +702,4 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
 
     lines.append('  return cls(*values), pos')
     funcname = 'deserialize_ros1'
-    return cast('CDRDeser[T]', getattr(compile_lines(lines), funcname))
+    return cast('CDRDeser', getattr(compile_lines(lines), funcname))

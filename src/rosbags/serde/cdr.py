@@ -320,9 +320,7 @@ def generate_serialize_cdr(fields: Fielddefs, typestore: Typestore, endianness: 
     return cast('CDRSer', getattr(compile_lines(lines), funcname))
 
 
-def generate_deserialize_cdr(
-    fields: Fielddefs, typestore: Typestore, endianness: str
-) -> CDRDeser[T]:
+def generate_deserialize_cdr(fields: Fielddefs, typestore: Typestore, endianness: str) -> CDRDeser:
     """Generate cdr deserialization function.
 
     Args:
@@ -480,4 +478,4 @@ def generate_deserialize_cdr(
 
     lines.append('  return cls(*values), pos')
     funcname = 'deserialize_cdr'
-    return cast('CDRDeser[T]', getattr(compile_lines(lines), funcname))
+    return cast('CDRDeser', getattr(compile_lines(lines), funcname))

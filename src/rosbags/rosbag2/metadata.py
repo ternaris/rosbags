@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from io import StringIO
-from typing import TYPE_CHECKING, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, NamedTuple, TypedDict, cast
 
 from ruamel.yaml import YAML
 
@@ -112,7 +112,7 @@ def parse_qos(dcts: list[QosDict] | str) -> list[Qos]:
     """Parse and normalize QoS parameters."""
     if not dcts:
         return []
-    items: list[QosDict] = YAML(typ='safe').load(dcts) if isinstance(dcts, str) else dcts
+    items = cast('list[QosDict]', YAML(typ='safe').load(dcts)) if isinstance(dcts, str) else dcts
 
     res: list[Qos] = []
     for item in items:

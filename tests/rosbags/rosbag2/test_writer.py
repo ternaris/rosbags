@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -72,7 +72,7 @@ def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
     bag.open()
     bag.set_custom_data('key1', 'value1')
     with pytest.raises(WriterError, match='non-string value'):
-        bag.set_custom_data('key1', 42)  # type: ignore[arg-type]
+        bag.set_custom_data('key1', cast('str', cast('object', 42)))
     bag.close()
     assert b'key1: value1' in (path / 'metadata.yaml').read_bytes()
 

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -131,8 +131,7 @@ def database(tmp_path: Path) -> Path:
 )
 def schema(request: pytest.FixtureRequest, tmp_path: Path) -> int:
     """Create empty database."""
-    version: int
-    version, sql = request.param
+    version, sql = cast('tuple[int, str]', request.param)
 
     path = tmp_path / 'db.db3'
     con = sqlite3.connect(path)

@@ -24,7 +24,7 @@ from rosbags.typesys import Stores, get_types_from_idl, get_types_from_msg, get_
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Generator, Iterable, Sequence
+    from collections.abc import Collection, Generator, Iterable, Sequence
     from types import TracebackType
     from typing import Literal
 
@@ -220,14 +220,14 @@ class AnyReader:
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Collection[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bags.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).

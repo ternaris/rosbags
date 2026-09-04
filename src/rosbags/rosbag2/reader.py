@@ -32,7 +32,7 @@ from .storage_mcap import McapReader
 from .storage_sqlite3 import Sqlite3Reader
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Mapping
+    from collections.abc import Collection, Generator, Mapping
     from types import TracebackType
     from typing import Literal
 
@@ -65,7 +65,7 @@ if TYPE_CHECKING:
 
         def messages(
             self,
-            connections: Iterable[Connection],
+            connections: Collection[Connection],
             start: int | None = None,
             stop: int | None = None,
         ) -> Generator[tuple[Connection, int, bytes], None, None]:
@@ -255,14 +255,14 @@ class DirectoryReader:
 
     def messages(
         self,
-        connections: Iterable[Connection],
+        connections: Collection[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
@@ -401,14 +401,14 @@ class Reader:
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Collection[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).

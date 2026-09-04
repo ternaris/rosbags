@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from rosbags.interfaces.typing import Basename, FieldDesc
     from rosbags.typesys.store import Msgarg
 
-    Array: TypeAlias = 'list[object] | list[str] | NDArray[np.float64]'
+    Array: TypeAlias = 'list[object] | list[str] | NDArray[np.generic]'  # type: ignore[explicit-any]
     BasetypeMap: TypeAlias = 'dict[Basename, Struct]'
 
 BASETYPEMAP_LE: BasetypeMap = {
@@ -75,7 +75,7 @@ def deserialize_number(
     """
     dtype, size = bmap[basetype], SIZEMAP[basetype]
     pos = (pos + size - 1) & -size
-    return dtype.unpack_from(rawdata, pos)[0], pos + size
+    return cast('bool | float | int', dtype.unpack_from(rawdata, pos)[0]), pos + size
 
 
 def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) -> tuple[str, int]:
@@ -91,7 +91,7 @@ def deserialize_string(rawdata: bytes, bmap: BasetypeMap, pos: int) -> tuple[str
 
     """
     pos = (pos + 4 - 1) & -4
-    length: int = bmap['int32'].unpack_from(rawdata, pos)[0]
+    length = cast('int', bmap['int32'].unpack_from(rawdata, pos)[0])
     val = bytes(rawdata[pos + 4 : pos + 4 + length - 1])
     return val.decode(), pos + 4 + length
 
@@ -191,7 +191,8 @@ def deserialize_message(
             arr, pos = deserialize_array(rawdata, bmap, pos, length, subdesc, typestore)
             values.append(arr)
 
-        elif desc[0] == Nodetype.SEQUENCE:
+        else:
+            assert desc[0] == Nodetype.SEQUENCE
             size, pos = deserialize_number(rawdata, bmap, pos, 'int32')
             arr, pos = deserialize_array(rawdata, bmap, pos, int(size), desc[1][0], typestore)
             values.append(arr)
@@ -366,7 +367,8 @@ def serialize_message(
             lval: list[str] = cast('list[str]', val)
             pos = serialize_array(rawdata, bmap, pos, desc[1][0], lval, typestore)
 
-        elif desc[0] == Nodetype.SEQUENCE:
+        else:
+            assert desc[0] == Nodetype.SEQUENCE
             assert isinstance(val, list | np.ndarray)
             lval = cast('list[str]', val)
             size = len(lval)
@@ -453,7 +455,8 @@ def get_size(message: object, msgdef: Msgdef[object], typestore: Typestore, size
                 raise SerdeError(msg)
             size = get_array_size(subdesc, lval, size, typestore)
 
-        elif desc[0] == Nodetype.SEQUENCE:
+        else:
+            assert desc[0] == Nodetype.SEQUENCE
             assert isinstance(val, list | np.ndarray)
             lval = cast('list[str]', val)
             size = (size + 4 - 1) & -4

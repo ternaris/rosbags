@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum, auto
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from lz4.frame import compress as lz4_compress  # type: ignore[import-untyped]
 
@@ -204,7 +204,7 @@ class Writer:
             return bz2_compress(x, 9)
 
         def lz4(x: bytes) -> bytes:
-            return lz4_compress(x, 0)  # type: ignore[no-any-return,unused-ignore]
+            return cast('bytes', lz4_compress(x, 0))
 
         self.compressor = {'bz2': bz2, 'lz4': lz4}[self.compression_format]
 

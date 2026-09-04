@@ -30,7 +30,7 @@ else:  # pragma: no cover
     from typing_extensions import override
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Collection, Generator
 
     from rosbags.interfaces.typing import RPath
 
@@ -76,7 +76,7 @@ def make_vfs(rpath: RPath) -> apsw.VFS:  # pragma: no cover
                 self._path.close()
 
         @override
-        def __init__(self, name: str = 'rpathvfs') -> None:
+        def __init__(self, name: str = 'rpathvfs', *_args: object, **_kwargs: object) -> None:
             super().__init__(name, '')
 
         @override
@@ -153,11 +153,13 @@ class Sqlite3Reader:
 
         cur = conn.cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
-            schema: int
-            (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone() or (-1,)
+            (schema,) = cast(
+                'tuple[int] | None',
+                cur.execute('SELECT schema_version FROM schema').fetchone(),
+            ) or (-1,)
         elif any(
             x[1] == 'offered_qos_profiles'
-            for x in cast('Iterable[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
+            for x in cast('Collection[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
         ):
             schema = 2
         else:
@@ -172,7 +174,7 @@ class Sqlite3Reader:
                     'digest': x[3],
                 }
                 for x in cast(
-                    'Iterable[tuple[str, str, str, str]]',
+                    'Collection[tuple[str, str, str, str]]',
                     cur.execute(
                         (
                             'SELECT topic_type, encoding, encoded_message_definition,'
@@ -225,7 +227,7 @@ class Sqlite3Reader:
                     offered_qos_profiles,
                     digest,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str, str, str]]',
+                    'Collection[tuple[int, str, str, int, str, str, str]]',
                     cur.execute(
                         (
                             'SELECT topics.id, name, type, count(messages.id), '
@@ -256,7 +258,7 @@ class Sqlite3Reader:
                     serialization_format,
                     offered_qos_profiles,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str, str]]',
+                    'Collection[tuple[int, str, str, int, str, str]]',
                     cur.execute(
                         (
                             'SELECT topics.id, name, type, count(*), '
@@ -286,7 +288,7 @@ class Sqlite3Reader:
                     msgcount,
                     serialization_format,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str]]',
+                    'Collection[tuple[int, str, str, int, str]]',
                     cur.execute(
                         (
                             'SELECT topics.id, name, type, count(*), '
@@ -303,13 +305,13 @@ class Sqlite3Reader:
         self.connections = connections
 
         ((start_time, end_time, msgcount),) = cast(
-            'Iterable[tuple[int, int, int]]',
+            'Collection[tuple[int , int , int] | tuple[None, None, int]]',
             cur.execute(
                 'SELECT MIN(timestamp), MAX(timestamp) + 1, COUNT(*) FROM messages',
             ),
         )
         self.metadata = ReaderMetadata(
-            end_time - start_time if start_time is not None else 0,
+            end_time - start_time if start_time is not None and end_time is not None else 0,
             start_time if start_time is not None else 2**63 - 1,
             end_time if end_time is not None else 0,
             msgcount,
@@ -327,14 +329,14 @@ class Sqlite3Reader:
 
     def messages(
         self,
-        connections: Iterable[Connection],
+        connections: Collection[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
@@ -375,7 +377,7 @@ class Sqlite3Reader:
 
         connmap = {x.id: x for x in self.connections}
 
-        cur = cast('Iterable[tuple[int, int, bytes]]', self.dbconn.execute(querystr, args))
+        cur = cast('Collection[tuple[int, int, bytes]]', self.dbconn.execute(querystr, args))
 
         for cid, timestamp, data in cur:
             yield connmap[cid], timestamp, data

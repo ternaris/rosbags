@@ -4,6 +4,7 @@
 
 import sys
 from enum import IntEnum, auto
+from pathlib import PosixPath
 from typing import Any, BinaryIO, Literal, Protocol, TypeAlias, TypeVar
 
 if sys.version_info >= (3, 11):
@@ -74,11 +75,11 @@ class RPath(Protocol):  # pragma: no cover
 
     def exists(self) -> bool:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
     def is_dir(self) -> bool:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
     def open(  # type: ignore[explicit-any]
         self,
@@ -86,22 +87,22 @@ class RPath(Protocol):  # pragma: no cover
         **kwargs: Any,  # noqa: ANN401
     ) -> BinaryIO:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
     def read_text(
         self,
         encoding: str | None = None,
     ) -> str:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
     def stat(self, *, follow_symlinks: bool = True) -> StatResult:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
-    def __truediv__(self, key: str | Self) -> Self:
+    def __truediv__(self, key: Self | PosixPath | str) -> Self:
         """Proxy."""
-        raise NotImplementedError
+        ...
 
     @property
     def stem(self) -> str:
@@ -111,4 +112,4 @@ class RPath(Protocol):  # pragma: no cover
     @property
     def suffix(self) -> str:
         """Proxy."""
-        raise NotImplementedError
+        ...

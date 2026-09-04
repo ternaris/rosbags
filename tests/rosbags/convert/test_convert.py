@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 from unittest.mock import ANY, MagicMock, call, patch
 
+import numpy as np
 import pytest
 
 from rosbags.convert import ConverterError, convert
@@ -828,7 +829,7 @@ def test_migrate_message() -> None:
             'std_msgs/msg/Int8MultiArray',
         ),
     )
-    msg4.data.resize(4, refcheck=False)
+    msg4.data = np.resize(msg4.data, 4)
     res4 = cast(
         'Int16MultiArray2',
         migrate_message(
@@ -892,7 +893,7 @@ def test_migrate_message() -> None:
             'shape_msgs/msg/MeshTriangle',
         ),
     )
-    msg7.vertex_indices.resize(10, refcheck=False)
+    msg7.vertex_indices = np.resize(msg7.vertex_indices, 10)
     res7 = cast(
         'MeshTriangle2',
         migrate_message(
@@ -913,7 +914,7 @@ def test_migrate_message() -> None:
             'shape_msgs/msg/MeshTriangle',
         ),
     )
-    msg7.vertex_indices.resize(1, refcheck=False)
+    msg7.vertex_indices = np.resize(msg7.vertex_indices, 1)
     res7 = cast(
         'MeshTriangle2',
         migrate_message(

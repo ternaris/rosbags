@@ -34,7 +34,7 @@ from .errors import ReaderError
 from .metadata import ReaderMetadata, parse_qos
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable
+    from collections.abc import Callable, Collection, Generator
     from pathlib import Path
     from typing import BinaryIO
 
@@ -116,16 +116,16 @@ class Msg(NamedTuple):
 
 MAXSIZE: int = 2**63 - 1
 
-deserialize_uint16: Unpack = struct.Struct('<H').unpack
-deserialize_uint32: Unpack = struct.Struct('<I').unpack
-deserialize_uint64: Unpack = struct.Struct('<Q').unpack
+deserialize_uint16 = cast('Unpack', struct.Struct('<H').unpack)
+deserialize_uint32 = cast('Unpack', struct.Struct('<I').unpack)
+deserialize_uint64 = cast('Unpack', struct.Struct('<Q').unpack)
 
-deserialize_hq: Unpack2 = struct.Struct('<HQ').unpack
-deserialize_qq: Unpack2 = struct.Struct('<QQ').unpack
-deserialize_qqqi: Unpack4 = struct.Struct('<QQQI').unpack
-deserialize_qqqq: Unpack4 = struct.Struct('<QQQQ').unpack
-deserialize_hiqq: Unpack4 = struct.Struct('<HIQQ').unpack
-deserialize_qhiqq: Unpack5 = struct.Struct('<QHIQQ').unpack
+deserialize_hq = cast('Unpack2', struct.Struct('<HQ').unpack)
+deserialize_qq = cast('Unpack2', struct.Struct('<QQ').unpack)
+deserialize_qqqi = cast('Unpack4', struct.Struct('<QQQI').unpack)
+deserialize_qqqq = cast('Unpack4', struct.Struct('<QQQQ').unpack)
+deserialize_hiqq = cast('Unpack4', struct.Struct('<HIQQ').unpack)
+deserialize_qhiqq = cast('Unpack5', struct.Struct('<QHIQQ').unpack)
 
 
 def read_sized(bio: BinaryIO) -> bytes:
@@ -373,7 +373,7 @@ class McapReader:
                     {
                         x[0]: x[1]
                         for x in cast(
-                            'Iterable[tuple[int, int]]',
+                            'Collection[tuple[int, int]]',
                             iter_unpack('<HQ', bio.read(deserialize_uint32(bio.read(4))[0])),
                         )
                     },
@@ -502,7 +502,7 @@ class McapReader:
 
     def messages_scan(
         self,
-        connections: Iterable[Connection],
+        connections: Collection[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
@@ -548,14 +548,14 @@ class McapReader:
 
     def messages(
         self,
-        connections: Iterable[Connection],
+        connections: Collection[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
         Args:
-            connections: Iterable with connections to filter for.
+            connections: Collection with connections to filter for.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
 
@@ -639,7 +639,7 @@ def write_schema(bio: BinaryIO, schema: Schema) -> None:
     write_record(bio, 0x03, rec)
 
 
-def write_channel(bio: BinaryIO, channel: Channel, schemas: Iterable[Schema]) -> None:
+def write_channel(bio: BinaryIO, channel: Channel, schemas: Collection[Schema]) -> None:
     """Write schema."""
     rec = BytesIO()
     write_uint16(rec, channel.id)

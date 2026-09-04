@@ -11,9 +11,9 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-if sys.version_info >= (3, 12):  # pragma: no cover
+if sys.version_info >= (3, 12):
     from typing import override
-else:  # pragma: no cover
+else:
     from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -57,6 +57,7 @@ def _comparable() -> Generator[None, None, None]:
         def __getattr__(self, name: str) -> object:
             return cast('object', getattr(self.child, name))
 
+        @override
         def __hash__(self) -> int:
             return hash(self.child)
 

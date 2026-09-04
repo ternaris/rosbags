@@ -140,7 +140,7 @@ def bag_with_compression(
     mock_storage: MagicMock,
 ) -> Path:
     """Manually construct bag with compression."""
-    param: str = request.param
+    param = cast('str', request.param)
     _ = (tmp_path / 'metadata.yaml').write_text(
         METADATA.format(
             extension='' if param != 'file' else '.zstd',
@@ -178,7 +178,7 @@ def bag_with_compression(
             """Initialize."""
             self.index = int(path.stem[-1])
             self.path = path
-            self.connections = (
+            self.connections: list[Connection] = (
                 [
                     Connection(201, '/poly', 'geometry_msgs/msg/Polygon', *defargs),
                     Connection(101, '/magn', 'sensor_msgs/msg/MagneticField', *defargs),

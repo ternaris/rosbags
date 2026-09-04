@@ -18,7 +18,7 @@ from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
-if sys.version_info >= (3, 12):  # pragma: no cover
+if sys.version_info >= (3, 12):
     from typing import override
 else:  # pragma: no cover
     from typing_extensions import override
@@ -35,7 +35,7 @@ from rosbags.interfaces import (
 from rosbags.typesys.msg import normalize_msgtype
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable
+    from collections.abc import Callable, Collection, Generator
     from types import TracebackType
     from typing import BinaryIO, Literal
 
@@ -46,8 +46,8 @@ if TYPE_CHECKING:
 
     from rosbags.interfaces.typing import RPath
 
-    Unpack = Callable[[bytes], 'tuple[int]']
-    UnpackFrom = Callable[[bytes, int], 'tuple[int]']
+    Unpack = Callable[[bytes], tuple[int]]
+    UnpackFrom = Callable[[bytes, int], tuple[int]]
 
 
 class ReaderError(Exception):
@@ -133,6 +133,7 @@ class IndexData(NamedTuple):
             return self.time != other[0]
         return NotImplemented  # pragma: no cover
 
+    @override
     def __hash__(self) -> int:
         """Use normal tuple hash."""
         return hash(tuple(self))  # pragma: no cover
@@ -144,9 +145,9 @@ decompressors: dict[str, Callable[[bytes], bytes]] = {
     Compression.LZ4.value: cast('Callable[[bytes], bytes]', lz4_decompress),
 }
 
-deserialize_uint8: Unpack = struct.Struct('<B').unpack
-deserialize_uint32: UnpackFrom = struct.Struct('<L').unpack_from
-deserialize_uint64: Unpack = struct.Struct('<Q').unpack
+deserialize_uint8 = cast('Unpack', struct.Struct('<B').unpack)
+deserialize_uint32 = cast('UnpackFrom', struct.Struct('<L').unpack_from)
+deserialize_uint64 = cast('Unpack', struct.Struct('<Q').unpack)
 
 
 def deserialize_time(val: bytes) -> int:
@@ -654,14 +655,14 @@ class Reader:
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Collection[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bag.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
