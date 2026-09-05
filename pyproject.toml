@@ -103,7 +103,7 @@ addopts = ["--verbose"]
 
 [tool.ruff]
 line-length = 100
-namespace-packages = ["docs", "docs/examples", "tools/bench", "tools/compare"]
+namespace-packages = ["docs", "docs/examples"]
 
 [tool.ruff.format]
 quote-style = "single"
