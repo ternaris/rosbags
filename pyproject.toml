@@ -28,7 +28,7 @@ dependencies = [
   "numpy",
   "ruamel.yaml",
   "typing_extensions >= 4.5",
-  "zstandard",
+  "zstandard; python_version < '3.14'",
 ]
 dynamic = ["version"]
 keywords = [
@@ -75,6 +75,8 @@ dev = [
   "sphinx",
   "sphinx-autodoc-typehints",
   "sphinx-rtd-theme",
+  # project
+  "zstandard",
 ]
 
 

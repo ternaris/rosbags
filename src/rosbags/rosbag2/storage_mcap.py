@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import heapq
 import struct
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -13,8 +14,12 @@ from io import BytesIO
 from struct import iter_unpack, unpack_from
 from typing import TYPE_CHECKING, NamedTuple, cast
 
-import zstandard
 from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    import zstandard as zstd
 
 from rosbags.interfaces import (
     Connection,
@@ -146,7 +151,7 @@ def read_string(bio: BinaryIO) -> str:
 DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
     '': lambda x, _: x,
     'lz4': lambda x, _: lz4_decompress(x),
-    'zstd': zstandard.ZstdDecompressor().decompress,
+    'zstd': lambda x, _: zstd.decompress(x),
 }
 
 
@@ -685,7 +690,7 @@ class McapWriter:
         self.compressor: Callable[[bytes], bytes]
         if compression == CompressionMode.STORAGE:
             self.compression = 'zstd'
-            self.compressor = zstandard.ZstdCompressor().compress
+            self.compressor = zstd.compress
         else:
             self.compression = ''
             self.compressor = lambda x: x

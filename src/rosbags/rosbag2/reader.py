@@ -4,13 +4,19 @@
 
 from __future__ import annotations
 
+import shutil
+import sys
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Protocol, cast
 
-import zstandard
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
+
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    import zstandard as zstd
 
 from rosbags.interfaces import (
     Connection,
@@ -26,7 +32,6 @@ from .storage_mcap import McapReader
 from .storage_sqlite3 import Sqlite3Reader
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Generator, Iterable, Mapping
     from types import TracebackType
     from typing import Literal
@@ -206,11 +211,14 @@ class DirectoryReader:
         if compression_mode == 'file':
             self.tmpdir = TemporaryDirectory()
             tmpdir = self.tmpdir.name
-            decomp = zstandard.ZstdDecompressor()
             for path in paths:
                 storage_file = Path(tmpdir, path.stem)
-                with path.open('rb') as infile, storage_file.open('wb') as outfile:
-                    _ = decomp.copy_stream(infile, outfile)
+                with (
+                    path.open('rb') as bio,
+                    zstd.open(bio, 'rb') as infile,
+                    storage_file.open('wb') as outfile,
+                ):
+                    shutil.copyfileobj(infile, outfile)
                 storage_paths.append(storage_file)
         else:
             storage_paths = paths[:]
@@ -273,9 +281,8 @@ class DirectoryReader:
                 x.id: next(y for y in connections if x.topic == y.topic) for x in storage_conns
             }
             if self.metadata.compression_mode == 'message':
-                decomp = zstandard.ZstdDecompressor().decompress
                 for storage_conn, timestamp, data in storage.messages(storage_conns, start, stop):
-                    yield connmap[storage_conn.id], timestamp, decomp(data)
+                    yield connmap[storage_conn.id], timestamp, zstd.decompress(data)
             else:
                 for storage_conn, timestamp, data in storage.messages(storage_conns, start, stop):
                     yield connmap[storage_conn.id], timestamp, data

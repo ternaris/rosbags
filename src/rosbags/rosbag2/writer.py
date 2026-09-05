@@ -4,12 +4,18 @@
 
 from __future__ import annotations
 
+import shutil
+import sys
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import zstandard
 from ruamel.yaml import YAML
+
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    import zstandard as zstd
 
 from rosbags.interfaces import (
     Connection,
@@ -26,7 +32,6 @@ from .storage_mcap import McapWriter
 from .storage_sqlite3 import Sqlite3Writer
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Mapping, Sequence
     from types import TracebackType
     from typing import Literal, Protocol
@@ -109,7 +114,6 @@ class Writer:
 
         self.compression_mode = CompressionMode.NONE
         self.compression_format = ''
-        self.compressor: zstandard.ZstdCompressor | None = None
 
         self.storage: StorageWriter | None = None
         self.connections: list[Connection] = []
@@ -139,7 +143,6 @@ class Writer:
             return
         self.compression_mode = mode
         self.compression_format = fmt.name.lower()
-        self.compressor = zstandard.ZstdCompressor()
 
     def set_custom_data(self, key: str, value: str) -> None:
         """Set key value pair in custom_data.
@@ -285,8 +288,7 @@ class Writer:
             raise WriterError(msg)
 
         if self.compression_mode == CompressionMode.MESSAGE:
-            assert self.compressor
-            data = self.compressor.compress(data)
+            data = zstd.compress(data)
 
         self.storage.write(connection, timestamp, data)
         self.counts[connection.id] += 1
@@ -376,9 +378,8 @@ class Writer:
         self.storage = None
 
         if self.compression_mode == CompressionMode.FILE:
-            assert self.compressor
-            with path.open('rb') as infile, dst.open('wb') as outfile:
-                _ = self.compressor.copy_stream(infile, outfile)
+            with path.open('rb') as infile, zstd.open(dst, 'wb') as outfile:
+                shutil.copyfileobj(infile, outfile)
             path.unlink()
 
     def __enter__(self) -> Self:

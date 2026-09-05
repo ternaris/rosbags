@@ -4,13 +4,19 @@
 
 from __future__ import annotations
 
+import shutil
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-import zstandard
 from ruamel.yaml import YAML
+
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    import zstandard as zstd
 
 from rosbags.interfaces import (
     Connection,
@@ -143,8 +149,7 @@ def bag_with_compression(
         ),
     )
 
-    comp = zstandard.ZstdCompressor()
-    textcomp = comp.compress if request.param == 'message' else bytes
+    textcomp = zstd.compress if request.param == 'message' else bytes
 
     db0 = tmp_path / 'db0.dat'
     db0.write_bytes(b'mockdata0')
@@ -154,9 +159,9 @@ def bag_with_compression(
 
     if param == 'file':
         for item in [db0, db1]:
-            with item.open('rb') as ifh, item.with_suffix('.dat.zstd').open('wb') as ofh:
-                _ = comp.copy_stream(ifh, ofh)
-                item.unlink()
+            with item.open('rb') as ifh, zstd.open(item.with_suffix('.dat.zstd'), 'wb') as ofh:
+                shutil.copyfileobj(ifh, ofh)
+            item.unlink()
 
     defargs = (
         MessageDefinition(MessageDefinitionFormat.NONE, ''),
