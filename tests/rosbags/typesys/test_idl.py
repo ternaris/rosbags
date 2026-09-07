@@ -42,7 +42,7 @@ module test_msgs {
   module msg {
     // comment in submodule
     typedef Bool Balias;
-    typedef test_msgs::msg::Bar Bar;
+    typedef test_msgs::msg::Baz::O Bar;
     typedef double d4[4];
 
     module Foo_Constants {
@@ -64,8 +64,10 @@ module test_msgs {
         d4 array;
     };
 
-    module Bar {
-      #define i
+    module Baz {
+      struct O {
+        octet o;
+      };
     };
   };
 
@@ -139,7 +141,7 @@ def test_idl_parser_accepts_complex_document() -> None:
     assert fields[1][0] == 'bool'
     assert fields[1][1][1] == 'std_msgs/msg/Bool'
     assert fields[2][0] == 'sibling'
-    assert fields[2][1][1] == 'test_msgs/msg/Bar'
+    assert fields[2][1][1] == 'test_msgs/msg/Baz/O'
     assert fields[3][1][0] == int(Nodetype.BASE)
     assert fields[4][1][0] == int(Nodetype.SEQUENCE)
     assert fields[5][1][0] == int(Nodetype.SEQUENCE)
