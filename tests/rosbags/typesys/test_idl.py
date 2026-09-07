@@ -159,7 +159,7 @@ def test_idl_parser_accepts_complex_document() -> None:
     assert consts == []
     assert len(fields) == 1
     assert fields[0][0] == 's'
-    assert fields[0][1][1] == ('short', 0)
+    assert fields[0][1][1] == ('int16', 0)
 
 
 def test_idl_parser_accepts_string_arrays() -> None:
