@@ -13,8 +13,14 @@ import argparse
 import os
 import re
 import sys
+from io import StringIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 if TYPE_CHECKING:
     from typing import Callable, NoReturn
@@ -23,17 +29,7 @@ if TYPE_CHECKING:
 class HelpFormatter(argparse.HelpFormatter):
     """Help formatter."""
 
-    def __init__(
-        self,
-        prog: str,
-        indent_increment: int = 2,
-        max_help_position: int = 24,
-        width: int | None = None,
-    ) -> None:
-        """Init."""
-        super().__init__(prog, indent_increment, max_help_position, width)
-        self._width = min(self._width, 78)
-
+    @override
     def _fill_text(self, text: str, width: int, indent: str) -> str:
         """Reformat individual paragraphs."""
         parent = super()._fill_text
@@ -45,6 +41,7 @@ class HelpFormatter(argparse.HelpFormatter):
 
         return '\n\n'.join(map(idn, text.split('\n\n')))
 
+    @override
     def _metavar_formatter(
         self,
         action: argparse.Action,
@@ -62,6 +59,7 @@ class HelpFormatter(argparse.HelpFormatter):
 class ArgumentParser(argparse.ArgumentParser):
     """Argument parser."""
 
+    @override
     def _check_value(self, action: argparse.Action, value: str) -> None:
         """Filter suppressed actions."""
         if isinstance(action, argparse._SubParsersAction):
@@ -119,10 +117,10 @@ PARSER = ArgumentParser(
         '        rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron\n'
         '\n'
         '    Convert bag from legacy rosbag2 (with humble types) to rosbag1:\n'
-        '        rosbags-convert --src ros2_bagdir --dst dst.bag --src_typestore ros2_humble\n'
+        '        rosbags-convert --src ros2_bagdir --dst dst.bag --src-typestore ros2_humble\n'
         '\n'
-        '    Copy only image topics:\n'
-        '        rosbags-convert --src src.bag --dst dst.bag --include-topic sensor_msgs/msg/Image'
+        '    Copy only connections with image message type:\n'
+        '        rosbags-convert --src src.bag --dst dst.bag --include-msgtype sensor_msgs/msg/Image'
     ),
 )
 PARSER_dststore = PARSER.add_argument_group(
@@ -328,7 +326,7 @@ def consume_parser(
         if isinstance(action, argparse._SubParsersAction):
             for option, subaction in action.choices.items():
                 if option == arg:
-                    return subaction, None
+                    return cast('ArgumentParser', subaction), None
 
         if arg.startswith('-'):
             if any(x == arg for x in action.option_strings):
@@ -384,9 +382,9 @@ def complete_actions(
         if not arg and action.required:
             break
 
-    have_positinal = any(not x.startswith('-') for x, _ in completed)
+    have_pos = any(not x.startswith('-') for x, _ in completed)
     for option, descr in sorted(completed):
-        if have_positinal and not arg and option.startswith('-'):
+        if descr == '==SUPPRESS==' or (have_pos and not arg and option.startswith('-')):
             continue
         if option.startswith(arg):
             print(f'string,{option},{descr}')
@@ -418,7 +416,9 @@ def generate_completion() -> None:
     """Generate snippet for sourcing from shell."""
     import shlex
 
-    lexer = shlex.shlex(os.getenv('COMP_LINE'), posix=True)
+    comp_line = os.getenv('COMP_LINE', '')
+    stream = StringIO(comp_line)
+    lexer = shlex.shlex(stream, posix=True)
     pos = int(os.getenv('COMP_POINT', '0'))
     lexer.whitespace_split = True
     lexer.commenters = ''
@@ -426,18 +426,15 @@ def generate_completion() -> None:
     cword = None
 
     next(lexer)
-    laststate = lexer.state  # type: ignore[attr-defined]
     try:
         for index, token in enumerate(lexer):
             args.append(token)
-            laststate = lexer.state  # type: ignore[attr-defined]
-            if cword is None and lexer.instream.tell() > pos:  # type: ignore[attr-defined]
+            if cword is None and stream.tell() > pos:
                 cword = index
+        if comp_line[-1] == ' ':
+            args.append('')
     except ValueError:
         args.append(lexer.token)
-        laststate = 'error'
-    if laststate == ' ':
-        args.append('')
     if cword is None:
         cword = len(args) - 1
 
@@ -445,9 +442,7 @@ def generate_completion() -> None:
     action = None
     excluded: list[argparse.Action] = []
 
-    # interpret_args(parser, action, excluded, args, cword)
     for arg in args[:cword]:
-        # print('string,try', arg)
         if action:
             try:
                 consume_action(action, arg)
