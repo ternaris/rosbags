@@ -72,7 +72,7 @@ module test_msgs {
   };
 
   struct Bar {
-    int i;
+    long i;
   };
 };
 
@@ -152,7 +152,7 @@ def test_idl_parser_accepts_complex_document() -> None:
     assert consts == []
     assert len(fields) == 1
     assert fields[0][0] == 'i'
-    assert fields[0][1][1] == ('int', 0)
+    assert fields[0][1][1] == ('int32', 0)
 
     assert 'Toplevel' in ret
     consts, fields = ret['Toplevel']
