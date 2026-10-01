@@ -170,7 +170,7 @@ def msgsrc(
     subio = BytesIO(DECOMPRESSORS[chunk.compression](compressed_data, chunk.uncompressed_size))
 
     messages: list[Msg] = []
-    while (offset := subio.tell()) < chunk.uncompressed_size:
+    while subio.tell() < chunk.uncompressed_size:
         op_ = ord(subio.read(1))
         if op_ == 0x05:
             recio = BytesIO(read_sized(subio))
@@ -179,7 +179,7 @@ def msgsrc(
                 messages.append(
                     Msg(
                         log_time,
-                        chunk.chunk_start_offset + offset,
+                        chunk.chunk_start_offset,
                         channel_map[channel_id],
                         recio.read(),
                     ),
