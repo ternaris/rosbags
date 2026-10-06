@@ -108,8 +108,16 @@ class Typestore:
     types: dict[str, type[MsgType]]
     fielddefs: Typesdict
 
-    def __init__(self, base: ModuleType | None = None) -> None:
+    def __init__(
+        self,
+        base: ModuleType | None = None,
+        *,
+        max_sequence_length: int = 2**32 - 1,
+    ) -> None:
         """Initialize."""
+        if max_sequence_length < 1:
+            msg = 'max_sequence_length must be positive.'
+            raise ValueError(msg)
         self.cache: dict[str, Msgdef[object]] = {}
         self.types = {}
         self.fielddefs = {}
@@ -117,6 +125,7 @@ class Typestore:
             fielddefs = cast('Typesdict', base.FIELDDEFS)
             self.fielddefs.update(fielddefs)
             self.types.update({k: getattr(base, k.replace('/', '__')) for k in fielddefs})
+        self.max_sequence_length = max_sequence_length
 
     def deserialize_cdr(self, rawdata: bytes | memoryview, typename: str) -> object:
         """Deserialize raw data into a message object.

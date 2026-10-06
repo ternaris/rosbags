@@ -133,6 +133,7 @@ class Typestore(Protocol):
     """Type storage."""
 
     fielddefs: Typesdict
+    max_sequence_length: int
 
     def get_msgdef(self, typename: str) -> Msgdef[object]:
         """Get message definition."""

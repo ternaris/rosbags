@@ -63,8 +63,9 @@ def generate_ros1_to_cdr(
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
-        'from rosbags.serde.primitives import pack_int32_le',
-        'from rosbags.serde.primitives import unpack_int32_le',
+        'from rosbags.serde.utils import check_string, check_sequence',
+        'from rosbags.serde.primitives import pack_uint32_le',
+        'from rosbags.serde.primitives import unpack_uint32_le',
         f'def {funcname}(input, ipos, output, opos, typestore):',
     ]
 
@@ -85,9 +86,10 @@ def generate_ros1_to_cdr(
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
-                lines.append('  length = unpack_int32_le(input, ipos)[0] + 1')
+                lines.append('  length = unpack_uint32_le(input, ipos)[0] + 1')
+                lines.append('  check_string(input, ipos, length - 1, cdr=False)')
                 if copy:
-                    lines.append('  pack_int32_le(output, opos, length)')
+                    lines.append('  pack_uint32_le(output, opos, length)')
                 lines.append('  ipos += 4')
                 lines.append('  opos += 4')
                 if copy:
@@ -110,9 +112,10 @@ def generate_ros1_to_cdr(
                 if subdesc[1][0] == 'string':
                     for _ in range(length):
                         lines.append('  opos = (opos + 4 - 1) & -4')
-                        lines.append('  length = unpack_int32_le(input, ipos)[0] + 1')
+                        lines.append('  length = unpack_uint32_le(input, ipos)[0] + 1')
+                        lines.append('  check_string(input, ipos, length - 1, cdr=False)')
                         if copy:
-                            lines.append('  pack_int32_le(output, opos, length)')
+                            lines.append('  pack_uint32_le(output, opos, length)')
                         lines.append('  ipos += 4')
                         lines.append('  opos += 4')
                         if copy:
@@ -142,21 +145,32 @@ def generate_ros1_to_cdr(
                 aligned = anext_after
         else:
             assert desc[0] == Nodetype.SEQUENCE
-            lines.append('  size = unpack_int32_le(input, ipos)[0]')
+            lines.append('  size = unpack_uint32_le(input, ipos)[0]')
             if copy:
-                lines.append('  pack_int32_le(output, opos, size)')
+                lines.append('  pack_uint32_le(output, opos, size)')
             lines.append('  ipos += 4')
             lines.append('  opos += 4')
             subdesc = desc[1][0]
+            minimum = (
+                4
+                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
+                else SIZEMAP[subdesc[1][0]]
+                if subdesc[0] == Nodetype.BASE
+                else 0
+            )
+            lines.append(
+                f'  check_sequence(input, ipos, size, {minimum}, typestore.max_sequence_length)'
+            )
             aligned = 4
 
             if subdesc[0] == Nodetype.BASE:
                 if subdesc[1][0] == 'string':
                     lines.append('  for _ in range(size):')
-                    lines.append('    length = unpack_int32_le(input, ipos)[0] + 1')
+                    lines.append('    length = unpack_uint32_le(input, ipos)[0] + 1')
+                    lines.append('    check_string(input, ipos, length - 1, cdr=False)')
                     lines.append('    opos = (opos + 4 - 1) & -4')
                     if copy:
-                        lines.append('    pack_int32_le(output, opos, length)')
+                        lines.append('    pack_uint32_le(output, opos, length)')
                     lines.append('    ipos += 4')
                     lines.append('    opos += 4')
                     if copy:
@@ -221,8 +235,9 @@ def generate_cdr_to_ros1(
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
-        'from rosbags.serde.primitives import pack_int32_le',
-        'from rosbags.serde.primitives import unpack_int32_le',
+        'from rosbags.serde.utils import check_string, check_sequence',
+        'from rosbags.serde.primitives import pack_uint32_le',
+        'from rosbags.serde.primitives import unpack_uint32_le',
         f'def {funcname}(input, ipos, output, opos, typestore):',
     ]
 
@@ -243,9 +258,10 @@ def generate_cdr_to_ros1(
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
-                lines.append('  length = unpack_int32_le(input, ipos)[0] - 1')
+                lines.append('  length = unpack_uint32_le(input, ipos)[0] - 1')
+                lines.append('  check_string(input, ipos, length + 1, cdr=True)')
                 if copy:
-                    lines.append('  pack_int32_le(output, opos, length)')
+                    lines.append('  pack_uint32_le(output, opos, length)')
                 lines.append('  ipos += 4')
                 lines.append('  opos += 4')
                 if copy:
@@ -268,9 +284,10 @@ def generate_cdr_to_ros1(
                 if subdesc[1][0] == 'string':
                     for _ in range(length):
                         lines.append('  ipos = (ipos + 4 - 1) & -4')
-                        lines.append('  length = unpack_int32_le(input, ipos)[0] - 1')
+                        lines.append('  length = unpack_uint32_le(input, ipos)[0] - 1')
+                        lines.append('  check_string(input, ipos, length + 1, cdr=True)')
                         if copy:
-                            lines.append('  pack_int32_le(output, opos, length)')
+                            lines.append('  pack_uint32_le(output, opos, length)')
                         lines.append('  ipos += 4')
                         lines.append('  opos += 4')
                         if copy:
@@ -298,21 +315,32 @@ def generate_cdr_to_ros1(
                 aligned = anext_after
         else:
             assert desc[0] == Nodetype.SEQUENCE
-            lines.append('  size = unpack_int32_le(input, ipos)[0]')
+            lines.append('  size = unpack_uint32_le(input, ipos)[0]')
             if copy:
-                lines.append('  pack_int32_le(output, opos, size)')
+                lines.append('  pack_uint32_le(output, opos, size)')
             lines.append('  ipos += 4')
             lines.append('  opos += 4')
             subdesc = desc[1][0]
+            minimum = (
+                5
+                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
+                else SIZEMAP[subdesc[1][0]]
+                if subdesc[0] == Nodetype.BASE
+                else 1
+            )
+            lines.append(
+                f'  check_sequence(input, ipos, size, {minimum}, typestore.max_sequence_length)'
+            )
             aligned = 4
 
             if subdesc[0] == Nodetype.BASE:
                 if subdesc[1][0] == 'string':
                     lines.append('  for _ in range(size):')
                     lines.append('    ipos = (ipos + 4 - 1) & -4')
-                    lines.append('    length = unpack_int32_le(input, ipos)[0] - 1')
+                    lines.append('    length = unpack_uint32_le(input, ipos)[0] - 1')
+                    lines.append('    check_string(input, ipos, length + 1, cdr=True)')
                     if copy:
-                        lines.append('    pack_int32_le(output, opos, length)')
+                        lines.append('    pack_uint32_le(output, opos, length)')
                     lines.append('    ipos += 4')
                     lines.append('    opos += 4')
                     if copy:
@@ -468,6 +496,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
+        'from rosbags.serde.utils import check_string, check_sequence',
         'from rosbags.serde.primitives import pack_bool_le',
         'from rosbags.serde.primitives import pack_byte_le',
         'from rosbags.serde.primitives import pack_char_le',
@@ -501,7 +530,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
             if desc[1][0] == 'string':
                 lines.append('  bval = memoryview(val.encode())')
                 lines.append('  length = len(bval)')
-                lines.append('  pack_int32_le(rawdata, pos, length)')
+                lines.append('  pack_uint32_le(rawdata, pos, length)')
                 lines.append('  pos += 4')
                 lines.append('  rawdata[pos:pos + length] = bval')
                 lines.append('  pos += length')
@@ -519,7 +548,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
                     for idx in range(length):
                         lines.append(f'  bval = memoryview(val[{idx}].encode())')
                         lines.append('  length = len(bval)')
-                        lines.append('  pack_int32_le(rawdata, pos, length)')
+                        lines.append('  pack_uint32_le(rawdata, pos, length)')
                         lines.append('  pos += 4')
                         lines.append('  rawdata[pos:pos + length] = bval')
                         lines.append('  pos += length')
@@ -538,7 +567,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
                 )
         else:
             assert desc[0] == Nodetype.SEQUENCE
-            lines.append('  pack_int32_le(rawdata, pos, len(val))')
+            lines.append('  pack_uint32_le(rawdata, pos, len(val))')
             lines.append('  pos += 4')
             subdesc = desc[1][0]
 
@@ -547,7 +576,7 @@ def generate_serialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRSer:
                     lines.append('  for item in val:')
                     lines.append('    bval = memoryview(item.encode())')
                     lines.append('    length = len(bval)')
-                    lines.append('    pack_int32_le(rawdata, pos, length)')
+                    lines.append('    pack_uint32_le(rawdata, pos, length)')
                     lines.append('    pos += 4')
                     lines.append('    rawdata[pos:pos + length] = bval')
                     lines.append('    pos += length')
@@ -584,16 +613,17 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
+        'from rosbags.serde.utils import check_string, check_sequence',
         'from rosbags.serde.primitives import unpack_bool_le',
         'from rosbags.serde.primitives import unpack_byte_le',
         'from rosbags.serde.primitives import unpack_char_le',
         'from rosbags.serde.primitives import unpack_int8_le',
         'from rosbags.serde.primitives import unpack_int16_le',
         'from rosbags.serde.primitives import unpack_int32_le',
+        'from rosbags.serde.primitives import unpack_uint32_le',
         'from rosbags.serde.primitives import unpack_int64_le',
         'from rosbags.serde.primitives import unpack_uint8_le',
         'from rosbags.serde.primitives import unpack_uint16_le',
-        'from rosbags.serde.primitives import unpack_uint32_le',
         'from rosbags.serde.primitives import unpack_uint64_le',
         'from rosbags.serde.primitives import unpack_float32_le',
         'from rosbags.serde.primitives import unpack_float64_le',
@@ -617,7 +647,8 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
-                lines.append('  length = unpack_int32_le(rawdata, pos)[0]')
+                lines.append('  length = unpack_uint32_le(rawdata, pos)[0]')
+                lines.append('  check_string(rawdata, pos, length, cdr=False)')
                 lines.append('  string = bytes(rawdata[pos + 4:pos + 4 + length]).decode()')
                 lines.append('  values.append(string)')
                 lines.append('  pos += 4 + length')
@@ -632,7 +663,8 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                 if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     for _ in range(length):
-                        lines.append('  length = unpack_int32_le(rawdata, pos)[0]')
+                        lines.append('  length = unpack_uint32_le(rawdata, pos)[0]')
+                        lines.append('  check_string(rawdata, pos, length, cdr=False)')
                         lines.append(
                             '  value.append(bytes(rawdata[pos + 4:pos + 4 + length]).decode())',
                         )
@@ -663,15 +695,26 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
 
         else:
             assert desc[0] == Nodetype.SEQUENCE
-            lines.append('  size = unpack_int32_le(rawdata, pos)[0]')
+            lines.append('  size = unpack_uint32_le(rawdata, pos)[0]')
             lines.append('  pos += 4')
             subdesc = desc[1][0]
+            minimum = (
+                4
+                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
+                else SIZEMAP[subdesc[1][0]]
+                if subdesc[0] == Nodetype.BASE
+                else 0
+            )
+            lines.append(
+                f'  check_sequence(rawdata, pos, size, {minimum}, typestore.max_sequence_length)'
+            )
 
             if subdesc[0] == Nodetype.BASE:
                 if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     lines.append('  for _ in range(size):')
-                    lines.append('    length = unpack_int32_le(rawdata, pos)[0]')
+                    lines.append('    length = unpack_uint32_le(rawdata, pos)[0]')
+                    lines.append('    check_string(rawdata, pos, length, cdr=False)')
                     lines.append(
                         '    value.append(bytes(rawdata[pos + 4:pos + 4 + length]).decode())',
                     )

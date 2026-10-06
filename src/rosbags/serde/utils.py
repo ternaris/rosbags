@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from rosbags.interfaces import Nodetype
 
+from .errors import SerdeError
+
 if TYPE_CHECKING:
     from types import ModuleType
     from typing import TypeVar
@@ -35,6 +37,30 @@ SIZEMAP: dict[Basename, int] = {
     'float64': 8,
     'float128': 16,
 }
+
+
+def check_string(rawdata: bytes | memoryview, pos: int, size: int, *, cdr: bool) -> None:
+    """Validate a length-prefixed string before decoding or converting it."""
+    end = pos + 4 + size
+    if size < int(cdr) or pos < 0 or end > len(rawdata):
+        msg = f'Invalid string length {size} at offset {pos}.'
+        raise SerdeError(msg)
+    if cdr and rawdata[end - 1] != 0:
+        msg = f'Missing string terminator at offset {end - 1}.'
+        raise SerdeError(msg)
+
+
+def check_sequence(
+    rawdata: bytes | memoryview,
+    pos: int,
+    size: int,
+    minimum: int,
+    maximum: int,
+) -> None:
+    """Reject sequence counts that cannot fit in the available bytes."""
+    if pos + size * minimum > len(rawdata) or size > maximum:
+        msg = f'Invalid sequence length {size} at offset {pos}.'
+        raise SerdeError(msg)
 
 
 def align(entry: FieldDesc, typestore: Typestore) -> int:

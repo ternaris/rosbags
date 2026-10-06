@@ -337,6 +337,7 @@ def generate_deserialize_cdr(fields: Fielddefs, typestore: Typestore, endianness
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
+        'from rosbags.serde.utils import check_string, check_sequence',
         f'from rosbags.serde.primitives import unpack_bool_{endianness}',
         f'from rosbags.serde.primitives import unpack_byte_{endianness}',
         f'from rosbags.serde.primitives import unpack_char_{endianness}',
@@ -366,7 +367,8 @@ def generate_deserialize_cdr(fields: Fielddefs, typestore: Typestore, endianness
 
         elif desc[0] == Nodetype.BASE:
             if desc[1][0] == 'string':
-                lines.append(f'  length = unpack_int32_{endianness}(rawdata, pos)[0]')
+                lines.append(f'  length = unpack_uint32_{endianness}(rawdata, pos)[0]')
+                lines.append('  check_string(rawdata, pos, length, cdr=True)')
                 lines.append('  string = bytes(rawdata[pos + 4:pos + 4 + length - 1]).decode()')
                 lines.append('  values.append(string)')
                 lines.append('  pos += 4 + length')
@@ -385,7 +387,8 @@ def generate_deserialize_cdr(fields: Fielddefs, typestore: Typestore, endianness
                     for idx in range(length):
                         if idx:
                             lines.append('  pos = (pos + 4 - 1) & -4')
-                        lines.append(f'  length = unpack_int32_{endianness}(rawdata, pos)[0]')
+                        lines.append(f'  length = unpack_uint32_{endianness}(rawdata, pos)[0]')
+                        lines.append('  check_string(rawdata, pos, length, cdr=True)')
                         lines.append(
                             '  value.append(bytes(rawdata[pos + 4:pos + 4 + length - 1]).decode())',
                         )
@@ -423,17 +426,28 @@ def generate_deserialize_cdr(fields: Fielddefs, typestore: Typestore, endianness
 
         else:
             assert desc[0] == Nodetype.SEQUENCE
-            lines.append(f'  size = unpack_int32_{endianness}(rawdata, pos)[0]')
+            lines.append(f'  size = unpack_uint32_{endianness}(rawdata, pos)[0]')
             lines.append('  pos += 4')
             aligned = 4
             subdesc = desc[1][0]
+            minimum = (
+                5
+                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
+                else SIZEMAP[subdesc[1][0]]
+                if subdesc[0] == Nodetype.BASE
+                else 1
+            )
+            lines.append(
+                f'  check_sequence(rawdata, pos, size, {minimum}, typestore.max_sequence_length)'
+            )
 
             if subdesc[0] == Nodetype.BASE:
                 if subdesc[1][0] == 'string':
                     lines.append('  value = []')
                     lines.append('  for _ in range(size):')
                     lines.append('    pos = (pos + 4 - 1) & -4')
-                    lines.append(f'    length = unpack_int32_{endianness}(rawdata, pos)[0]')
+                    lines.append(f'    length = unpack_uint32_{endianness}(rawdata, pos)[0]')
+                    lines.append('    check_string(rawdata, pos, length, cdr=True)')
                     lines.append(
                         '    value.append(bytes(rawdata[pos + 4:pos + 4 + length - 1]).decode())',
                     )
