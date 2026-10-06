@@ -15,8 +15,8 @@ Limitations
 -----------
 
 - Refuses to convert unindexed rosbag1 files, please reindex files before conversion
-- Currently does not handle split bags
-- Only ROS2 default message types are supported when converting rosbag2 to rosbag1
+- Unindexed MCAP inputs must be in timestamp order
+- Direct CDR-to-ROS1 conversion requires little-endian CDR input
 
 Usage
 -----
@@ -24,13 +24,13 @@ Usage
 .. code-block:: console
 
    # Convert "foo.bag", result will be "foo/"
-   $ rosbags-convert foo.bag
+   $ rosbags-convert --src foo.bag --dst foo
 
    # Convert "bar", result will be "bar.bag"
-   $ rosbags-convert bar
+   $ rosbags-convert --src bar --dst bar.bag
 
    # Convert "foo.bag", save the result as "bar"
-   $ rosbags-convert foo.bag --dst /path/to/bar
+   $ rosbags-convert --src foo.bag --dst /path/to/bar
 
    # Convert "bar", save the result as "foo.bag"
-   $ rosbags-convert bar --dst /path/to/foo.bag
+   $ rosbags-convert --src bar --dst /path/to/foo.bag

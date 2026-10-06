@@ -181,10 +181,10 @@ def command(
             rosbags-convert --src example.bag --dst ros2_bagdir --dst-typestore ros2_iron
 
         Convert bag from legacy rosbag2 (with humble types) to rosbag1:
-            rosbags-convert --src ros2_bagdir --dst dst.bag --src_typestore ros2_humble
+            rosbags-convert --src ros2_bagdir --dst dst.bag --src-typestore ros2_humble
 
-        Copy only image topics:
-            rosbags-convert --src src.bag --dst dst.bag --include-topic sensor_msgs/msg/Image
+        Copy only connections with image message type:
+            rosbags-convert --src src.bag --dst dst.bag --include-msgtype sensor_msgs/msg/Image
 
     Args:
         srcs: Rosbag files to read from.
