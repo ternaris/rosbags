@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import sys
 from hashlib import md5, sha256
 from importlib.util import module_from_spec, spec_from_loader
@@ -13,6 +14,7 @@ from struct import pack_into
 from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
 from rosbags.interfaces import Msgdef, Nodetype
+from rosbags.serde import SerdeError
 from rosbags.serde.cdr import generate_deserialize_cdr, generate_getsize_cdr, generate_serialize_cdr
 from rosbags.serde.ros1 import (
     generate_cdr_to_ros1,
@@ -138,12 +140,21 @@ class Typestore:
             Deserialized message object.
 
         """
+        if len(rawdata) < 4 or bytes(rawdata[:2]) not in {b'\x00\x00', b'\x00\x01'}:
+            msg = 'Invalid or unsupported CDR encapsulation.'
+            raise SerdeError(msg)
         little_endian = bool(rawdata[1])
 
         msgdef = self.get_msgdef(typename)
         func = msgdef.deserialize_cdr_le if little_endian else msgdef.deserialize_cdr_be
-        message, pos = func(rawdata[4:], 0, msgdef.cls, self)
-        assert pos + 4 + 3 >= len(rawdata)
+        try:
+            message, pos = func(rawdata[4:], 0, msgdef.cls, self)
+        except (struct.error, UnicodeDecodeError, ValueError) as exc:
+            msg = f'Could not deserialize {typename!r}: {exc}'
+            raise SerdeError(msg) from exc
+        if pos + 4 + 3 < len(rawdata):
+            msg = f'CDR message size mismatch for {typename!r}.'
+            raise SerdeError(msg)
         return message
 
     def serialize_cdr(
@@ -190,8 +201,14 @@ class Typestore:
         """
         msgdef = self.get_msgdef(typename)
         func = msgdef.deserialize_ros1
-        message, pos = func(rawdata, 0, msgdef.cls, self)
-        assert pos == len(rawdata)
+        try:
+            message, pos = func(rawdata, 0, msgdef.cls, self)
+        except (struct.error, UnicodeDecodeError, ValueError) as exc:
+            msg = f'Could not deserialize {typename!r}: {exc}'
+            raise SerdeError(msg) from exc
+        if pos != len(rawdata):
+            msg = f'ROS1 message size mismatch for {typename!r}.'
+            raise SerdeError(msg)
         return message
 
     def serialize_ros1(self, message: object, typename: str) -> memoryview:
@@ -231,8 +248,14 @@ class Typestore:
         """
         msgdef = self.get_msgdef(typename)
 
-        ipos, opos = msgdef.getsize_ros1_to_cdr(raw, 0, None, 0, self)
-        assert ipos == len(raw)
+        try:
+            ipos, opos = msgdef.getsize_ros1_to_cdr(raw, 0, None, 0, self)
+        except (struct.error, ValueError) as exc:
+            msg = f'Could not convert {typename!r}: {exc}'
+            raise SerdeError(msg) from exc
+        if ipos != len(raw):
+            msg = f'ROS1 message size mismatch for {typename!r}.'
+            raise SerdeError(msg)
 
         size = 4 + opos
         rawdata = memoryview(bytearray(size))
@@ -258,12 +281,20 @@ class Typestore:
             ROS1 serialized message.
 
         """
-        assert raw[1] == 1, 'Message byte order is not little endian'
+        if len(raw) < 4 or bytes(raw[:2]) != b'\x00\x01':
+            msg = 'Direct CDR conversion requires little-endian CDR encapsulation.'
+            raise SerdeError(msg)
 
         msgdef = self.get_msgdef(typename)
 
-        ipos, opos = msgdef.getsize_cdr_to_ros1(raw[4:], 0, None, 0, self)
-        assert ipos + 4 + 3 >= len(raw)
+        try:
+            ipos, opos = msgdef.getsize_cdr_to_ros1(raw[4:], 0, None, 0, self)
+        except (struct.error, ValueError) as exc:
+            msg = f'Could not convert {typename!r}: {exc}'
+            raise SerdeError(msg) from exc
+        if ipos + 4 + 3 < len(raw):
+            msg = f'CDR message size mismatch for {typename!r}.'
+            raise SerdeError(msg)
 
         size = opos
         rawdata = memoryview(bytearray(size))

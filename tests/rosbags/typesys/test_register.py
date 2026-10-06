@@ -17,6 +17,13 @@ def test_raw_typestore_is_empty() -> None:
     assert not store.fielddefs
 
 
+@pytest.mark.parametrize('limit', [0, -1])
+def test_typestore_rejects_nonpositive_sequence_limit(limit: int) -> None:
+    """Test sequence limits must be positive."""
+    with pytest.raises(ValueError, match='max_sequence_length must be positive'):
+        _ = Typestore(max_sequence_length=limit)
+
+
 def test_register_with_new_type() -> None:
     """Test typestore registers new types."""
     store = get_typestore(Stores.LATEST)
