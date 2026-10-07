@@ -566,7 +566,13 @@ class McapReader:
         assert self.bio
 
         if not self.chunks:
-            yield from self.messages_scan(connections, start, stop)
+            previous: int = -(2**63)
+            for message in self.messages_scan(connections, start, stop):
+                if message[1] < previous:
+                    msg = 'Unindexed MCAP messages are not in timestamp order. Use an indexed file.'
+                    raise ReaderError(msg)
+                previous = message[1]
+                yield message
             return
 
         channel_map = {conn.id: conn for conn in connections}

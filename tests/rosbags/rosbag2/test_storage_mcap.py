@@ -653,3 +653,25 @@ def test_write_multichunk(tmp_path: Path, qos: str, compression: str) -> None:
     reader.open()
     assert len(reader.chunks) == 2
     reader.close()
+
+
+def test_unindexed_bag_must_be_ordered(tmp_path: Path) -> None:
+    """Test unindexed bags are ordered."""
+    path = tmp_path / 'unordered.mcap'
+    with path.open('wb') as bio:
+        _ = bio.write(MCAP_HEADER)
+        write_record(bio, 0x01, [make_string('ros2'), make_string('test')])
+        for op, records in [SCHEMAS[0], CHANNELS[0]]:
+            write_record(bio, op, records)
+        for timestamp in [2, 1]:
+            write_record(bio, 0x05, [struct.pack('<HIQQ', 1, 0, timestamp, timestamp), b'X'])
+        write_record(bio, 0x0F, [struct.pack('<I', 0)])
+        write_record(bio, 0x02, [struct.pack('<QQI', 0, 0, 0)])
+        _ = bio.write(MCAP_HEADER)
+    reader = McapReader(path)
+    reader.open()
+    try:
+        with pytest.raises(ReaderError, match='timestamp order'):
+            _ = list(reader.messages(reader.connections))
+    finally:
+        reader.close()
