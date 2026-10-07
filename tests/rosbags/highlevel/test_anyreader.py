@@ -266,7 +266,7 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     '/foo',
                     'test_msg/msg/Foo',
                     MessageDefinition(MessageDefinitionFormat.MSG, 'string foo'),
-                    'msg',
+                    '',
                     0,
                     ConnectionExtRosbag2('', []),
                     self,
@@ -276,11 +276,11 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                     '/bar',
                     'test_msg/msg/Bar',
                     MessageDefinition(
-                        MessageDefinitionFormat.MSG,
+                        MessageDefinitionFormat.IDL,
                         f'{"=" * 80}\nIDL: test_msg/msg/Bar\n'
                         'module test_msgs { module msg { struct Bar {string bar;}; }; };',
                     ),
-                    'idl',
+                    '',
                     0,
                     ConnectionExtRosbag2('', []),
                     self,

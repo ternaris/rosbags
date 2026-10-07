@@ -120,21 +120,30 @@ class AnyReader:
             raise AnyReaderError(*err.args) from err
 
         typs: Typesdict = {}
-        self.connections = [y for x in self.readers for y in x.connections]
-        if self.connections:
-            connections = [
-                x for x in self.connections if x.msgdef.format != MessageDefinitionFormat.NONE
+        digests: dict[str, str] = {}
+        connections = [y for x in self.readers for y in x.connections]
+        if connections:
+            definitions = [
+                x for x in connections if x.msgdef.format != MessageDefinitionFormat.NONE
             ]
-            if connections:
-                sep = '=' * 80 + '\n'
-                for connection in connections:
-                    if connection.msgdef.data.startswith(f'{sep}IDL: '):
-                        for msgdef in connection.msgdef.data.split(sep)[1:]:
-                            hdr, idl = msgdef.split('\n', 1)
-                            assert hdr.startswith('IDL: ')
-                            typs.update(get_types_from_idl(idl))
+            if definitions:
+                for connection in definitions:
+                    if connection.msgdef.format == MessageDefinitionFormat.MSG:
+                        typs.update(
+                            get_types_from_msg(connection.msgdef.data, connection.msgtype),
+                        )
                     else:
-                        typs.update(get_types_from_msg(connection.msgdef.data, connection.msgtype))
+                        assert connection.msgdef.format == MessageDefinitionFormat.IDL
+                        sep = '=' * 80 + '\n'
+                        if connection.msgdef.data.startswith(f'{sep}IDL: '):
+                            for msgdef in connection.msgdef.data.split(sep)[1:]:
+                                hdr, idl = msgdef.split('\n', 1)
+                                assert hdr.startswith('IDL: ')
+                                typs.update(get_types_from_idl(idl))
+                        else:
+                            typs.update(get_types_from_idl(connection.msgdef.data))
+                    if connection.digest:
+                        digests[connection.msgtype] = connection.digest
 
             elif self.default_typestore:
                 typs.update(self.default_typestore.fielddefs)
@@ -144,8 +153,16 @@ class AnyReader:
                     'Instantiate AnyReader with a default_typestore argument.'
                 )
                 raise AnyReaderError(msg)
-        self.typestore.register(typs)
+        typestore = get_typestore(Stores.EMPTY)
+        typestore.register(typs)
+        func = typestore.hash_rihs01 if self.is2 else lambda x: typestore.generate_msgdef(x)[1]
+        for msgtype, digest in digests.items():
+            if (have := func(msgtype)) != digest:
+                msg = f'Message type {msgtype!r} hash mismatch {have} != {digest}'
+                raise AnyReaderError(msg)
         self.isopen = True
+        self.connections = connections
+        self.typestore = typestore
 
     def close(self) -> None:
         """Close rosbag."""

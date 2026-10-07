@@ -17,8 +17,6 @@ from rosbags.interfaces import (
     MessageDefinition,
     MessageDefinitionFormat,
 )
-from rosbags.typesys.msg import get_types_from_msg
-from rosbags.typesys.store import Typestore
 
 from .enums import CompressionMode
 from .errors import ReaderError, WriterError
@@ -183,16 +181,6 @@ class Sqlite3Reader:
                     ),
                 )
             ]
-            for typ in msgtypes:
-                assert typ['encoding'] == 'ros2msg'
-                types = get_types_from_msg(typ['msgdef'], typ['name'])
-
-                store = Typestore()
-                store.register(types)
-
-                assert not typ['digest'] or typ['digest'] == store.hash_rihs01(
-                    typ['name'],
-                ), f'Failed to parse {typ["name"]}'
         else:
             msgtypes = []
 
