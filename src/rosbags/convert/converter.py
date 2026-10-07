@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from functools import partial
 from typing import TYPE_CHECKING, cast
 
@@ -37,9 +38,13 @@ from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from pathlib import Path
-    from typing import Literal
+    from typing import Literal, TypeAlias
 
+    from rosbags.interfaces.typing import FieldDesc
     from rosbags.typesys.store import Msg, Msgarg, Typestore
+
+    MigrationKey: TypeAlias = tuple[Typestore, Typestore, str, str]
+    MigrationPlan: TypeAlias = list[tuple[str, FieldDesc, str | None, FieldDesc | None]]
 
 
 LATCH = [
@@ -123,9 +128,38 @@ def default_message(
                     dtype = 'uint8' if subtyp[1][0] == 'char' else subtyp[1][0]
                     values.append(np.zeros(size, dtype=np.dtype(dtype)))
             else:
-                values.append([cast('Msg', default_message(typestore, subtyp[1]))] * size)
+                values.append(
+                    [cast('Msg', default_message(typestore, subtyp[1])) for _ in range(size)],
+                )
 
     return typestore.types[msgtype](*values)
+
+
+def _create_migration_plan(
+    src_def: list[tuple[str, FieldDesc]],
+    dst_def: list[tuple[str, FieldDesc]],
+) -> MigrationPlan:
+    """Create migration plan for src dst pair."""
+    src_map = dict(src_def)
+    dst_map = dict(dst_def)
+
+    dst_src: dict[str, str | None] = {x: x for x in dst_map if x in src_map}
+
+    removed = [x[0] for x in src_def if x[0] not in dst_map]
+    added = [x[0] for x in dst_def if x[0] not in src_map]
+    for dst_name in added:
+        for src_name in removed:
+            if src_map[src_name] == dst_map[dst_name]:
+                dst_src[dst_name] = src_name
+                removed.remove(src_name)
+                break
+        else:
+            dst_src[dst_name] = None
+
+    return [
+        (name, typ, dst_src[name], src_map.get(dst_src[name] or ''))
+        for name, typ in dst_map.items()
+    ]
 
 
 def migrate_message(
@@ -139,36 +173,29 @@ def migrate_message(
     """Migrate message."""
     values: list[Msgarg] = []
 
-    src_def = src_typestore.fielddefs[src_msgtype][1]
-    dst_def = dst_typestore.fielddefs[dst_msgtype][1]
+    plans = cast(
+        'dict[MigrationKey, MigrationPlan]',
+        cache.setdefault('__migration_plans__', {}),
+    )
+    key = (src_typestore, dst_typestore, src_msgtype, dst_msgtype)
+    if key not in plans:
+        src_def = src_typestore.fielddefs[src_msgtype][1]
+        dst_def = dst_typestore.fielddefs[dst_msgtype][1]
+        plans[key] = _create_migration_plan(src_def, dst_def)
 
-    src_map = dict(src_def)
-    dst_map = dict(dst_def)
-
-    dst_src = {x: x for x in dst_map if x in src_map}
-
-    removed = [x[0] for x in src_def if x[0] not in dst_map]
-    added = [x[0] for x in dst_def if x[0] not in src_map]
-    for dst_name in added:
-        for src_name in removed:
-            if src_map[src_name] == dst_map[dst_name]:
-                dst_src[dst_name] = src_name
-                removed.remove(src_name)
-                break
-        else:
-            dst_src[dst_name] = '__missing__'
-
-    if dst_msgtype not in cache:
+    if dst_msgtype not in cache or not isinstance(
+        cache[dst_msgtype],
+        dst_typestore.types[dst_msgtype],
+    ):
         cache[dst_msgtype] = default_message(dst_typestore, dst_msgtype)
     def_msg = cache[dst_msgtype]
 
-    for dst_name, dst_type in dst_map.items():
-        src_name = dst_src[dst_name]
-        if src_name == '__missing__':
-            values.append(cast('Msgarg', getattr(def_msg, dst_name)))
+    for dst_name, dst_type, src_name, src_type in plans[key]:
+        if src_name is None:
+            values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
             continue
 
-        src_type = src_map[src_name]
+        assert src_type is not None
 
         if dst_type[0] == Nodetype.BASE:
             if src_type[0] == Nodetype.BASE and (dst_type[1][0] == 'string') == (
@@ -176,7 +203,7 @@ def migrate_message(
             ):
                 values.append(cast('Msgarg', getattr(src_msg, src_name)))
             else:
-                values.append(cast('Msgarg', getattr(def_msg, src_name)))
+                values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
         elif dst_type[0] == Nodetype.NAME:
             if src_type[0] == Nodetype.NAME:
                 values.append(
@@ -193,13 +220,19 @@ def migrate_message(
                     ),
                 )
             else:
-                values.append(cast('Msgarg', getattr(def_msg, src_name)))
+                values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
         else:
             assert dst_type[0] in {Nodetype.SEQUENCE, Nodetype.ARRAY}
+            if src_type[0] not in {Nodetype.SEQUENCE, Nodetype.ARRAY}:
+                values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
+                continue
             src_sub = src_type[1][0]
             dst_sub = dst_type[1][0]
-            if src_sub[0] != dst_sub[0]:
-                values.append(cast('Msgarg', getattr(def_msg, src_name)))
+            if src_sub[0] != dst_sub[0] or (
+                dst_sub[0] == Nodetype.BASE
+                and (src_sub[1][0] == 'string') != (dst_sub[1][0] == 'string')
+            ):
+                values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
             else:
                 size = dst_type[1][1]
                 src_value = cast(
@@ -234,7 +267,13 @@ def migrate_message(
                         src_value = np.resize(src_value, size)
                         src_value[oldsize:] = 0
                     else:
-                        src_value += [getattr(def_msg, dst_name)] * (size - oldsize)
+                        defaults = cast('list[str]', getattr(def_msg, dst_name))
+                        src_value = cast(
+                            'list[str] | list[Msg]',
+                            [*cast('list[str]', src_value), *deepcopy(defaults[oldsize:])],
+                        )
+                elif isinstance(src_value, list):
+                    src_value = src_value.copy()
                 values.append(src_value)
 
     return dst_typestore.types[dst_msgtype](*values)
