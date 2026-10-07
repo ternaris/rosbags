@@ -9,6 +9,7 @@ import struct
 import sys
 from binascii import crc32
 from collections import defaultdict
+from contextlib import suppress
 from dataclasses import dataclass
 from importlib.metadata import version
 from io import BytesIO
@@ -263,14 +264,9 @@ class McapReader:
         self.connections: list[Connection] = []
         self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
 
-    def open(self) -> None:
-        """Open MCAP."""
-        try:
-            self.bio = self.path.open('rb')
-        except OSError as err:
-            msg = f'Could not open file {str(self.path)!r}: {err.strerror}.'
-            raise ReaderError(msg) from err
-
+    def _open(self) -> None:
+        """Read MCAP metadata and indexes."""
+        assert self.bio
         magic = self.bio.read(8)
         if not magic:
             msg = f'File {str(self.path)!r} seems to be empty.'
@@ -357,6 +353,21 @@ class McapReader:
             end_time=end_time + 1 if message_count else 0,
             message_count=message_count,
         )
+
+    def open(self) -> None:
+        """Open storage."""
+        try:
+            self.bio = self.path.open('rb')
+        except OSError as err:
+            msg = f'Could not open file {str(self.path)!r}: {err.strerror}.'
+            raise ReaderError(msg) from err
+
+        try:
+            self._open()
+        except BaseException:
+            with suppress(Exception):
+                self.close()
+            raise
 
     def read_index(self) -> None:
         """Read index from file."""
@@ -460,10 +471,17 @@ class McapReader:
                 )
 
     def close(self) -> None:
-        """Close MCAP."""
-        assert self.bio
-        self.bio.close()
-        self.bio = None
+        """Close storage."""
+        bio, self.bio = self.bio, None
+        assert bio
+
+        self.schemas.clear()
+        self.channels.clear()
+        self.chunks.clear()
+        self.statistics = None
+        self.connections.clear()
+        self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
+        bio.close()
 
     def meta_scan(self) -> None:
         """Generate metadata by scanning through file."""
@@ -645,7 +663,7 @@ class McapReader:
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
-        """Read messages from bag.
+        """Read messages.
 
         Args:
             connections: Collection with connections to filter for.

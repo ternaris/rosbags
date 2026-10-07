@@ -796,3 +796,14 @@ def test_summary_channels_are_deduplicated(tmp_path: Path) -> None:
         assert reader.connections[0].id == 1
     finally:
         reader.close()
+
+
+def test_failed_mcap_open_releases_stream(tmp_path: Path) -> None:
+    """Clear stream ownership after invalid magic and allow a subsequent attempt."""
+    path = tmp_path / 'invalid.mcap'
+    _ = path.write_bytes(b'invalid!')
+    reader = McapReader(path)
+    for _ in range(2):
+        with pytest.raises(ReaderError, match='magic'):
+            reader.open()
+        assert reader.bio is None
