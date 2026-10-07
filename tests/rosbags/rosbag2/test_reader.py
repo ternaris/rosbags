@@ -23,13 +23,29 @@ from rosbags.interfaces import (
     ConnectionExtRosbag2,
     MessageDefinition,
     MessageDefinitionFormat,
+    Qos,
+    QosDurability,
+    QosHistory,
+    QosLiveliness,
+    QosReliability,
+    QosTime,
 )
-from rosbags.rosbag2 import Reader, ReaderError
+from rosbags.rosbag2 import (
+    CompressionFormat,
+    CompressionMode,
+    Reader,
+    ReaderError,
+    StoragePlugin,
+    Writer,
+)
 from rosbags.rosbag2.metadata import Metadata
 from rosbags.rosbag2.reader import DirectoryReader
+from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
+
+    from rosbags.typesys.stores.latest import std_msgs__msg__Int8 as Int8
 
 
 METADATA = """
@@ -521,3 +537,83 @@ def test_reader_raises_if_closed(nonempty_bag: Path) -> None:
             _ = next(reader.messages())
 
     check()
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+@pytest.mark.parametrize('raw', [False, True])
+def test_duplicate_topic_connections(tmp_path: Path, plugin: StoragePlugin, *, raw: bool) -> None:
+    """Preserve same-topic connections and filter each connection independently."""
+    store = get_typestore(Stores.LATEST)
+    name = 'std_msgs/msg/Int8'
+    qos = Qos(
+        QosHistory.KEEP_LAST,
+        1,
+        QosReliability.RELIABLE,
+        QosDurability.TRANSIENT_LOCAL,
+        QosTime(0, 0),
+        QosTime(0, 0),
+        QosLiveliness.AUTOMATIC,
+        QosTime(0, 0),
+        avoid_ros_namespace_conventions=False,
+    )
+    path = tmp_path / 'bag'
+    with Writer(path, version=9, storage_plugin=plugin) as writer:
+        first = writer.add_connection('/same', name, typestore=store)
+        second = writer.add_connection('/same', name, typestore=store, offered_qos_profiles=[qos])
+        writer.write(first, 0, store.serialize_cdr(store.types[name](10), name))
+        writer.write(second, 1, store.serialize_cdr(store.types[name](20), name))
+    readpath = (
+        next(path.glob(f'*.{plugin.name.lower() if plugin == StoragePlugin.MCAP else "db3"}'))
+        if raw
+        else path
+    )
+    with Reader(readpath) as reader:
+        assert len(reader.connections) == 2
+        topic = reader.topics['/same']
+        assert topic.msgcount == 2
+        assert len(topic.connections) == 2
+        messages = list(reader.messages())
+        assert [conn.ext for conn, _, _ in messages] == [first.ext, second.ext]
+        assert [
+            cast('Int8', store.deserialize_cdr(data, name)).data for _, _, data in messages
+        ] == [
+            10,
+            20,
+        ]
+        for index, connection in enumerate(reader.connections):
+            selected = list(reader.messages([connection]))
+            assert len(selected) == 1
+            assert selected[0][0] == connection
+            assert selected[0][1] == index
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+@pytest.mark.parametrize('mode', list(CompressionMode))
+def test_time_boundaries(
+    tmp_path: Path,
+    plugin: StoragePlugin,
+    mode: CompressionMode,
+) -> None:
+    """Honor inclusive starts and exclusive stops through reopen."""
+    if plugin == StoragePlugin.SQLITE3 and mode == CompressionMode.STORAGE:
+        return
+    store = get_typestore(Stores.LATEST)
+    path = tmp_path / 'bag'
+    writer = Writer(path, version=9, storage_plugin=plugin)
+    writer.set_compression(mode, CompressionFormat.ZSTD)
+    with writer:
+        connection = writer.add_connection('/x', 'std_msgs/msg/Int8', typestore=store)
+        writer.write(connection, 0, b'\x00\x01\x00\x00\x01')
+        writer.write(connection, 1, b'\x00\x01\x00\x00\x02')
+    reader = Reader(path)
+    for _ in range(2):
+        with reader:
+            assert [t for _, t, _ in reader.messages()] == [0, 1]
+            assert [t for _, t, _ in reader.messages(start=0)] == [0, 1]
+            assert [t for _, t, _ in reader.messages(start=1)] == [1]
+            assert [t for _, t, _ in reader.messages(start=2)] == []
+            assert [t for _, t, _ in reader.messages(stop=0)] == []
+            assert [t for _, t, _ in reader.messages(stop=1)] == [0]
+            assert [t for _, t, _ in reader.messages(stop=2)] == [0, 1]
+            assert [t for _, t, _ in reader.messages(start=0, stop=1)] == [0]
+            assert list(reader.messages(start=1, stop=1)) == []

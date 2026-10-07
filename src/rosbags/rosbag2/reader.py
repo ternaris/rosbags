@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import shutil
 import sys
+from itertools import groupby
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Protocol, cast
@@ -268,18 +269,34 @@ class DirectoryReader:
             stop: Yield only messages before this timestamp (ns).
 
         Yields:
-            tuples of connection, timestamp (ns), and rawdata.
+            Tuples of connection, timestamp (ns), and rawdata.
 
         Raises:
             ReaderError: If reader was not opened.
 
         """
-        topics = [x.topic for x in connections]
         for storage in self.storages:
-            storage_conns = [x for x in storage.connections if x.topic in topics]
-            connmap = {
-                x.id: next(y for y in connections if x.topic == y.topic) for x in storage_conns
+            connmap: dict[int, Connection] = {
+                x.id: conn
+                for x in storage.connections
+                if (
+                    conn := next(
+                        (
+                            y
+                            for y in connections
+                            if y.topic == x.topic
+                            and y.msgtype == x.msgtype
+                            and y.ext == x.ext
+                            and (not x.digest or not y.digest or y.digest == x.digest)
+                        ),
+                        None,
+                    )
+                )
+                is not None
             }
+            storage_conns = [x for x in storage.connections if x.id in connmap]
+            if not storage_conns:
+                continue
             if self.metadata.compression_mode == 'message':
                 for storage_conn, timestamp, data in storage.messages(storage_conns, start, stop):
                     yield connmap[storage_conn.id], timestamp, zstd.decompress(data)
@@ -378,10 +395,23 @@ class Reader:
     def topics(self) -> dict[str, TopicInfo]:
         """Topic information."""
         self._check_open()
-        return {
-            x.topic: TopicInfo(x.msgtype, x.msgdef, x.msgcount, [x])
-            for x in self.storage.connections
-        }
+        topics: dict[str, TopicInfo] = {}
+        for topic, group in groupby(
+            sorted(self.connections, key=lambda x: x.topic),
+            key=lambda x: x.topic,
+        ):
+            connections = list(group)
+            msgtypes = {x.msgtype for x in connections}
+            msgdefs = {x.msgdef for x in connections}
+            topics[topic] = TopicInfo(
+                msgtypes.pop() if len(msgtypes) == 1 else None,
+                msgdefs.pop()
+                if len(msgdefs) == 1
+                else MessageDefinition(MessageDefinitionFormat.NONE, ''),
+                sum(x.msgcount for x in connections),
+                connections,
+            )
+        return topics
 
     @property
     def ros_distro(self) -> str | None:
@@ -414,7 +444,7 @@ class Reader:
             stop: Yield only messages before this timestamp (ns).
 
         Yields:
-            tuples of connection, timestamp (ns), and rawdata.
+            Tuples of connection, timestamp (ns), and rawdata.
 
         Raises:
             ReaderError: If reader was not opened.

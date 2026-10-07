@@ -685,9 +685,9 @@ class Reader:
 
         indexes = [self.indexes[x.id] for x in connections]
         for entry in heapq.merge(*indexes):
-            if start and entry.time < start:
+            if start is not None and entry.time < start:
                 continue
-            if stop and entry.time >= stop:
+            if stop is not None and entry.time >= stop:
                 return
 
             if self.current_chunk[0] != entry.chunk_pos:

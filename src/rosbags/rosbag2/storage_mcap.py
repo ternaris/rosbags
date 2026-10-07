@@ -560,7 +560,7 @@ class McapReader:
             stop: Yield only messages before this timestamp (ns).
 
         Yields:
-            tuples of connection, timestamp (ns), and rawdata.
+            Tuples of connection, timestamp (ns), and rawdata.
 
         """
         assert self.bio
@@ -569,32 +569,18 @@ class McapReader:
             yield from self.messages_scan(connections, start, stop)
             return
 
-        channel_map = {  # pragma: no branch
-            cid: conn
-            for conn in connections
-            if (
-                cid := next(
-                    (
-                        cid
-                        for cid, x in self.channels.items()
-                        if x.schema == conn.msgtype and x.topic == conn.topic
-                    ),
-                    None,
-                )
-            )
-            is not None
-        }
+        channel_map = {conn.id: conn for conn in connections}
 
         chunks = [
             msgsrc(
                 x,
                 channel_map,
-                start or x.message_start_time,
-                stop or x.message_end_time + 1,
+                x.message_start_time if start is None else start,
+                x.message_end_time + 1 if stop is None else stop,
                 self.bio,
             )
             for x in self.chunks
-            if (start is None or start < x.message_end_time)
+            if (start is None or start < x.message_end_time + 1)
             and (stop is None or x.message_start_time < stop)
             and (any(x.channel_count.get(cid, 0) for cid in channel_map))
         ]
@@ -603,7 +589,7 @@ class McapReader:
             if not offset:
                 continue
             assert connection
-            assert data
+            assert data is not None
             yield connection, timestamp, data
 
 

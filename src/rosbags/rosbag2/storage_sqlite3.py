@@ -330,7 +330,7 @@ class Sqlite3Reader:
             stop: Yield only messages before this timestamp (ns).
 
         Yields:
-            tuples of connection, timestamp (ns), and rawdata.
+            Tuples of connection, timestamp (ns), and rawdata.
 
         Raises:
             ReaderError: Bag not open.
@@ -345,9 +345,9 @@ class Sqlite3Reader:
         args: list[apsw.Binding] = []
         clause = 'WHERE'
 
-        topics = tuple({x.topic for x in connections})
-        query.append(f'{clause} topics.name IN ({",".join("?" for _ in topics)})')
-        args += topics
+        ids = tuple({x.id for x in connections})
+        query.append(f'{clause} topics.id IN ({",".join("?" for _ in ids)})')
+        args += ids
         clause = 'AND'
 
         if start is not None:
