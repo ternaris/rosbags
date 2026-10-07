@@ -34,7 +34,7 @@ Instances of the :py:class:`Writer <rosbags.rosbag2.Writer>` class can create an
    String = typestore.types['std_msgs/msg/String']
 
    # Create writer instance and open for writing.
-   with Writer('/home/ros/rosbag_2020_03_24') as writer:
+   with Writer('/home/ros/rosbag_2020_03_24', version=Writer.VERSION_LATEST) as writer:
        # Add new connection.
        topic = '/chatter'
        msgtype = String.__msgtype__

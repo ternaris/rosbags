@@ -182,3 +182,11 @@ def test_failure_cases(tmp_path: Path) -> None:
     bag = Writer(tmp_path / 'bag', version=Writer.VERSION_LATEST)
     with bag, pytest.raises(WriterError, match='Cannot determine message definition'):
         _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')
+
+
+@pytest.mark.parametrize('version', [0, 7, 10])
+def test_rejects_unsupported_writer_version(tmp_path: Path, version: int) -> None:
+    """Test writer rejects unsupported version."""
+    with pytest.raises(WriterError, match='version'):
+        _ = Writer(tmp_path / 'bag', version=cast('Literal[8, 9]', version))
+    assert not (tmp_path / 'bag').exists()

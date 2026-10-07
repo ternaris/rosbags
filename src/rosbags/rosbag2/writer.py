@@ -103,6 +103,9 @@ class Writer:
 
         """
         path = Path(path)
+        if version not in {8, 9}:
+            msg = f'Unsupported rosbag2 writer version {version}; expected 8 or 9.'
+            raise WriterError(msg)
         if path.exists():
             msg = f'{path} exists already, not overwriting.'
             raise WriterError(msg)
