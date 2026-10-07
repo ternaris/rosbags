@@ -7,6 +7,7 @@ from __future__ import annotations
 import heapq
 import struct
 import sys
+from binascii import crc32
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -65,17 +66,6 @@ class Channel(NamedTuple):
     metadata: bytes  # dict[str, str]
 
 
-class Chunk(NamedTuple):
-    """Chunk."""
-
-    start_time: int
-    end_time: int
-    size: int
-    crc: int
-    compression: str
-    records: bytes
-
-
 class ChunkInfo(NamedTuple):
     """Chunk."""
 
@@ -128,24 +118,68 @@ deserialize_hiqq = cast('Unpack4', struct.Struct('<HIQQ').unpack)
 deserialize_qhiqq = cast('Unpack5', struct.Struct('<QHIQQ').unpack)
 
 
+def read_exact(bio: BinaryIO, size: int) -> bytes:
+    """Read exact number of bytes."""
+    pos = bio.tell()
+    data = bio.read(size)
+    if len(data) != size:
+        msg = f'Truncated record at offset {pos}: expected {size} bytes, got {len(data)}.'
+        raise ReaderError(msg)
+    return data
+
+
+def skip_exact(bio: BinaryIO, size: int) -> None:
+    """Skip exact number of bytes."""
+    pos = bio.tell()
+    end = bio.seek(pos + size)
+    if end - pos != size:
+        msg = f'Truncated record at offset {pos}: expected {size} bytes, got {end - pos}.'
+        raise ReaderError(msg)
+
+
 def read_sized(bio: BinaryIO) -> bytes:
     """Read one record."""
-    return bio.read(deserialize_uint64(bio.read(8))[0])
+    return read_exact(bio, deserialize_uint64(read_exact(bio, 8))[0])
 
 
 def skip_sized(bio: BinaryIO) -> None:
     """Read one record."""
-    _ = bio.seek(deserialize_uint64(bio.read(8))[0], 1)
+    size = deserialize_uint64(read_exact(bio, 8))[0]
+    skip_exact(bio, size)
 
 
 def read_bytes(bio: BinaryIO) -> bytes:
     """Read string."""
-    return bio.read(deserialize_uint32(bio.read(4))[0])
+    return read_exact(bio, deserialize_uint32(read_exact(bio, 4))[0])
 
 
 def read_string(bio: BinaryIO) -> str:
     """Read string."""
-    return bio.read(deserialize_uint32(bio.read(4))[0]).decode()
+    return read_bytes(bio).decode()
+
+
+def get_msgdef(schema: Schema | None) -> MessageDefinition:
+    """Get message definition from schema."""
+    fmtmap = {
+        'ros2msg': MessageDefinitionFormat.MSG,
+        'ros2idl': MessageDefinitionFormat.IDL,
+        'omgidl': MessageDefinitionFormat.IDL,
+        '': MessageDefinitionFormat.NONE,
+    }
+    if schema is not None:
+        return MessageDefinition(fmtmap[schema.encoding], schema.data)
+    return MessageDefinition(MessageDefinitionFormat.NONE, '')
+
+
+def get_qos(metadata: bytes) -> list[Qos]:
+    """Get QoS from metadata."""
+    bio = BytesIO(metadata)
+    while bio.tell() < len(metadata):
+        key = read_string(bio)
+        value = read_string(bio)
+        if key == 'offered_qos_profiles':
+            return parse_qos(value)
+    return []
 
 
 DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
@@ -153,6 +187,27 @@ DECOMPRESSORS: dict[str, Callable[[bytes, int], bytes]] = {
     'lz4': lambda x, _: lz4_decompress(x),
     'zstd': lambda x, _: zstd.decompress(x),
 }
+
+
+def decompress(
+    data: bytes,
+    compression: str,
+    size: int,
+    crc: int,
+) -> bytes:
+    """Validate a decoded chunk and its optional checksum."""
+    if compression not in DECOMPRESSORS:
+        msg = f'Unsupported chunk compression {compression!r}.'
+        raise ReaderError(msg)
+    raw = DECOMPRESSORS[compression](data, size)
+
+    if len(raw) != size:
+        msg = f'Chunk size mismatch: expected {size} bytes, got {len(raw)}.'
+        raise ReaderError(msg)
+    if crc and crc32(raw) != crc:
+        msg = 'Chunk checksum mismatch.'
+        raise ReaderError(msg)
+    return raw
 
 
 def msgsrc(
@@ -165,9 +220,11 @@ def msgsrc(
     """Yield messages from chunk in time order."""
     yield Msg(chunk.message_start_time, 0, None, None)
 
+    _ = bio.seek(chunk.chunk_start_offset + 9 + 24)
+    crc = deserialize_uint32(read_exact(bio, 4))[0]
     _ = bio.seek(chunk.chunk_start_offset + 9 + 40 + len(chunk.compression))
-    compressed_data = bio.read(chunk.compressed_size)
-    subio = BytesIO(DECOMPRESSORS[chunk.compression](compressed_data, chunk.uncompressed_size))
+    compressed_data = read_exact(bio, chunk.compressed_size)
+    subio = BytesIO(decompress(compressed_data, chunk.compression, chunk.uncompressed_size, crc))
 
     messages: list[Msg] = []
     while subio.tell() < chunk.uncompressed_size:
@@ -244,9 +301,14 @@ class McapReader:
             raise ReaderError(msg)
 
         assert len(data) == 37
-        assert data[0:9] == b'\x02\x14\x00\x00\x00\x00\x00\x00\x00', data[0:9]
+        if data[0:9] != b'\x02\x14\x00\x00\x00\x00\x00\x00\x00':
+            msg = 'Invalid MCAP footer.'
+            raise ReaderError(msg)
 
         (summary_start,) = deserialize_uint64(data[9:17])
+        if summary_start and not self.data_start <= summary_start <= footer_start:
+            msg = 'Invalid MCAP summary offset.'
+            raise ReaderError(msg)
         if summary_start:
             self.data_end = summary_start
             self.read_index()
@@ -257,7 +319,6 @@ class McapReader:
                 message_count = sum(sum(x.channel_count.values()) for x in self.chunks)
                 start_time = min(x.message_start_time for x in self.chunks)
                 end_time = max(x.message_end_time for x in self.chunks)
-                duration = end_time - start_time
                 cstats: dict[int, int] = defaultdict(int)
                 for chunk in self.chunks:
                     for cid, count in chunk.channel_count.items():
@@ -279,54 +340,21 @@ class McapReader:
             self.data_end = footer_start
             self.meta_scan()
 
-        def get_msgdef(name: str) -> MessageDefinition:
-            """Get message definition for name."""
-            fmtmap = {
-                'ros2msg': MessageDefinitionFormat.MSG,
-                'ros2idl': MessageDefinitionFormat.IDL,
-                'omgidl': MessageDefinitionFormat.IDL,
-                '': MessageDefinitionFormat.NONE,
-            }
-            if msgtype := next((x for x in self.schemas.values() if x.name == name), None):
-                return MessageDefinition(fmtmap[msgtype.encoding], msgtype.data)
-            return MessageDefinition(MessageDefinitionFormat.NONE, '')
-
-        def get_qos(metadata: bytes) -> list[Qos]:
-            bio = BytesIO(metadata)
-            while bio.tell() < len(metadata):
-                key = read_string(bio)
-                value = read_string(bio)
-                if key == 'offered_qos_profiles':
-                    return parse_qos(value)
-            return []
-
         assert self.statistics
-        self.connections = [
-            Connection(
-                x.id,
-                x.topic,
-                x.schema,
-                get_msgdef(x.schema),
-                '',
-                self.statistics.channel_message_counts.get(x.id, 0),
-                ConnectionExtRosbag2(
-                    x.message_encoding,
-                    get_qos(x.metadata),
-                ),
-                self,
-            )
-            for x in self.channels.values()
-        ]
-
+        channel_message_counts = self.statistics.channel_message_counts
         message_count = self.statistics.message_count
         start_time = self.statistics.start_time
         end_time = self.statistics.end_time
         duration = end_time - start_time
 
+        self.connections = [
+            x._replace(msgcount=channel_message_counts.get(x.id, 0)) for x in self.connections
+        ]
+
         self.metadata = self.metadata._replace(
-            duration=duration + 1,
-            start_time=start_time,
-            end_time=end_time + 1,
+            duration=duration + 1 if message_count else 0,
+            start_time=start_time if message_count else MAXSIZE,
+            end_time=end_time + 1 if message_count else 0,
             message_count=message_count,
         )
 
@@ -337,6 +365,8 @@ class McapReader:
 
         schemas = self.schemas
         channels = self.channels
+        connections = self.connections
+        conn_ids = {x.id for x in self.connections}
         chunks = self.chunks
 
         _ = bio.seek(self.data_end)
@@ -346,40 +376,61 @@ class McapReader:
             if op_ in {0x02, 0x0E}:
                 break
 
+            rec = BytesIO(read_sized(bio))
+
             if op_ == 0x03:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
-                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
+                (key,) = deserialize_uint16(rec.read(2))
+                schemas[key] = Schema(
+                    key,
+                    read_string(rec),
+                    read_string(rec),
+                    read_string(rec),
+                )
 
             elif op_ == 0x04:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
+                (key,) = deserialize_uint16(rec.read(2))
                 schema_name = schemas.get(
-                    deserialize_uint16(bio.read(2))[0],
+                    (schema_id := deserialize_uint16(rec.read(2))[0]),
                     Schema(0, '__schemaless__', 'cdr', ''),
                 ).name
                 channels[key] = Channel(
                     key,
                     schema_name,
-                    read_string(bio),
-                    read_string(bio),
-                    read_bytes(bio),
+                    read_string(rec),
+                    read_string(rec),
+                    read_bytes(rec),
                 )
+                if key not in conn_ids:
+                    connections.append(
+                        Connection(
+                            key,
+                            channels[key].topic,
+                            channels[key].schema,
+                            get_msgdef(self.schemas.get(schema_id)),
+                            '',
+                            0,
+                            ConnectionExtRosbag2(
+                                channels[key].message_encoding,
+                                get_qos(channels[key].metadata),
+                            ),
+                            self,
+                        )
+                    )
+                    conn_ids.add(key)
 
             elif op_ == 0x08:
-                _ = bio.seek(8, 1)
                 chunk = ChunkInfo(
-                    *deserialize_qqqq(bio.read(32)),
+                    *deserialize_qqqq(rec.read(32)),
                     {
                         x[0]: x[1]
                         for x in cast(
                             'Collection[tuple[int, int]]',
-                            iter_unpack('<HQ', bio.read(deserialize_uint32(bio.read(4))[0])),
+                            iter_unpack('<HQ', read_bytes(rec)),
                         )
                     },
-                    *deserialize_uint64(bio.read(8)),
-                    read_string(bio),
-                    *deserialize_qq(bio.read(16)),
+                    *deserialize_uint64(rec.read(8)),
+                    read_string(rec),
+                    *deserialize_qq(rec.read(16)),
                     {},
                 )
                 offset_channel = sorted((v, k) for k, v in chunk.message_index_offsets.items())
@@ -396,27 +447,17 @@ class McapReader:
                 )
                 chunks.append(chunk)
 
-            elif op_ == 0x0A:
-                skip_sized(bio)
-
             elif op_ == 0x0B:
-                _ = bio.seek(8, 1)
                 self.statistics = Statistics(
                     *cast(
                         'tuple[int, int, int, int, int, int, int ,int]',
-                        unpack_from('<QHIIIIQQ', bio.read(42), 0),
+                        unpack_from('<QHIIIIQQ', rec.read(42), 0),
                     ),
                     dict(
-                        deserialize_hq(bio.read(10))
-                        for _ in range(deserialize_uint32(bio.read(4))[0] // 10)
+                        deserialize_hq(rec.read(10))
+                        for _ in range(deserialize_uint32(rec.read(4))[0] // 10)
                     ),
                 )
-
-            elif op_ == 0x0D:
-                skip_sized(bio)
-
-            else:
-                skip_sized(bio)
 
     def close(self) -> None:
         """Close MCAP."""
@@ -439,45 +480,80 @@ class McapReader:
 
         schemas = self.schemas
         channels = self.channels
+        connections = self.connections
+        conn_ids = {x.id for x in self.connections}
 
         while bio.tell() < bio_size:
             op_ = ord(bio.read(1))
 
             if op_ == 0x03:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
-                schemas[key] = Schema(key, read_string(bio), read_string(bio), read_string(bio))
+                rec = BytesIO(read_sized(bio))
+                (key,) = deserialize_uint16(rec.read(2))
+                schemas[key] = Schema(
+                    key,
+                    read_string(rec),
+                    read_string(rec),
+                    read_string(rec),
+                )
             elif op_ == 0x04:
-                _ = bio.seek(8, 1)
-                (key,) = deserialize_uint16(bio.read(2))
+                rec = BytesIO(read_sized(bio))
+                (key,) = deserialize_uint16(rec.read(2))
                 schema_name = schemas.get(
-                    deserialize_uint16(bio.read(2))[0],
+                    (schema_id := deserialize_uint16(rec.read(2))[0]),
                     Schema(0, '__schemaless__', 'cdr', ''),
                 ).name
                 channels[key] = Channel(
                     key,
                     schema_name,
-                    read_string(bio),
-                    read_string(bio),
-                    read_bytes(bio),
+                    read_string(rec),
+                    read_string(rec),
+                    read_bytes(rec),
                 )
+                if key not in conn_ids:
+                    connections.append(
+                        Connection(
+                            key,
+                            channels[key].topic,
+                            channels[key].schema,
+                            get_msgdef(self.schemas.get(schema_id)),
+                            '',
+                            0,
+                            ConnectionExtRosbag2(
+                                channels[key].message_encoding,
+                                get_qos(channels[key].metadata),
+                            ),
+                            self,
+                        )
+                    )
+                    conn_ids.add(key)
             elif op_ == 0x05:
                 (size,) = deserialize_uint64(bio.read(8))
-                (cid,) = deserialize_uint16(bio.read(2))
+                if size < 22:
+                    msg = f'Invalid message record length {size}.'
+                    raise ReaderError(msg)
+                (cid,) = deserialize_uint16(read_exact(bio, 2))
                 _ = bio.seek(4, 1)
                 (timestamp,) = deserialize_uint64(bio.read(8))
                 msgcount += 1
                 start_time = min(timestamp, start_time)
                 end_time = max(timestamp, end_time)
                 cstats[cid] += 1
-                _ = bio.seek(size - 14, 1)
+                skip_exact(bio, size - 14)
             elif op_ == 0x06:
-                _ = bio.seek(8, 1)
-                _, _, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
-                compression = read_string(bio)
-                (compressed_size,) = deserialize_uint64(bio.read(8))
+                if bio is not self.bio:
+                    msg = 'Nested MCAP chunks are not supported.'
+                    raise ReaderError(msg)
+                rec = BytesIO(read_sized(bio))
+                _, _, uncompressed_size, crc = deserialize_qqqi(read_exact(rec, 28))
+                compression = read_string(rec)
+                (compressed_size,) = deserialize_uint64(read_exact(rec, 8))
                 bio = BytesIO(
-                    DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
+                    decompress(
+                        read_exact(rec, compressed_size),
+                        compression,
+                        uncompressed_size,
+                        crc,
+                    ),
                 )
                 bio_size = uncompressed_size
                 nchunks += 1
@@ -524,21 +600,38 @@ class McapReader:
 
             if op_ == 0x05:
                 size, channel_id, _, timestamp, _ = deserialize_qhiqq(bio.read(30))
-                data = bio.read(size - 22)
+                if size < 22:
+                    msg = f'Invalid message record length {size}.'
+                    raise ReaderError(msg)
+                data = read_exact(bio, size - 22)
                 if start <= timestamp < stop and channel_id in cmap:
                     yield cmap[channel_id], timestamp, data
             elif op_ == 0x06:
-                (size,) = deserialize_uint64(bio.read(8))
-                start_time, end_time, uncompressed_size, _ = deserialize_qqqi(bio.read(28))
-                if start < end_time and start_time < stop:
+                (size,) = deserialize_uint64(read_exact(bio, 8))
+                if size < 40 or bio is not self.bio:
+                    msg = f'Invalid chunk record length {size} or nested chunk.'
+                    raise ReaderError(msg)
+                record_start = bio.tell()
+                start_time, end_time, uncompressed_size, crc = deserialize_qqqi(read_exact(bio, 28))
+                if start <= end_time and start_time < stop:
                     compression = read_string(bio)
-                    (compressed_size,) = deserialize_uint64(bio.read(8))
+                    (compressed_size,) = deserialize_uint64(read_exact(bio, 8))
+                    if bio.tell() + compressed_size > record_start + size:
+                        msg = 'Compressed data exceeds its chunk record boundary.'
+                        raise ReaderError(msg)
+                    compressed = read_exact(bio, compressed_size)
+                    skip_exact(bio, record_start + size - bio.tell())
                     bio = BytesIO(
-                        DECOMPRESSORS[compression](bio.read(compressed_size), uncompressed_size),
+                        decompress(
+                            compressed,
+                            compression,
+                            uncompressed_size,
+                            crc,
+                        ),
                     )
                     bio_size = uncompressed_size
                 else:
-                    _ = bio.seek(size - 28, 1)
+                    skip_exact(bio, size - 28)
             else:
                 skip_sized(bio)
 

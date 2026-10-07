@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import struct
+import sys
 from io import BytesIO, StringIO
 from itertools import groupby, product
 from typing import TYPE_CHECKING, cast
@@ -27,7 +28,12 @@ from rosbags.interfaces import (
 from rosbags.rosbag2.enums import CompressionMode
 from rosbags.rosbag2.errors import ReaderError
 from rosbags.rosbag2.metadata import dump_qos_v9
-from rosbags.rosbag2.storage_mcap import McapReader, McapWriter
+from rosbags.rosbag2.storage_mcap import McapReader, McapWriter, decompress, read_sized, skip_exact
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -395,6 +401,21 @@ def bag_mcap(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
     return path
 
 
+def test_incomplete_seek() -> None:
+    """Test incomplete seek."""
+
+    class BoundedStream(BytesIO):
+        """Stream limiting seeks to its existing contents."""
+
+        @override
+        def seek(self, offset: int, whence: int = 0) -> int:
+            assert whence == 0
+            return super().seek(min(offset, len(self.getvalue())))
+
+    with pytest.raises(ReaderError, match='expected 2 bytes, got 1'):
+        skip_exact(BoundedStream(b'A'), 2)
+
+
 def test_reader_mcap(bag_mcap: Path) -> None:
     """Test reader mcap reads all messages."""
     reader = McapReader(bag_mcap)
@@ -673,5 +694,105 @@ def test_unindexed_bag_must_be_ordered(tmp_path: Path) -> None:
     try:
         with pytest.raises(ReaderError, match='timestamp order'):
             _ = list(reader.messages(reader.connections))
+    finally:
+        reader.close()
+
+
+@pytest.mark.parametrize('data', [b'', struct.pack('<Q', 100) + b'A', struct.pack('<Q', 2**32 - 1)])
+def test_reader_detects_truncated_records(data: bytes) -> None:
+    """Test reader detects truncated records."""
+    with pytest.raises(ReaderError, match='Truncated record'):
+        _ = read_sized(BytesIO(data))
+
+
+def test_reader_validates_chunk_size_and_checksum() -> None:
+    """Test reader validates declared chunk size and checksum."""
+    with pytest.raises(ReaderError, match='size mismatch'):
+        _ = decompress(b'A', '', 2, 0)
+    with pytest.raises(ReaderError, match='checksum mismatch'):
+        _ = decompress(b'A', '', 1, 1)
+    with pytest.raises(ReaderError, match='compression'):
+        _ = decompress(b'A', 'unknown', 1, 0)
+
+
+@pytest.mark.parametrize(('opcode', 'summary'), [(3, 0), (2, 1), (2, 2**63)])
+def test_reader_rejects_invalid_footer(tmp_path: Path, opcode: int, summary: int) -> None:
+    """Test reader rejects invalid footer."""
+    path = tmp_path / 'invalid.mcap'
+    with path.open('wb') as bio:
+        _ = bio.write(MCAP_HEADER)
+        write_record(bio, 0x01, [make_string('ros2'), make_string('test')])
+        write_record(bio, opcode, [struct.pack('<QQI', summary, 0, 0)])
+        _ = bio.write(MCAP_HEADER)
+    reader = McapReader(path)
+    with pytest.raises(ReaderError, match=r'Invalid MCAP footer|Invalid MCAP summary offset'):
+        reader.open()
+    assert reader.bio is None
+
+
+@pytest.mark.parametrize(
+    ('scan', 'record'),
+    [
+        ('metadata', 'message'),
+        ('metadata', 'nested'),
+        ('messages', 'message'),
+        ('messages', 'nested'),
+        ('messages', 'short_chunk'),
+        ('messages', 'boundary'),
+    ],
+)
+def test_reader_rejects_invalid_records(tmp_path: Path, scan: str, record: str) -> None:
+    """Test reader rejects invalid records."""
+    bio = BytesIO()
+    if record == 'message':
+        _ = bio.write(b'\x05' + struct.pack('<QHIQQ', 21, 1, 0, 1, 1))
+        match = 'Invalid message record length'
+    elif record == 'short_chunk':
+        _ = bio.write(b'\x06' + struct.pack('<Q', 39))
+        match = 'Invalid chunk record length'
+    elif record == 'boundary':
+        write_record(
+            bio, 0x06, [struct.pack('<QQQI', 1, 1, 1, 0), make_string(''), struct.pack('<Q', 1)]
+        )
+        match = 'Compressed data exceeds'
+    else:
+        nested = b'\x06' + struct.pack('<Q', 40) + bytes(40)
+        write_record(
+            bio,
+            0x06,
+            [
+                struct.pack('<QQQI', 1, 1, len(nested), 0),
+                make_string(''),
+                struct.pack('<Q', len(nested)),
+                nested,
+            ],
+        )
+        match = 'Nested MCAP chunks|Invalid chunk record length'
+    reader = McapReader(tmp_path / 'unused.mcap')
+    reader.bio = bio
+    reader.data_end = len(bio.getvalue())
+    try:
+        if scan == 'metadata':
+            with pytest.raises(ReaderError, match=match):
+                reader.meta_scan()
+        else:
+            with pytest.raises(ReaderError, match=match):
+                _ = list(reader.messages_scan([]))
+    finally:
+        reader.close()
+
+
+def test_summary_channels_are_deduplicated(tmp_path: Path) -> None:
+    """Test repeated summary channels produce a single connection."""
+    bio = BytesIO()
+    for opcode, records in [SCHEMAS[0], CHANNELS[0], CHANNELS[0]]:
+        write_record(bio, opcode, records)
+    write_record(bio, 0x0E, [])
+    reader = McapReader(tmp_path / 'unused.mcap')
+    reader.bio = bio
+    try:
+        reader.read_index()
+        assert len(reader.connections) == 1
+        assert reader.connections[0].id == 1
     finally:
         reader.close()
