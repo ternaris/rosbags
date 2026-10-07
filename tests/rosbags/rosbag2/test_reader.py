@@ -491,34 +491,34 @@ def test_reader_raises_if_closed(nonempty_bag: Path) -> None:
     reader = Reader(nonempty_bag)
 
     def check() -> None:
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.duration
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.start_time
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.end_time
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.message_count
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.compression_format
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.compression_mode
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.connections
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.topics
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = reader.ros_distro
 
-        with pytest.raises(ReaderError, match='Rosbag is not open'):
+        with pytest.raises(ReaderError, match='Reader is not open'):
             _ = next(reader.messages())
 
     check()
@@ -617,3 +617,42 @@ def test_time_boundaries(
             assert [t for _, t, _ in reader.messages(stop=2)] == [0, 1]
             assert [t for _, t, _ in reader.messages(start=0, stop=1)] == [0]
             assert list(reader.messages(start=1, stop=1)) == []
+
+
+def test_reader_rejects_repeated_open(empty_bag: Path) -> None:
+    """Test reader rejects repeated open."""
+    reader = Reader(empty_bag)
+    reader.open()
+    try:
+        with pytest.raises(ReaderError, match='already open'):
+            reader.open()
+        assert not reader.connections
+    finally:
+        reader.close()
+
+
+@pytest.mark.parametrize(
+    ('key', 'value', 'cause'),
+    [
+        ('compression_mode', None, AttributeError),
+        ('compression_mode', 1, AttributeError),
+        ('version', 'invalid', TypeError),
+    ],
+)
+def test_reader_rejects_invalid_metadata(
+    empty_bag: Path,
+    key: str,
+    value: str | int | None,
+    cause: type[Exception],
+) -> None:
+    """Test reader rejects invalid metadata."""
+    yaml = YAML(typ='safe')
+    metadata = yaml.load(METADATA_EMPTY)
+    metadata['rosbag2_bagfile_information'][key] = value
+    with (empty_bag / 'metadata.yaml').open('w') as bio:
+        yaml.dump(metadata, bio)
+    reader = DirectoryReader(empty_bag)
+    with pytest.raises(ReaderError, match='Invalid bag metadata') as exc:
+        reader.open()
+    assert isinstance(exc.value.__cause__, cause)
+    assert reader.stack is None

@@ -412,3 +412,15 @@ def test_failure_cases(tmp_path: Path) -> None:
         else:
             with pytest.raises(ReaderError, match=f"field '{name}'"):
                 Reader(bag).open()
+
+
+def test_reader_rejects_repeated_open(tmp_path: Path) -> None:
+    """Test reader rejects repeated open."""
+    bag = tmp_path / 'test.bag'
+    write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
+    with Reader(bag) as reader:
+        bio = reader.bio
+        with pytest.raises(ReaderError, match='already open'):
+            reader.open()
+        assert reader.bio is bio
+        assert len(list(reader.messages())) == 1

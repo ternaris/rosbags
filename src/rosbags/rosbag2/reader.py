@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import shutil
 import sys
+from contextlib import ExitStack, suppress
 from itertools import groupby
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
@@ -100,7 +101,7 @@ class DirectoryReader:
     }
 
     def __init__(self, path: RPath) -> None:
-        """Open rosbag and check metadata.
+        """Initialize directory reader.
 
         Args:
             path: Filesystem path to bag.
@@ -114,145 +115,155 @@ class DirectoryReader:
             msg = f'Expected metadata file {str(self.path)!r} does not exist.'
             raise FileNotFoundError(msg)
 
-        self.tmpdir: TemporaryDirectory[str] | None = None
         self.connections: list[Connection] = []
         self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
         self.files: list[FileInformation] = []
         self.storages: list[ReaderProtocol] = []
+        self.stack: ExitStack | None = None
 
     def open(self) -> None:
-        """Open rosbag2."""
-        yamlpath = self.path / 'metadata.yaml'
+        """Open reader."""
+        self.stack = ExitStack()
         try:
-            yaml = YAML(typ='safe')
-            dct = cast(
-                'dict[str, Metadata]',
-                yaml.load(yamlpath.read_text()),
-            )
-        except PermissionError:
-            raise
-        except OSError as err:
-            msg = f'Could not read metadata at {yamlpath}: {err}.'
-            raise ReaderError(msg) from None
-        except YAMLError as exc:
-            msg = f'Could not load YAML from {yamlpath}: {exc}'
-            raise ReaderError(msg) from None
-
-        try:
-            metadata: Metadata = dct['rosbag2_bagfile_information']
-            if (ver := metadata['version']) > 9:
-                msg = f'Rosbag2 version {ver} not supported; please report issue.'
-                raise ReaderError(msg)
-
-            paths = [self.path / PurePath(x).name for x in metadata['relative_file_paths']]
-            if missing := [x for x in paths if not x.exists()]:
-                msg = f'Some database files are missing: {[str(x) for x in missing]!r}'
-                raise ReaderError(msg)
-
-            if (storageid := metadata['storage_identifier']) not in self.STORAGE_PLUGINS:
-                msg = f'Storage plugin {storageid!r} not supported; please report issue.'
-                raise ReaderError(msg)
-
-            compression_format = metadata.get('compression_format', None) or None
-            mode = metadata.get('compression_mode', '').lower()
-            compression_mode = mode if mode != 'none' else None
-
-            if compression_mode and (compression_format) != 'zstd':
-                msg = f'Compression format {compression_format!r} is not supported.'
-                raise ReaderError(msg)
-
-            self.connections = [
-                Connection(
-                    id=idx + 1,
-                    topic=x['topic_metadata']['name'],
-                    msgtype=x['topic_metadata']['type'],
-                    msgdef=MessageDefinition(MessageDefinitionFormat.NONE, ''),
-                    digest=x['topic_metadata'].get('type_description_hash', ''),
-                    msgcount=x['message_count'],
-                    ext=ConnectionExtRosbag2(
-                        serialization_format=x['topic_metadata']['serialization_format'],
-                        offered_qos_profiles=parse_qos(
-                            x['topic_metadata'].get('offered_qos_profiles', []),
-                        ),
-                    ),
-                    owner=self,
+            yamlpath = self.path / 'metadata.yaml'
+            try:
+                yaml = YAML(typ='safe')
+                dct = cast(
+                    'dict[str, Metadata]',
+                    yaml.load(yamlpath.read_text()),
                 )
-                for idx, x in enumerate(metadata['topics_with_message_count'])
-            ]
-            if noncdr := {
-                fmt
-                for x in self.connections
-                if (fmt := cast('ConnectionExtRosbag2', x.ext).serialization_format) != 'cdr'
-            }:
-                msg = f'Serialization format {noncdr!r} is not supported.'
-                raise ReaderError(msg)
+            except PermissionError:
+                raise
+            except OSError as err:
+                msg = f'Could not read metadata at {yamlpath}: {err}.'
+                raise ReaderError(msg) from None
+            except YAMLError as exc:
+                msg = f'Could not load YAML from {yamlpath}: {exc}'
+                raise ReaderError(msg) from None
 
-            duration = metadata['duration']['nanoseconds']
-            start_time = metadata['starting_time']['nanoseconds_since_epoch']
-            message_count = metadata['message_count']
+            try:
+                metadata: Metadata = dct['rosbag2_bagfile_information']
+                if (ver := metadata['version']) > 9:
+                    msg = f'Rosbag2 version {ver} not supported; please report issue.'
+                    raise ReaderError(msg)
 
-        except KeyError as exc:
-            msg = f'A metadata key is missing {exc!r}.'
-            raise ReaderError(msg) from None
+                paths = [self.path / PurePath(x).name for x in metadata['relative_file_paths']]
+                if missing := [x for x in paths if not x.exists()]:
+                    msg = f'Some database files are missing: {[str(x) for x in missing]!r}'
+                    raise ReaderError(msg)
 
-        self.metadata = ReaderMetadata(
-            duration=duration + 1 if message_count else 0,
-            start_time=start_time if message_count else 2**63 - 1,
-            end_time=start_time + duration + 1 if message_count else 0,
-            message_count=message_count,
-            compression_format=compression_format,
-            compression_mode=compression_mode,
-            ros_distro=metadata.get('ros_distro'),
-            custom=metadata.get('custom_data'),
-        )
+                if (storageid := metadata['storage_identifier']) not in self.STORAGE_PLUGINS:
+                    msg = f'Storage plugin {storageid!r} not supported; please report issue.'
+                    raise ReaderError(msg)
 
-        self.files = metadata.get('files', [])[:]
+                compression_format = metadata.get('compression_format', None) or None
+                mode = metadata.get('compression_mode', '').lower()
+                compression_mode = mode if mode != 'none' else None
 
-        storage_paths: list[RPath] = []
-        if compression_mode == 'file':
-            self.tmpdir = TemporaryDirectory()
-            tmpdir = self.tmpdir.name
-            for path in paths:
-                storage_file = Path(tmpdir, path.stem)
-                with (
-                    path.open('rb') as bio,
-                    zstd.open(bio, 'rb') as infile,
-                    storage_file.open('wb') as outfile,
-                ):
-                    shutil.copyfileobj(infile, outfile)
-                storage_paths.append(storage_file)
-        else:
-            storage_paths = paths[:]
+                if compression_mode and (compression_format) != 'zstd':
+                    msg = f'Compression format {compression_format!r} is not supported.'
+                    raise ReaderError(msg)
 
-        plugin = self.STORAGE_PLUGINS[metadata['storage_identifier']]
-        try:
+                self.connections = [
+                    Connection(
+                        id=idx + 1,
+                        topic=x['topic_metadata']['name'],
+                        msgtype=x['topic_metadata']['type'],
+                        msgdef=MessageDefinition(MessageDefinitionFormat.NONE, ''),
+                        digest=x['topic_metadata'].get('type_description_hash', ''),
+                        msgcount=x['message_count'],
+                        ext=ConnectionExtRosbag2(
+                            serialization_format=x['topic_metadata']['serialization_format'],
+                            offered_qos_profiles=parse_qos(
+                                x['topic_metadata'].get('offered_qos_profiles', []),
+                            ),
+                        ),
+                        owner=self,
+                    )
+                    for idx, x in enumerate(metadata['topics_with_message_count'])
+                ]
+                if noncdr := {
+                    fmt
+                    for x in self.connections
+                    if (fmt := cast('ConnectionExtRosbag2', x.ext).serialization_format) != 'cdr'
+                }:
+                    msg = f'Serialization format {noncdr!r} is not supported.'
+                    raise ReaderError(msg)
+
+                duration = metadata['duration']['nanoseconds']
+                start_time = metadata['starting_time']['nanoseconds_since_epoch']
+                message_count = metadata['message_count']
+
+            except KeyError as exc:
+                msg = f'A metadata key is missing {exc!r}.'
+                raise ReaderError(msg) from None
+            except (TypeError, ValueError, AttributeError) as exc:
+                msg = f'Invalid bag metadata: {exc}.'
+                raise ReaderError(msg) from exc
+
+            self.metadata = ReaderMetadata(
+                duration=duration + 1 if message_count else 0,
+                start_time=start_time if message_count else 2**63 - 1,
+                end_time=start_time + duration + 1 if message_count else 0,
+                message_count=message_count,
+                compression_format=compression_format,
+                compression_mode=compression_mode,
+                ros_distro=metadata.get('ros_distro'),
+                custom=metadata.get('custom_data'),
+            )
+            self.files = metadata.get('files', [])[:]
+
+            storage_paths: list[RPath] = []
+            if compression_mode == 'file':
+                tmpdir = TemporaryDirectory()
+                self.stack.enter_context(tmpdir)
+                for path in paths:
+                    storage_file = Path(tmpdir.name, path.stem)
+                    with (
+                        path.open('rb') as bio,
+                        zstd.open(bio, 'rb') as infile,
+                        storage_file.open('wb') as outfile,
+                    ):
+                        shutil.copyfileobj(infile, outfile)
+                    storage_paths.append(storage_file)
+            else:
+                storage_paths = paths[:]
+
+            plugin = self.STORAGE_PLUGINS[metadata['storage_identifier']]
+            self.storages = []
             for path in storage_paths:
                 storage = plugin(path)
                 storage.open()
+                self.stack.callback(storage.close)
                 self.storages.append(storage)
-        except:
-            self.close()
+
+            for idx, conn in enumerate(self.connections):
+                if msgdef := next(
+                    (
+                        y.msgdef
+                        for x in self.storages
+                        for y in x.connections
+                        if y.msgtype == conn.msgtype
+                        and y.msgdef.format != MessageDefinitionFormat.NONE
+                    ),
+                    None,
+                ):
+                    self.connections[idx] = conn._replace(msgdef=msgdef)
+        except BaseException:
+            with suppress(Exception):
+                self.close()
             raise
 
-        for idx, conn in enumerate(self.connections):
-            if msgdef := next(
-                (
-                    y.msgdef
-                    for x in self.storages
-                    for y in x.connections
-                    if y.msgtype == conn.msgtype and y.msgdef.format != MessageDefinitionFormat.NONE
-                ),
-                None,
-            ):
-                self.connections[idx] = conn._replace(msgdef=msgdef)
-
     def close(self) -> None:
-        """Close rosbag2."""
-        while self.storages:
-            self.storages.pop().close()
-        if self.tmpdir:
-            self.tmpdir.cleanup()
-            self.tmpdir = None
+        """Close reader."""
+        stack, self.stack = self.stack, None
+        assert stack
+
+        self.connections.clear()
+        self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
+        self.files.clear()
+        self.storages.clear()
+        stack.close()
 
     def messages(
         self,
@@ -260,7 +271,7 @@ class DirectoryReader:
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
-        """Read messages from bag.
+        """Read messages.
 
         Args:
             connections: Collection with connections to filter for. An empty
@@ -270,9 +281,6 @@ class DirectoryReader:
 
         Yields:
             Tuples of connection, timestamp (ns), and rawdata.
-
-        Raises:
-            ReaderError: If reader was not opened.
 
         """
         for storage in self.storages:
@@ -346,7 +354,7 @@ class Reader:
     def _check_open(self) -> None:
         """Ensure reader is open."""
         if not self.is_open:
-            msg = 'Rosbag is not open.'
+            msg = 'Reader is not open.'
             raise ReaderError(msg)
 
     @property
@@ -420,14 +428,20 @@ class Reader:
         return self.storage.metadata.ros_distro
 
     def open(self) -> None:
-        """Open rosbag2."""
+        """Open reader."""
+        if self.is_open:
+            msg = 'Reader is already open.'
+            raise ReaderError(msg)
         self.storage.open()
         self.is_open = True
 
     def close(self) -> None:
-        """Open rosbag2."""
-        self.storage.close()
-        self.is_open = False
+        """Close reader."""
+        self._check_open()
+        try:
+            self.storage.close()
+        finally:
+            self.is_open = False
 
     def messages(
         self,
@@ -454,7 +468,7 @@ class Reader:
         return self.storage.messages(connections or self.storage.connections, start, stop)
 
     def __enter__(self) -> Self:
-        """Open rosbag2 when entering contextmanager."""
+        """Open reader when entering contextmanager."""
         self.open()
         return self
 
@@ -464,6 +478,6 @@ class Reader:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        """Close rosbag2 when exiting contextmanager."""
+        """Close reader when exiting contextmanager."""
         self.close()
         return False
