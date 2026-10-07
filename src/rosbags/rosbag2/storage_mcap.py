@@ -672,7 +672,7 @@ class McapWriter:
     """Mcap Storage Writer."""
 
     def __init__(self, path: Path, compression: CompressionMode) -> None:
-        """Initialize sqlite3 storage."""
+        """Initialize mcap storage."""
         self.path = path / f'{path.name}.mcap'
         self.bio = self.path.open('xb')
 
@@ -700,7 +700,7 @@ class McapWriter:
         self.channel_stats: dict[int, int] = {}
 
     def add_msgtype(self, connection: Connection) -> None:
-        """Add a msgtype.
+        """Add msgtype.
 
         Args:
             connection: Connection.
@@ -717,7 +717,7 @@ class McapWriter:
         write_schema(self.chunk.bio, self.schemas[-1])
 
     def add_connection(self, connection: Connection, offered_qos_profiles: str) -> None:
-        """Add a connection.
+        """Add connection.
 
         Args:
             connection: Connection.
@@ -786,7 +786,7 @@ class McapWriter:
         self.chunk = PendingChunk(2**63 - 1, 0, BytesIO(), defaultdict(list))
 
     def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-        """Write message to rosbag2.
+        """Write message.
 
         Args:
             connection: Connection to write message to.
@@ -813,7 +813,7 @@ class McapWriter:
             self.close_chunk()
 
     def close(self, version: int, metadata: str) -> None:
-        """Close rosbag2 after writing.
+        """Close after writing.
 
         Closes open database transactions and writes metadata.yaml.
 
@@ -914,4 +914,8 @@ class McapWriter:
         write_record(self.bio, 0x02, rec)
         _ = self.bio.write(b'\x89MCAP\x30\r\n')
 
+        self.bio.close()
+
+    def abort(self) -> None:
+        """Close without writing index and footer."""
         self.bio.close()

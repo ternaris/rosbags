@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -14,11 +15,12 @@ from rosbags.interfaces import (
     MessageDefinition,
     MessageDefinitionFormat,
 )
-from rosbags.rosbag2 import CompressionFormat, CompressionMode, Writer, WriterError
+from rosbags.rosbag2 import CompressionFormat, CompressionMode, StoragePlugin, Writer, WriterError
 from rosbags.typesys import Stores, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Literal
 
 
 def test_writer_writes_storage_and_metadata(tmp_path: Path) -> None:
@@ -190,3 +192,73 @@ def test_rejects_unsupported_writer_version(tmp_path: Path, version: int) -> Non
     with pytest.raises(WriterError, match='version'):
         _ = Writer(tmp_path / 'bag', version=cast('Literal[8, 9]', version))
     assert not (tmp_path / 'bag').exists()
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+def test_error_in_context_does_not_create_metadata(tmp_path: Path, plugin: StoragePlugin) -> None:
+    """Test error in context manager does not create metadata file."""
+    store = get_typestore(Stores.LATEST)
+    path = tmp_path / 'bag'
+    writer = Writer(path, version=9, storage_plugin=plugin)
+    with pytest.raises(ValueError, match='write failed'), writer:  # noqa: PT012
+        conn = writer.add_connection('/x', 'std_msgs/msg/Int8', typestore=store)
+        writer.write(conn, 42, b'partial')
+        msg = 'write failed'
+        raise ValueError(msg)
+    assert writer.storage is None
+    assert list(path.iterdir())
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+def test_failed_storage_close_does_not_create_metadata(
+    tmp_path: Path,
+    plugin: StoragePlugin,
+) -> None:
+    """Test error in storage close does not create metadata."""
+    path = tmp_path / 'bag'
+    writer = Writer(path, version=9, storage_plugin=plugin)
+    with (
+        pytest.raises(OSError, match='disk full'),
+        patch.object(Writer.STORAGE_PLUGINS[plugin], 'close', side_effect=OSError('disk full')),
+        writer,
+    ):
+        pass
+    assert writer.storage is None
+    assert not (path / 'metadata.yaml').exists()
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+def test_add_connection_does_not_change_state_on_error(
+    tmp_path: Path,
+    plugin: StoragePlugin,
+) -> None:
+    """Test add_connection does not change state on error."""
+    writer = Writer(tmp_path / 'bag', version=9, storage_plugin=plugin)
+    with writer:
+        with (
+            pytest.raises(OSError, match='disk full'),
+            patch.object(writer.storage, 'add_connection', side_effect=OSError('disk full')),
+        ):
+            _ = writer.add_connection(
+                '/x', 'std_msgs/msg/Int8', typestore=get_typestore(Stores.LATEST)
+            )
+        assert writer.storage is not None
+    assert writer.connections == []
+    assert writer.counts == {}
+
+
+def test_failed_file_compression_retains_source(tmp_path: Path) -> None:
+    """Test uncompressed storage file is kept if compression failes."""
+    path = tmp_path / 'bag'
+    writer = Writer(path, version=9)
+    writer.set_compression(CompressionMode.FILE, CompressionFormat.ZSTD)
+    with (
+        pytest.raises(OSError, match='disk full'),
+        patch('rosbags.rosbag2.writer.shutil.copyfileobj', side_effect=OSError('disk full')),
+        writer,
+    ):
+        pass
+    assert writer.storage is None
+    assert (path / 'bag.db3').exists()
+    assert not (path / 'bag.db3.zstd').exists()
+    assert not (path / 'metadata.yaml').exists()

@@ -433,7 +433,7 @@ class Sqlite3Writer:
         self.cursor = self.conn.cursor()
 
     def add_msgtype(self, connection: Connection) -> None:
-        """Add a msgtype.
+        """Add msgtype.
 
         Args:
             connection: Connection.
@@ -453,7 +453,7 @@ class Sqlite3Writer:
         )
 
     def add_connection(self, connection: Connection, offered_qos_profiles: str) -> None:
-        """Add a connection.
+        """Add connection.
 
         Args:
             connection: Connection.
@@ -473,7 +473,7 @@ class Sqlite3Writer:
         )
 
     def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-        """Write message to rosbag2.
+        """Write message.
 
         Args:
             connection: Connection to write message to.
@@ -487,7 +487,7 @@ class Sqlite3Writer:
         )
 
     def close(self, version: int, metadata: str) -> None:
-        """Close rosbag2 after writing.
+        """Close after writing.
 
         Closes open database transactions and writes metadata.yaml.
 
@@ -500,3 +500,10 @@ class Sqlite3Writer:
         self.conn.commit()
         _ = self.conn.execute('PRAGMA optimize')
         self.conn.close()
+
+    def abort(self) -> None:
+        """Close without committing pending changes."""
+        try:
+            self.conn.rollback()
+        finally:
+            self.conn.close()

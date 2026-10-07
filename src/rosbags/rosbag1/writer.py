@@ -8,6 +8,7 @@ import struct
 import warnings
 from bz2 import compress as bz2_compress
 from collections import defaultdict
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, auto
 from io import BytesIO
@@ -209,7 +210,7 @@ class Writer:
         self.compressor = {'bz2': bz2, 'lz4': lz4}[self.compression_format]
 
     def open(self) -> None:
-        """Open rosbag1 for writing."""
+        """Open for writing."""
         try:
             self.bio = self.path.open('xb')
         except FileExistsError:
@@ -295,7 +296,7 @@ class Writer:
         return connection
 
     def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-        """Write message to rosbag1.
+        """Write message.
 
         Args:
             connection: Connection to write message to.
@@ -378,7 +379,7 @@ class Writer:
             self.chunks.append(WriteChunk(BytesIO(), -1, MAXSIZE, 0, defaultdict(list)))
 
     def close(self) -> None:
-        """Close rosbag1 after writing.
+        """Close after writing.
 
         Closes open chunks and writes index.
 
@@ -417,9 +418,16 @@ class Writer:
         _ = self.bio.write(serialize_uint32(padsize) + b' ' * padsize)
 
         self.bio.close()
+        self.bio = None
+
+    def abort(self) -> None:
+        """Close without writing index."""
+        bio, self.bio = self.bio, None
+        if bio is not None:
+            bio.close()
 
     def __enter__(self) -> Self:
-        """Open rosbag1 when entering contextmanager."""
+        """Open writer when entering contextmanager."""
         self.open()
         return self
 
@@ -429,6 +437,15 @@ class Writer:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        """Close rosbag1 when exiting contextmanager."""
-        self.close()
+        """Close or abort writer when exiting contextmanager."""
+        if exc_type is None:
+            try:
+                self.close()
+            except BaseException:
+                with suppress(Exception):
+                    self.abort()
+                raise
+        else:
+            with suppress(Exception):
+                self.abort()
         return False

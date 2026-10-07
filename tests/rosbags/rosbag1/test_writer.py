@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -275,3 +275,57 @@ def test_deprecations(tmp_path: Path) -> None:
     bag = Writer(tmp_path / 'bag')
     with bag, pytest.deprecated_call():
         _ = bag.add_connection('/foo', 'std_msgs/msg/Empty')
+
+
+def test_abort_closes_and_tolerates_unopened_writers(tmp_path: Path) -> None:
+    """Test abort closes its stream and tolerates unopened writers."""
+    writer = Writer(tmp_path / 'test.bag')
+    writer.abort()
+    writer.open()
+    bio = writer.bio
+    assert bio is not None
+    writer.abort()
+    assert bio.closed
+    assert writer.bio is None
+    writer.abort()
+
+
+@pytest.mark.parametrize('close_fails', [False, True])
+@pytest.mark.parametrize('abort_fails', [False, True])
+def test_context_failure_preserves_exception(
+    tmp_path: Path,
+    *,
+    close_fails: bool,
+    abort_fails: bool,
+) -> None:
+    """Test context failures abort the writer and preserve the original exception."""
+    writer = Writer(tmp_path / 'test.bag')
+    original_abort = writer.abort
+    original_close = writer.close
+
+    def abort(_: object) -> None:
+        original_abort()
+        if abort_fails:
+            msg = 'abort failure'
+            raise RuntimeError(msg)
+
+    def close(_: object) -> None:
+        if close_fails:
+            msg = 'original failure'
+            raise RuntimeError(msg)
+        original_close()
+
+    bio = None
+    with (  # noqa: PT012
+        patch.object(Writer, 'abort', abort),
+        patch.object(Writer, 'close', close),
+        pytest.raises(RuntimeError, match='original failure'),
+        writer,
+    ):
+        bio = writer.bio
+        if not close_fails:
+            msg = 'original failure'
+            raise RuntimeError(msg)
+    assert bio is not None
+    assert bio.closed
+    assert writer.bio is None
