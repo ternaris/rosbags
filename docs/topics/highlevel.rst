@@ -10,6 +10,8 @@ Instances of the :py:class:`AnyReader <rosbags.highlevel.AnyReader>` class give 
 
 The reader also directly exposes appropriate deserialization methods and automatically registers all message type definitions into blank, internal type store.
 
+Readers can be reopened after closing. Do not iterate a reader concurrently from multiple threads or interleave independent message iterators: storage backends may share a seekable stream.
+
 .. code-block:: python
 
    from pathlib import Path

@@ -17,14 +17,31 @@ from rosbags.interfaces import (
     MessageDefinitionFormat,
 )
 from rosbags.rosbag1 import Writer as Writer1
-from rosbags.rosbag2 import Writer as Writer2
-from rosbags.typesys import Stores, get_typestore
+from rosbags.rosbag2 import (
+    CompressionMode,
+    StoragePlugin,
+    Writer as Writer2,
+)
+from rosbags.rosbag2.storage_mcap import McapWriter
+from rosbags.rosbag2.storage_sqlite3 import Sqlite3Writer
+from rosbags.typesys import Stores, get_types_from_idl, get_typestore
+from rosbags.typesys.base import TypesysError
 
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Sequence
     from pathlib import Path
+    from types import TracebackType
+    from typing import Literal
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
     from rosbags.rosbag1 import Reader as Reader1
+    from rosbags.rosbag2 import Reader as Reader2
+    from rosbags.rosbag2.reader import DirectoryReader
     from rosbags.typesys.stores.ros1_noetic import std_msgs__msg__Int8 as Int8
 
 HEADER = b'\x00\x01\x00\x00'
@@ -48,6 +65,19 @@ class MockReader:
                 self,
             ),
         ]
+
+    def __enter__(self) -> Self:
+        """Open rosbags when entering contextmanager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
+        """Close rosbags when exiting contextmanager."""
+        return False
 
     def open(self) -> None:
         """Unused."""
@@ -119,10 +149,10 @@ def test_anyreader1(bags1: Sequence[Path]) -> None:
         _ = AnyReader([bags1[0] / 'badname'])
 
     reader = AnyReader(bags1)
-    with pytest.raises(AssertionError):
+    with pytest.raises(AnyReaderError, match='not open'):
         assert reader.topics
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AnyReaderError, match='not open'):
         _ = next(reader.messages())
 
     reader = AnyReader(bags1)
@@ -297,8 +327,18 @@ def test_anyreader2_autoregister(bags2: list[Path]) -> None:
                 ),
             ]
 
-        def open(self) -> None:
-            """Unused."""
+        def __enter__(self) -> Self:
+            """Open rosbags when entering contextmanager."""
+            return self
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+        ) -> Literal[False]:
+            """Close rosbags when exiting contextmanager."""
+            return False
 
     with (
         patch('rosbags.highlevel.anyreader.Reader2', MockReader),
@@ -345,3 +385,84 @@ def test_anyreader_raises_on_missing_typestore(bags2: list[Path]) -> None:
         pytest.raises(AnyReaderError, match='Bag contains no type definitions'),
     ):
         AnyReader([bags2[0]]).open()
+
+
+def test_registration_failure_rolls_back_open_readers(tmp_path: Path) -> None:
+    """Test registration failure rolls back open readers."""
+    path = tmp_path / 'bag'
+    with Writer2(path, version=9) as writer:
+        conn = writer.add_connection(
+            '/x', 'std_msgs/msg/Int8', typestore=get_typestore(Stores.LATEST)
+        )
+        writer.write(conn, 42, b'X')
+    reader = AnyReader([path])
+    with (
+        patch(
+            'rosbags.highlevel.anyreader.get_types_from_msg',
+            side_effect=TypesysError('invalid schema'),
+        ),
+        pytest.raises(AnyReaderError),
+    ):
+        reader.open()
+    assert not reader.stack
+    storage = cast('DirectoryReader', cast('Reader2', reader.readers[0]).storage)
+    assert not storage.storages
+
+
+def test_schema_failure_rolls_back_open_readers(tmp_path: Path) -> None:
+    """Test schema failure rolls back open readers."""
+    path = tmp_path / 'bag'
+    with Writer2(path, version=9) as writer:
+        conn = writer.add_connection('/x', 'x/msg/X', msgdef='uint8 foo', rihs01='bad_hash')
+        writer.write(conn, 42, b'X')
+    reader = AnyReader([path])
+    with pytest.raises(AnyReaderError, match='hash mismatch'):
+        reader.open()
+    assert not reader.stack
+    storage = cast('DirectoryReader', cast('Reader2', reader.readers[0]).storage)
+    assert not storage.storages
+
+
+@pytest.mark.parametrize('plugin', list(StoragePlugin))
+@pytest.mark.parametrize('bundle', [False, True])
+def test_parsing_idl_flavors(tmp_path: Path, plugin: StoragePlugin, *, bundle: bool) -> None:
+    """Test parsing of different idl flavors."""
+    path = tmp_path / 'bag'
+    text = 'module x { module msg { struct X { octet data; }; }; };'
+    if bundle:
+        text = '=' * 80 + '\nIDL: x/msg/X\n' + text
+    store = get_typestore(Stores.EMPTY)
+    store.register(get_types_from_idl('module x { module msg { struct X { octet data; }; }; };'))
+    path.mkdir()
+
+    storage = (McapWriter if plugin == StoragePlugin.MCAP else Sqlite3Writer)(
+        path,
+        CompressionMode.NONE,
+    )
+    connection = Connection(
+        1,
+        '/x',
+        'x/msg/X',
+        MessageDefinition(MessageDefinitionFormat.IDL, text),
+        store.hash_rihs01('x/msg/X'),
+        0,
+        ConnectionExtRosbag2('cdr', []),
+        storage,
+    )
+    storage.add_msgtype(connection)
+    storage.add_connection(connection, '')
+    storage.write(connection, 0, b'\x00\x01\x00\x00\x2a')
+    storage.close(9, '')
+    with AnyReader([storage.path]) as reader:
+        conn, _, data = next(reader.messages())
+        assert cast('Int8', reader.deserialize(data, conn.msgtype)).data == 42
+
+
+def test_anyreader_rejects_repeated_open(bags1: Sequence[Path]) -> None:
+    """Test AnyReader rejects repeated."""
+    with AnyReader([bags1[0]]) as reader:
+        stack = reader.stack
+        with pytest.raises(AnyReaderError, match='already open'):
+            reader.open()
+        assert reader.stack is stack
+        assert list(reader.messages())
