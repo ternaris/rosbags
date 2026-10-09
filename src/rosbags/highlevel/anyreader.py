@@ -20,6 +20,7 @@ from rosbags.rosbag2 import (
     Reader as Reader2,
     ReaderError as ReaderError2,
 )
+from rosbags.serde import SerdeError
 from rosbags.typesys import (
     Stores,
     TypesysError,
@@ -115,7 +116,10 @@ class AnyReader:
 
     def deserialize(self, rawdata: bytes, typ: str) -> object:
         """Deserialize message with appropriate helper."""
-        return self._deser_ros2(rawdata, typ) if self.is2 else self._deser_ros1(rawdata, typ)
+        try:
+            return self._deser_ros2(rawdata, typ) if self.is2 else self._deser_ros1(rawdata, typ)
+        except SerdeError as err:
+            raise AnyReaderError(*err.args) from err
 
     def _open(self) -> None:
         """Open subreaders and populate typestore."""

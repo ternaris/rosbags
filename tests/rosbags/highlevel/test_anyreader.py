@@ -24,6 +24,7 @@ from rosbags.rosbag2 import (
 )
 from rosbags.rosbag2.storage_mcap import McapWriter
 from rosbags.rosbag2.storage_sqlite3 import Sqlite3Writer
+from rosbags.serde import SerdeError
 from rosbags.typesys import Stores, get_types_from_idl, get_typestore
 from rosbags.typesys.base import TypesysError
 
@@ -138,6 +139,32 @@ def bags2(tmp_path: Path) -> list[Path]:
     _ = (paths[2] / 'metadata.yaml').write_text('x:')
 
     return paths
+
+
+@pytest.mark.parametrize(
+    ('is2', 'rawdata', 'match'),
+    [
+        (False, b'', 'Could not deserialize'),
+        (False, b'\x01\x02', 'ROS1 message size mismatch'),
+        (True, b'', 'Invalid or unsupported CDR encapsulation'),
+        (True, HEADER, 'Could not deserialize'),
+        (True, HEADER + b'\x01' * 5, 'CDR message size mismatch'),
+    ],
+)
+def test_anyreader_deserialize_raises_on_invalid_data(
+    bags1: Sequence[Path],
+    bags2: Sequence[Path],
+    rawdata: bytes,
+    match: str,
+    *,
+    is2: bool,
+) -> None:
+    """Test deserialization errors retain their message and cause for both formats."""
+    with AnyReader((bags2 if is2 else bags1)[:1]) as reader:
+        with pytest.raises(AnyReaderError, match=match) as exc:
+            reader.deserialize(rawdata, 'std_msgs/msg/Int8')
+        assert isinstance(exc.value.__cause__, SerdeError)
+        assert exc.value.args == exc.value.__cause__.args
 
 
 def test_anyreader1(bags1: Sequence[Path]) -> None:
