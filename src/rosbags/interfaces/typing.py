@@ -3,7 +3,7 @@
 """Rosbags typing."""
 
 import sys
-from pathlib import PosixPath
+from pathlib import PurePath
 from typing import Any, BinaryIO, Literal, Protocol, TypeAlias, TypeVar
 
 from rosbags.interfaces import Nodetype
@@ -94,7 +94,7 @@ class RPath(Protocol):  # pragma: no cover
         """Proxy."""
         ...
 
-    def __truediv__(self, key: Self | PosixPath | str) -> Self:
+    def __truediv__(self, key: Self | PurePath | str) -> Self:
         """Proxy."""
         ...
 

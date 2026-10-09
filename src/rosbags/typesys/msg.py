@@ -13,7 +13,7 @@ information.
 from __future__ import annotations
 
 import re
-from pathlib import PosixPath
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from .base import (
@@ -51,7 +51,7 @@ def normalize_msgtype(name: str) -> str:
         Message name in ROS2 style.
 
     """
-    path = PosixPath(name)
+    path = PurePosixPath(name)
     if path.parent.name not in ('msg', 'action'):
         path = path.parent / 'msg' / path.name
     return str(path)
@@ -68,7 +68,7 @@ def denormalize_msgtype(name: str) -> str:
 
     """
     assert '/msg/' in name
-    return str((path := PosixPath(name)).parent.parent / path.name)
+    return str((path := PurePosixPath(name)).parent.parent / path.name)
 
 
 def normalize_type_ref(typename: str, typ: Type) -> Type:
@@ -87,9 +87,9 @@ def normalize_type_ref(typename: str, typ: Type) -> Type:
 
     name = typ.ref.name
     if '/' not in name:
-        name = str(PosixPath(typename).parent / name)
+        name = str(PurePosixPath(typename).parent / name)
     elif '/msg/' not in name and '/action/' not in name:
-        name = str((path := PosixPath(name)).parent / 'msg' / path.name)
+        name = str((path := PurePosixPath(name)).parent / 'msg' / path.name)
 
     return Type(NamedType(name), str_size=typ.str_size, cardinality=typ.cardinality, size=typ.size)
 
