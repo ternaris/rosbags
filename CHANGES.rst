@@ -3,6 +3,29 @@
 Changes
 =======
 
+0.11.6 - 2026-10-09
+-------------------
+
+- Advertise compatibility with Python 3.15
+- Add `ty` as a type checker
+- Use `zstd` from the standard library when available
+- Switch to a PEG parser with inlined actions
+- Refactor the MSG parser and add support for `@` annotations
+- Refactor the IDL parser and support additional syntax features
+- Evaluate constant expressions in IDL
+- Improve detection of malformed data during string and sequence deserialization
+- Improve exception propagation during deserialization
+- Validate the rosbag2 writer version during writer initialization
+- Allow writers to abort and handle errors gracefully
+- Improve duplicate topic mapping and time range handling across all readers
+- Reject playback of unindexed MCAP files containing unordered messages
+- Preserve the order of MCAP messages with identical timestamps across chunks
+- Improve error messages for malformed MCAP files
+- Clarify help text for the `rosbags-convert` CLI
+- Improve automatic migration of message types during bag conversion
+- Simplify the open/close lifecycle of all readers and allow their reuse
+
+
 0.11.5 - 2026-08-18
 -------------------
 
