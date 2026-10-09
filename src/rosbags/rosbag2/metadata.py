@@ -8,6 +8,7 @@ from io import StringIO
 from typing import TYPE_CHECKING, NamedTuple, TypedDict, cast
 
 from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 
 from rosbags.interfaces import (
     Qos,
@@ -17,6 +18,8 @@ from rosbags.interfaces import (
     QosReliability,
     QosTime,
 )
+
+from .errors import ReaderError
 
 if TYPE_CHECKING:
 
@@ -112,7 +115,13 @@ def parse_qos(dcts: list[QosDict] | str) -> list[Qos]:
     """Parse and normalize QoS parameters."""
     if not dcts:
         return []
-    items = cast('list[QosDict]', YAML(typ='safe').load(dcts)) if isinstance(dcts, str) else dcts
+    try:
+        items = (
+            cast('list[QosDict]', YAML(typ='safe').load(dcts)) if isinstance(dcts, str) else dcts
+        )
+    except YAMLError as exc:
+        msg = f'Could not load YAML from offered_qos_profiles: {exc}'
+        raise ReaderError(msg) from None
 
     res: list[Qos] = []
     for item in items:

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import cast
 
+import pytest
 from ruamel.yaml import YAML
 
 from rosbags.interfaces import (
@@ -16,6 +17,7 @@ from rosbags.interfaces import (
     QosReliability,
     QosTime,
 )
+from rosbags.rosbag2.errors import ReaderError
 from rosbags.rosbag2.metadata import dump_qos_v8, dump_qos_v9, parse_qos
 
 REF = [
@@ -109,6 +111,12 @@ def test_qos_parsing() -> None:
         yaml.load(QOS_V9),
     )
     assert parse_qos(dct['offered_qos_profiles']) == REF
+
+
+def test_qos_parsing_invalid_yaml_raises() -> None:
+    """Test QoS parsing raises on invalid YAML."""
+    with pytest.raises(ReaderError, match='Could not load YAML from offered_qos_profiles:'):
+        parse_qos('- history: 1 depth: 1 reliability: 1 durability: 1')
 
 
 def test_qos_v8_out_of_range() -> None:
