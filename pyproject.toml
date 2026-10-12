@@ -162,6 +162,8 @@ convention = "google"
 version_scheme = "only-version"
 local_scheme = "no-local-version"
 
+[tool.ty.environment]
+python-version = "3.14"
 
 [tool.ty.rules]
 all = "error"

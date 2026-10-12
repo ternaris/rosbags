@@ -20,7 +20,7 @@ test:
     - uv run python -m reuse lint
     - uv run python -m ruff check docs src tests
     - uv run python -m ruff format --diff docs src tests
-    - uv run python -m ty check
+    - uv run python -m ty check --python-version $UV_PYTHON
     - uv run sphinx-build docs public
   coverage: '/\d+\%\s*$/'
   artifacts:
