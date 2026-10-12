@@ -13,6 +13,11 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from ruamel.yaml import YAML
 
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    from backports import zstd
+
 from rosbags.interfaces import (
     Connection,
     ConnectionExtRosbag2,
@@ -28,7 +33,14 @@ from rosbags.interfaces import (
 from rosbags.rosbag2.enums import CompressionMode
 from rosbags.rosbag2.errors import ReaderError
 from rosbags.rosbag2.metadata import dump_qos_v9
-from rosbags.rosbag2.storage_mcap import McapReader, McapWriter, decompress, read_sized, skip_exact
+from rosbags.rosbag2.storage_mcap import (
+    DECOMPRESSORS,
+    McapReader,
+    McapWriter,
+    decompress,
+    read_sized,
+    skip_exact,
+)
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -807,3 +819,14 @@ def test_failed_mcap_open_releases_stream(tmp_path: Path) -> None:
         with pytest.raises(ReaderError, match='magic'):
             reader.open()
         assert reader.bio is None
+
+
+@pytest.mark.parametrize('flag', [True, False])
+def test_zstd_decompressor_accepts_any_size_flag(*, flag: bool) -> None:
+    """Test zstd decompressor accepts frames with and without size flag."""
+    data = b'\xab\xcd' * 1024
+    frame = zstd.compress(
+        data,
+        options={zstd.CompressionParameter.content_size_flag: flag},
+    )
+    assert DECOMPRESSORS['zstd'](frame, len(data)) == data

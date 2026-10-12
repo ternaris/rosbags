@@ -21,7 +21,7 @@ from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untype
 if sys.version_info >= (3, 14):
     from compression import zstd
 else:  # pragma: no cover
-    import zstandard as zstd
+    from backports import zstd
 
 from rosbags.interfaces import (
     Connection,
