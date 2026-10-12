@@ -3,6 +3,13 @@
 Changes
 =======
 
+0.11.7 - 2026-10-12
+-------------------
+
+- Fix `PosixPath` usage to restore Windows compatibility
+- Use `backports.zstd` instead of `zstandard` on older Python versions
+
+
 0.11.6 - 2026-10-09
 -------------------
 
