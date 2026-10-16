@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.11.8 - 2026-10-16
+-------------------
+
+- Allow more permissive field names in ROS1 message definitions `#139`_
+
+.. _#139: https://gitlab.com/ternaris/rosbags/issues/139
+
+
 0.11.7 - 2026-10-12
 -------------------
 
