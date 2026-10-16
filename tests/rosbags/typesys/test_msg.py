@@ -336,7 +336,6 @@ def test_missing_trailing_newline() -> None:
         pytest.param(f'int8 i\n{SEPARATOR}\n', NAME, id='dangling separator'),
         pytest.param('std_msgs/Header H=5', NAME, id='constant with message type'),
         pytest.param('int32 i=42', NAME, id='lowercase constant name'),
-        pytest.param('int32 foo_', NAME, id='trailing _ field name'),
         pytest.param('string S=', NAME, id='constant without value'),
         pytest.param('int32', NAME, id='field without name'),
         pytest.param('int32[abc] f', NAME, id='invalid array size'),
@@ -346,3 +345,15 @@ def test_syntax_errors(text: str, name: str) -> None:
     """Test that invalid message definitions raise a TypesysError."""
     with pytest.raises(TypesysError, match='Could not parse'):
         get_types_from_msg(text, name)
+
+
+@pytest.mark.parametrize(
+    ('text', 'name'),
+    [
+        pytest.param('int32 foo_', 'foo_', id='trailing _ field name'),
+    ],
+)
+def test_ros1_field_names(text: str, name: str) -> None:
+    """Test field names allowed by ROS1."""
+    ret = parse(text, NAME)
+    assert ret[NAME][1][0][0] == name

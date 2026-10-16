@@ -99,7 +99,7 @@ class MSGParser(Parser):
 
     Separator = '================================================================================'
 
-    MixedSnake = r'[A-Za-z](?:_?[A-Za-z0-9]+)*'
+    MixedSnake = r'[A-Za-z][A-Za-z0-9_]*'
     LowerSnake = r'[a-z](?:_?[a-z0-9]+)*'
     MixedCamel = r'[A-Za-z](?:_?[A-Za-z0-9]+)*'
     UpperCamel = r'[A-Z](?:_?[A-Za-z0-9]+)*'
