@@ -485,19 +485,8 @@ def test_typedef_shadowing() -> None:
     )
     assert ret['test_msgs/msg/Foo'][1] == [
         ('local', (Nodetype.BASE, ('int32', 0))),
-        ('global_', (Nodetype.BASE, ('int16', 0))),
+        ('global', (Nodetype.BASE, ('int16', 0))),
     ]
-
-
-@pytest.mark.parametrize('kw', ['return', 'yield', 'global'])
-def test_python_keyword_renaming(kw: str) -> None:
-    """Test that names colliding with python keywords get renamed."""
-    ret = parse(
-        f'module m {{ module Foo_Constants {{ const int32 {kw} = 32; }};'
-        f' struct Foo {{ uint64 {kw}; }}; }};'
-    )
-    assert ret['m/Foo'][0] == [(kw + '_', 'int32', 32)]
-    assert ret['m/Foo'][1] == [(kw + '_', (Nodetype.BASE, ('uint64', 0)))]
 
 
 @pytest.mark.parametrize(

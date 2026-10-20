@@ -201,3 +201,24 @@ def test_registered_types_support_serde() -> None:
 
     res = store.deserialize_ros1(store.serialize_ros1(msg, typename_custom), typename_custom)
     assert res == msg
+
+
+@pytest.mark.parametrize('field', ['class', 'yield', 'return'])
+def test_python_keyword_renaming(field: str) -> None:
+    """Test python keywords are renamed on the dataclass only."""
+    store = Typestore()
+
+    msgtype = 'test_msgs/msg/Test'
+    msgdef = f'uint8 YIELD=2\nuint8 {field}'
+    store.register(
+        get_types_from_msg(msgdef, msgtype),
+    )
+
+    assert store.fielddefs[msgtype] == (
+        [('YIELD', 'uint8', 2)],
+        [(field, (1, ('uint8', 0)))],
+    )
+
+    msg = store.types[msgtype](42)
+    assert getattr(msg, f'{field}_') == 42
+    assert not hasattr(msg, field)

@@ -149,11 +149,11 @@ def create_field_desc(typ: Type) -> FieldDesc:
 
 
 def make_typesdict(msgs: Sequence[Message]) -> Typesdict:
-    """Make typedict from messages."""
+    """Make typesdict from messages."""
     return {
         x.name: (
-            [(normalize_fieldname(y.name), y.typ.value, y.value) for y in x.constants],
-            [(normalize_fieldname(y.name), create_field_desc(y.typ)) for y in x.fields],
+            [(y.name, y.typ.value, y.value) for y in x.constants],
+            [(y.name, create_field_desc(y.typ)) for y in x.fields],
         )
         for x in msgs
     }

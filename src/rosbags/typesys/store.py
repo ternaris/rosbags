@@ -23,7 +23,7 @@ from rosbags.serde.ros1 import (
     generate_ros1_to_cdr,
     generate_serialize_ros1,
 )
-from rosbags.typesys.base import TypesysError
+from rosbags.typesys.base import TypesysError, normalize_fieldname
 
 from .codegen import generate_python_code
 from .msg import denormalize_msgtype
@@ -350,7 +350,9 @@ class Typestore:
 
         """
         if typename not in self.cache:
-            entries = self.fielddefs[typename][1]
+            entries = [
+                (normalize_fieldname(name), desc) for name, desc in self.fielddefs[typename][1]
+            ]
 
             getsize_cdr, size_cdr = generate_getsize_cdr(entries, self)
             getsize_ros1, size_ros1 = generate_getsize_ros1(entries, self)
@@ -411,34 +413,32 @@ class Typestore:
             raise TypesysError(msg)
 
         for name, typ, value in self.fielddefs[typename][0]:
-            stripped_name = name.rstrip('_')
-            deftext.append(f'{typ} {stripped_name}={value}')
-            hashtext.append(f'{typ} {stripped_name}={value}')
+            deftext.append(f'{typ} {name}={value}')
+            hashtext.append(f'{typ} {name}={value}')
 
         for name, desc in self.fielddefs[typename][1]:
             if name == 'structure_needs_at_least_one_member':
                 continue
-            stripped_name = name.rstrip('_')
             if desc[0] == Nodetype.BASE:
                 argname: str
                 argname, arglimit = desc[1]
                 if argname == 'string':
                     argname = f'string<={arglimit}' if arglimit else 'string'
-                deftext.append(f'{argname} {stripped_name}')
-                hashtext.append(f'{argname} {stripped_name}')
+                deftext.append(f'{argname} {name}')
+                hashtext.append(f'{argname} {name}')
             elif desc[0] == int(Nodetype.NAME):
                 args = desc[1]
                 assert isinstance(args, str)
                 subname = args
                 if subname in typemap:
-                    deftext.append(f'{typemap[subname]} {stripped_name}')
-                    hashtext.append(f'{typemap[subname]} {stripped_name}')
+                    deftext.append(f'{typemap[subname]} {name}')
+                    hashtext.append(f'{typemap[subname]} {name}')
                 else:
                     if subname not in subdefs:
                         subdefs[subname] = ('', '')
                         subdefs[subname] = self.gendefhash(subname, subdefs, ros_version)
-                    deftext.append(f'{denormalize_msgtype(subname)} {stripped_name}')
-                    hashtext.append(f'{subdefs[subname][1]} {stripped_name}')
+                    deftext.append(f'{denormalize_msgtype(subname)} {name}')
+                    hashtext.append(f'{subdefs[subname][1]} {name}')
             else:
                 assert desc[0] in {Nodetype.ARRAY, Nodetype.SEQUENCE}
                 assert isinstance(desc[1], tuple)
@@ -451,19 +451,19 @@ class Typestore:
                 if isubtype == int(Nodetype.BASE):
                     if isubname[0] == 'string':
                         isubname = (f'string<={isubname[1]}' if isubname[1] else 'string', 0)
-                    deftext.append(f'{isubname[0]}[{count}] {stripped_name}')
-                    hashtext.append(f'{isubname[0]}[{count}] {stripped_name}')
+                    deftext.append(f'{isubname[0]}[{count}] {name}')
+                    hashtext.append(f'{isubname[0]}[{count}] {name}')
                 elif isubname in typemap:
                     assert isinstance(isubname, str)
-                    deftext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
-                    hashtext.append(f'{typemap[isubname]}[{count}] {stripped_name}')
+                    deftext.append(f'{typemap[isubname]}[{count}] {name}')
+                    hashtext.append(f'{typemap[isubname]}[{count}] {name}')
                 else:
                     assert isinstance(isubname, str)
                     if isubname not in subdefs:
                         subdefs[isubname] = ('', '')
                         subdefs[isubname] = self.gendefhash(isubname, subdefs, ros_version)
-                    deftext.append(f'{denormalize_msgtype(isubname)}[{count}] {stripped_name}')
-                    hashtext.append(f'{subdefs[isubname][1]} {stripped_name}')
+                    deftext.append(f'{denormalize_msgtype(isubname)}[{count}] {name}')
+                    hashtext.append(f'{subdefs[isubname][1]} {name}')
 
         deftext.append('')
         return '\n'.join(deftext), md5('\n'.join(hashtext).encode()).hexdigest()  # noqa: S324

@@ -278,21 +278,6 @@ def test_type_resolution_is_lexical() -> None:
     assert fields[1][1][1] == 'collision_msgs/msg/Int'
 
 
-@pytest.mark.parametrize(
-    ('name', 'expected'),
-    [
-        ('yield', 'yield_'),
-        ('class', 'class_'),
-        ('if', 'if_'),
-        ('name', 'name'),
-    ],
-)
-def test_python_keyword_renaming(name: str, expected: str) -> None:
-    """Test that field names colliding with python keywords get renamed."""
-    ret = parse(f'uint64 {name}')
-    assert ret[NAME][1] == [(expected, (Nodetype.BASE, ('uint64', 0)))]
-
-
 def test_annotations_are_ignored() -> None:
     """Test that annotations are parsed but not stored."""
     ret = parse('@optional\nint8 i1\n@optional int8 i2\n')

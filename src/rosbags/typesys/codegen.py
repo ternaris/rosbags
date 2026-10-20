@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
 
+from .base import TypesysError, normalize_fieldname
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -143,6 +145,16 @@ def generate_python_code(
     for name, (consts, fields) in typs.items():
         if name not in add and name not in change:
             continue
+        names: dict[str, str] = {}
+        for fname in [*(x[0] for x in fields), *(x[0] for x in consts)]:
+            normalized = normalize_fieldname(fname)
+            if normalized in names:
+                msg = (
+                    f'Type {name!r} has conflicting Python names: '
+                    f'{names[normalized]!r} and {fname!r} map to {normalized!r}.'
+                )
+                raise TypesysError(msg)
+            names[normalized] = fname
         pyname = name.replace('/', '__')
         lines += [
             '@dataclass',
@@ -151,14 +163,15 @@ def generate_python_code(
             '',
             *[
                 (
-                    f'    {fname}: {get_typehint(desc)}'
+                    f'    {normalize_fieldname(fname)}: {get_typehint(desc)}'
                     f'{" = 0" if fname == "structure_needs_at_least_one_member" else ""}'
                 )
                 for fname, desc in fields
                 or [('structure_needs_at_least_one_member', (Nodetype.BASE, ('uint8', 0)))]
             ],
             *[
-                f'    {fname}: ClassVar[{get_typehint((Nodetype.BASE, (ftype, 0)))}] = {fvalue!r}'
+                f'    {normalize_fieldname(fname)}: '
+                f'ClassVar[{get_typehint((Nodetype.BASE, (ftype, 0)))}] = {fvalue!r}'
                 for fname, ftype, fvalue in consts
             ],
             f'    __msgtype__: ClassVar[str] = {name!r}',

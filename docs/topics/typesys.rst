@@ -15,6 +15,13 @@ A type store serves several key functions:
 - It handles the serialization and deserialization of messages.
 - It supports readers and writers, providing features such as message definition hashing.
 
+Field and constant names
+------------------------
+
+Parser results, generated ``FIELDDEFS``, and ``typestore.fielddefs`` preserve the original ROS field and constant names, including trailing underscores. Message definitions and hashes use these original names.
+
+Generated Python dataclasses append an underscore to Python keywords: a ROS field named ``class`` becomes the Python attribute ``class_``. Registration rejects definitions whose field or constant names map to the same Python name, such as ``class`` and ``class_``. Names supplied directly in a types dictionary must use their original ROS spelling.
+
 Getting a store handle
 ----------------------
 

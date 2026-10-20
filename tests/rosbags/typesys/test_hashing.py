@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Message Definition Hashing Tests."""
 
+from hashlib import md5
+
 import pytest
 
 from rosbags.typesys import Stores, TypesysError, get_types_from_msg, get_typestore
@@ -77,6 +79,30 @@ def test_ros1md5() -> None:
     store.register(get_types_from_msg(MSG_HASH, 'test_msgs/msg/Hash'))
     _, digest = store.generate_msgdef('test_msgs/msg/Hash')
     assert digest == 'ba5c64f27c2f554bc2975575c3ce3c20'
+
+
+def test_ros1md5_with_python_keywords() -> None:
+    """Test typestore hashes work with messages including python keywords."""
+    store = get_typestore(Stores.EMPTY)
+
+    class_msg = 'uint8 class'
+    class_digest = md5(b'uint8 class').hexdigest()  # noqa: S324
+
+    yield_msg = 'Class yield'
+    yield_digest = md5(f'{class_digest} yield'.encode()).hexdigest()  # noqa: S324
+
+    store.register(
+        {
+            **get_types_from_msg(class_msg, 'test_msgs/msg/Class'),
+            **get_types_from_msg(yield_msg, 'test_msgs/msg/Yield'),
+        }
+    )
+
+    _, digest = store.generate_msgdef('test_msgs/msg/Class')
+    assert digest == class_digest
+
+    _, digest = store.generate_msgdef('test_msgs/msg/Yield')
+    assert digest == yield_digest
 
 
 def test_rihs01() -> None:

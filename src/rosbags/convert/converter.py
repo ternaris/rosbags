@@ -34,6 +34,7 @@ from rosbags.rosbag2 import (
 )
 from rosbags.rosbag2.enums import CompressionFormat, CompressionMode
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
+from rosbags.typesys.base import normalize_fieldname
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -190,7 +191,9 @@ def migrate_message(
         cache[dst_msgtype] = default_message(dst_typestore, dst_msgtype)
     def_msg = cache[dst_msgtype]
 
-    for dst_name, dst_type, src_name, src_type in plans[key]:
+    for dst_field, dst_type, src_field, src_type in plans[key]:
+        dst_name = normalize_fieldname(dst_field)
+        src_name = normalize_fieldname(src_field) if src_field is not None else None
         if src_name is None:
             values.append(cast('Msgarg', deepcopy(getattr(def_msg, dst_name))))
             continue
