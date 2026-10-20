@@ -3,6 +3,15 @@
 Changes
 =======
 
+0.11.9 - 2026-10-20
+-------------------
+
+- Simplify stack traces for errors raised by `AnyReader`
+- Fix handling of field names that conflict with Python keywords `#140`_
+
+.. _#140: https://gitlab.com/ternaris/rosbags/issues/140
+
+
 0.11.8 - 2026-10-16
 -------------------
 
