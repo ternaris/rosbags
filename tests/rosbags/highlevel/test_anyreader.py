@@ -24,7 +24,6 @@ from rosbags.rosbag2 import (
 )
 from rosbags.rosbag2.storage_mcap import McapWriter
 from rosbags.rosbag2.storage_sqlite3 import Sqlite3Writer
-from rosbags.serde import SerdeError
 from rosbags.typesys import Stores, get_types_from_idl, get_typestore
 from rosbags.typesys.base import TypesysError
 
@@ -159,12 +158,12 @@ def test_anyreader_deserialize_raises_on_invalid_data(
     *,
     is2: bool,
 ) -> None:
-    """Test deserialization errors retain their message and cause for both formats."""
-    with AnyReader((bags2 if is2 else bags1)[:1]) as reader:
-        with pytest.raises(AnyReaderError, match=match) as exc:
-            reader.deserialize(rawdata, 'std_msgs/msg/Int8')
-        assert isinstance(exc.value.__cause__, SerdeError)
-        assert exc.value.args == exc.value.__cause__.args
+    """Test deserialization errors retain their message for both formats."""
+    with (
+        AnyReader((bags2 if is2 else bags1)[:1]) as reader,
+        pytest.raises(AnyReaderError, match=match),
+    ):
+        reader.deserialize(rawdata, 'std_msgs/msg/Int8')
 
 
 def test_anyreader1(bags1: Sequence[Path]) -> None:

@@ -98,7 +98,7 @@ class AnyReader:
             else:
                 self.readers = [Reader1(x) for x in paths]
         except ReaderErrors as err:
-            raise AnyReaderError(*err.args) from err
+            raise AnyReaderError(*err.args) from None
 
     def _check_open(self) -> None:
         """Check if is open."""
@@ -119,7 +119,7 @@ class AnyReader:
         try:
             return self._deser_ros2(rawdata, typ) if self.is2 else self._deser_ros1(rawdata, typ)
         except SerdeError as err:
-            raise AnyReaderError(*err.args) from err
+            raise AnyReaderError(*err.args) from None
 
     def _open(self) -> None:
         """Open subreaders and populate typestore."""
@@ -185,7 +185,7 @@ class AnyReader:
             with suppress(Exception):
                 self.close()
             if isinstance(err, (ReaderErrors, TypesysError)):
-                raise AnyReaderError(*err.args) from err
+                raise AnyReaderError(*err.args) from None
             raise
 
     def close(self) -> None:
