@@ -105,7 +105,8 @@ class MSGParser(Parser):
     UpperCamel = r'[A-Z](?:_?[A-Za-z0-9]+)*'
     UpperSnake = r'[A-Z](?:_?[A-Z0-9]+)*'
 
-    ConstantName = UpperSnake
+    # ROS2 uses stricter UpperSnake.
+    ConstantName = MixedSnake
     # ROS2 uses stricter LowerSnake.
     FieldName = MixedSnake
     # ROS2 uses stricter UpperCamel.
