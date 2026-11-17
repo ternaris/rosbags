@@ -3,6 +3,14 @@
 Changes
 =======
 
+0.11.10 - 2026-11-17
+-------------------
+
+- Allow more permissive const names in ROS1 message definitions `#141`_
+
+.. _#141: https://gitlab.com/ternaris/rosbags/issues/141
+
+
 0.11.9 - 2026-10-20
 -------------------
 
